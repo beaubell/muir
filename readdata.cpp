@@ -107,16 +107,16 @@ int main (int argc, const char * argv[])
       hsize_t dimsm[20];              /* memory space dimensions */
       dimsm[0] = dimensions[0];
       dimsm[1] = dimensions[1];
-      
+
       if (rank > 2)
        dimsm[2] = dimensions[2];
       else
-       dimsm[2] = 0;
+       dimsm[2] = 1;
 
       if (rank > 3)
        dimsm[3] = dimensions[3];
       else
-       dimsm[3] = 0;
+       dimsm[3] = 1;
 
       cout << "rank " << rank << ", dimensions " <<
               (unsigned long)(dimsm[0]) << " x " <<
@@ -126,7 +126,7 @@ int main (int argc, const char * argv[])
 
 
       DataSpace memspace( rank, dimsm );
-      
+
       /*
        * Define memory hyperslab.
        */
@@ -144,7 +144,8 @@ int main (int argc, const char * argv[])
       memspace.selectHyperslab( H5S_SELECT_SET, count_out, offset_out );
 
       hsize_t i, j, k, l;
-      float* data_out = new float[dimsm[0] * dimsm[1] * dimsm[2] * dimsm[3] ]; /* output buffer */
+      //float* data_out = new float[dimsm[0] * dimsm[1] * dimsm[2] * dimsm[3] ]; /* output buffer */
+      float data_out[dimsm[0]][dimsm[1]][dimsm[2]][dimsm[3]];
 
       for (j = 0; j < dimsm[0]; j++)
       {
