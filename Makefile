@@ -1,7 +1,7 @@
 CC=g++
-CFLAGS=-ggdb -c -Wall -I/u1/uaf/bellamy/Projects/Libraries/hdf5/include 
+CFLAGS=-ggdb -O2 -c -Wall -Wextra -I/u1/uaf/bellamy/Projects/Libraries/hdf5/include 
 LDFLAGS=-L/u1/uaf/bellamy/Projects/Libraries/hdf5/lib -lhdf5_cpp -lhdf5
-RD_SOURCES=readdata.cpp
+RD_SOURCES=readdata.cpp muir-data.cpp
 RD_OBJECTS=$(RD_SOURCES:.cpp=.o)
 CR_SOURCES=create.cpp
 CR_OBJECTS=$(CR_SOURCES:.cpp=.o)
@@ -23,4 +23,5 @@ create: $(CR_OBJECTS)
 .cpp.o:
 	$(CC) $(CFLAGS) $< -o $@
 
-
+clean:
+	rm *.o readdata create

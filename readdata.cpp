@@ -12,6 +12,8 @@
 #endif  // H5_NO_STD
 #endif
 
+#include "muir-data.h"
+
 #include "H5Cpp.h"
 
 #ifndef H5_NO_NAMESPACE
@@ -21,16 +23,19 @@
 int main (int argc, const char * argv[])
 {
    // 
-   if ( argc < 3 )
+   if ( argc < 2 )
    {
-       cout << "usage: readdata hdf5file dataset_path" << endl;
+       cout << "usage: readdata hdf5file" << endl;
        return 1;
    }
 
    // Pull in filepath and dataset from arguments
-   H5std_string file_name( argv[1] );
-   H5std_string dataset_name ( argv[2] );
+   //H5std_string file_name( argv[1] );
+   //H5std_string dataset_name ( argv[2] );
 
+   MuirData(std::string(argv[1]));
+
+#if 0
    /*
     * Try block to detect exceptions raised by any of the calls inside it
     */
@@ -81,7 +86,6 @@ int main (int argc, const char * argv[])
          cout << "Data size is " << size << endl;
       }
 
-      
 
       /*
        * Get dataspace of the dataset.
@@ -206,6 +210,7 @@ int main (int argc, const char * argv[])
       error.printError();
       return -1;
    }
+#endif
 
    return 0;  // successfully terminated
 }
