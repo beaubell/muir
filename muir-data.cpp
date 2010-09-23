@@ -15,6 +15,11 @@
 #include "H5Cpp.h"
 #include <iostream>
 #include <exception>
+#include <stdexcept>
+
+#define QUOTEME_(x) #x
+#define QUOTEME(x) QUOTEME_(x)
+
 
 // Location Constants
 const H5std_string PULSEWIDTH_PATH("/Raw11/Data/Pulsewidth");
@@ -29,11 +34,9 @@ MuirData::MuirData(const std::string &filename_in)
   _txbaud(0)
 {
     // Read Pulsewidth
-    //H5std_string dataset_name ( PULSEWIDTH_PATH.c_str() );
     _pulsewidth = read_scalar_float(PULSEWIDTH_PATH);
 
     // Read TXBuad
-    //H5std_string dataset_name ( TXBAUD_PATH.c_str() );
     _txbaud = read_scalar_float(BAUDLENGTH_PATH);
 
     std::cout << "Pulsewidth: " << _pulsewidth << std::endl;
@@ -45,9 +48,12 @@ MuirData::MuirData(const std::string &filename_in)
     std::cout << "Phase Code: " << phase_code << std::endl;
     std::cout << "Phase Code Len: " << phase_code.length() << std::endl;
 
-    if(phase_code.length() != _pulsewidth/_txbaud)
-       //throw(std::exception(std::string("Phase code parsed doesn't equal Pulsewidth/TXBaud! ")));
-       throw;
+    // Check to see if Pulsewidth/TXBaud equals the amount of phase code parsed.
+    if(phase_code.length() + 1 != _pulsewidth/_txbaud)
+       throw(std::runtime_error(std::string(__FILE__) + ": " + std::string(QUOTEME(__LINE__)) + "  " +
+                                std::string("Phase code parsed doesn't equal Pulsewidth/TXBaud! ")));
+
+
 }
 
 // Destructor
@@ -112,6 +118,8 @@ std::string MuirData::read_string(const H5std_string &dataset_name)
 std::string MuirData::read_phasecode()
 {
     std::string experimentfile = read_string(EXPERIMENTFILE_PATH);
+
+    //std::cout << experimentfile << std::endl;
 
     // Parse experimentfile...
     std::size_t index_min = experimentfile.find(";Code=");
