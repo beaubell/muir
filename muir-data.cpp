@@ -49,7 +49,7 @@ MuirData::MuirData(const std::string &filename_in)
     std::cout << "Phase Code Len: " << phase_code.length() << std::endl;
 
     // Check to see if Pulsewidth/TXBaud equals the amount of phase code parsed.
-    if(phase_code.length() + 1 != _pulsewidth/_txbaud)
+    if(phase_code.length() != _pulsewidth/_txbaud)
        throw(std::runtime_error(std::string(__FILE__) + ": " + std::string(QUOTEME(__LINE__)) + "  " +
                                 std::string("Phase code parsed doesn't equal Pulsewidth/TXBaud! ")));
 
