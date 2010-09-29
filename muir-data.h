@@ -10,11 +10,16 @@
 //
 //
 
-#include <string>
 #include "H5Cpp.h"
+
+#include <string>
+#include <vector>
 
 extern const std::string PULSEWIDTH_PATH;
 extern const std::string BAUDLENGTH_PATH;
+extern const std::string EXPERIMENTFILE_PATH;
+extern const std::string RADACTIME_PATH;
+
 
 class MuirData
 {
@@ -24,15 +29,17 @@ class MuirData
 
    private:
     std::string _filename;
-    H5::H5File      _h5file;
-    float _pulsewidth;
-    float _txbaud;
-
-    //float read_pulsewidth();
-    //float read_txbaud();
+    H5::H5File  _h5file;
+    float       _pulsewidth;
+    float       _txbaud;
 
     float       read_scalar_float(const H5std_string &dataset_name);
     std::string read_string(const H5std_string &dataset_name);
 
-    std::string read_phasecode();
+    void        read_phasecode(void);
+    void        read_times(void);
+    //void        read_range(void);
+    void        read_data(void);
+
+    std::vector<int> _phasecode;
 };
