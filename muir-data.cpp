@@ -17,6 +17,8 @@
 #include <iomanip>   // std::setprecision()
 #include <exception>
 #include <stdexcept> // std::runtime_error
+#include <cmath>
+#include <complex>
 
 #define QUOTEME_(x) #x
 #define QUOTEME(x) QUOTEME_(x)
@@ -44,19 +46,19 @@ MuirData::MuirData(const std::string &filename_in)
     // Read TXBuad
     _txbaud = read_scalar_float(BAUDLENGTH_PATH);
 
-    std::cout << "Pulsewidth: " << _pulsewidth << std::endl;
-    std::cout << "TX Baud   : " << _txbaud << std::endl;
-    std::cout << "PW/TXBaud : " << _pulsewidth/_txbaud << std::endl;
+ //   std::cout << "Pulsewidth: " << _pulsewidth << std::endl;
+ //   std::cout << "TX Baud   : " << _txbaud << std::endl;
+ //   std::cout << "PW/TXBaud : " << _pulsewidth/_txbaud << std::endl;
 
     // Read Phasecode and run sanity checks
     read_phasecode();
 
-    std::cout << "Phase Code: ";
-    for(int i = 0; i < _phasecode.size(); i++)
-      std::cout << _phasecode[i] << ",";
+ //   std::cout << "Phase Code: ";
+ //   for(int i = 0; i < _phasecode.size(); i++)
+ //     std::cout << _phasecode[i] << ",";
 
-    std::cout << std::endl;
-    std::cout << "Phase Code Len: " << _phasecode.size() << std::endl;
+ //   std::cout << std::endl;
+ //   std::cout << "Phase Code Len: " << _phasecode.size() << std::endl;
 
     // Check to see if Pulsewidth/TXBaud equals the amount of phase code parsed.
     if(_phasecode.size() != _pulsewidth/_txbaud)
@@ -398,7 +400,8 @@ void MuirData::print_onesamplecolumn(float (&sample)[1100][2], float (&range)[11
     std::cout.setf(std::ios::fixed,std::ios::floatfield);
 
     for (int k = 0; k < 1100; k++)
-        std::cout << " " << range[k] << "m: (" << sample[k][0] << "," << sample[k][1] << ") " << std::endl;
+        //std::cout << "" << (range[k]/1000) << " " << log10(sqrt(pow(sample[k][0],2) + pow(sample[k][1],2)))*10 << " " << std::endl;
+        std::cout << "" << (range[k]/1000) << " " << log10(norm(std::complex<double>(sample[k][0], sample[k][1]))+1)*10-10 << " " << std::endl;
     std::cout << std::endl;
 }
 
