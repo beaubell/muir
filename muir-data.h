@@ -29,8 +29,9 @@ class MuirData
     MuirData(const std::string &filename_in);
     ~MuirData();
 
-    void print_onesamplecolumn(std::size_t run, std::size_t column);
-
+    void print_onesamplecolumn(const std::size_t run, const std::size_t column);
+    void save_2dplot(const std::string &output_file);
+    
    private:
     std::string _filename;
     H5::H5File  _h5file;

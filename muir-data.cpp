@@ -11,8 +11,12 @@
 //
 
 
+
 #include "muir-data.h"
+
+#include <png.h>
 #include "H5Cpp.h"
+
 #include <iostream>  // std::cout
 #include <iomanip>   // std::setprecision()
 #include <exception>
@@ -263,7 +267,7 @@ void MuirData::read_sampledata()
     const std::string &dataset_name = SAMPLEDATA_PATH;
     H5::DataSet dataset = _h5file.openDataSet( dataset_name );
 
-    // Get Type class
+    // Get Type classype::NATIVE_FLOAT
     H5T_class_t type_class = dataset.getTypeClass();
 
     // Check to see if we are dealing with floats
@@ -409,3 +413,138 @@ void MuirData::print_onesamplecolumn(std::size_t run, std::size_t column)
 {
     print_onesamplecolumn((*_sample_data)[run][column], (*_sample_range)[0]);
 }
+
+
+void MuirData::save_2dplot(const std::string &output_file)
+{
+    FILE *fp = fopen(output_file.c_str(), "wb");
+    if (!fp)
+    {
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Unable to open file for output (") + output_file + ")"));
+    }
+
+
+// XXX
+    //png_structp png_ptr = png_create_write_struct
+    //        (PNG_LIBPNG_VER_STRING, (png_voidp)user_error_ptr,
+    //         user_error_fn, user_warning_fn);
+    
+    png_structp png_ptr = png_create_write_struct
+            (PNG_LIBPNG_VER_STRING, NULL,
+             NULL, NULL);
+
+    if (!png_ptr)
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Failed to create png_ptr.")));
+
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    if (!info_ptr)
+    {
+        png_destroy_write_struct(&png_ptr,
+                                  (png_infopp)NULL);
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Failed to create info_ptr.")));
+    }
+
+    // XXX FIXME - No idea what this does
+    if (setjmp(png_jmpbuf(png_ptr)))
+    {
+        png_destroy_write_struct(&png_ptr, &info_ptr);
+        fclose(fp);
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("OMG Epic Fail while writing png.")));
+    }
+
+    // Associate file pointer to png
+    png_init_io(png_ptr, fp);
+
+    // Bah, don't need feedback
+    //png_set_write_status_fn(png_ptr, write_row_callback);
+
+    // Set up header
+    {
+        png_uint_32 width            = 500*10; // 500 pulses * 10 sets
+        png_uint_32 height           = 1100;  // Range bins
+        int         bit_depth        = 8;
+        int         color_type       = PNG_COLOR_TYPE_PALETTE;
+        int         interlace_type   = PNG_INTERLACE_NONE;
+        int         compression_type = PNG_COMPRESSION_TYPE_DEFAULT;
+        int         filter_method    = PNG_FILTER_TYPE_DEFAULT;
+
+        png_set_IHDR(png_ptr, info_ptr, width, height,
+                     bit_depth, color_type, interlace_type,
+                     compression_type, filter_method);
+    }
+
+    png_color palette[256];
+    for (int i = 0; i < 32;i++) // blk -> blue
+    {
+        palette[i].red = 0;
+        palette[i].green = 0;
+        palette[i].blue = i*8;
+    }
+    for (int i = 0; i < 64;i++) // blue -> light blue
+    {
+        palette[32 + i].red = 0;
+        palette[32 + i].green = i*4;
+        palette[32 + i].blue = 255;
+    }
+    for (int i = 0; i < 64;i++) // light blue -> green
+    {
+        palette[96 + i].red = 0;
+        palette[96 + i].green = 255;
+        palette[96 + i].blue = 255-i*4;
+    }
+    for (int i = 0; i < 64;i++) // green -> yellow
+    {
+        palette[160 + i].red = i*4;
+        palette[160 + i].green = 255;
+        palette[160 + i].blue = 0;
+    }
+    for (int i = 0; i < 32;i++) // yellow -> red
+    {
+        palette[224 + i].red = 255-i*2;
+        palette[224 + i].green = 255-i*8;
+        palette[224 + i].blue = 0;
+    }
+    
+    png_set_PLTE(png_ptr, info_ptr, palette, 256);
+
+    // Write data
+    {
+        //int png_transforms = PNG_TRANSFORM_IDENTITY;
+        //png_write_png(png_ptr, info_ptr, png_transforms, NULL);
+        //typedef float (*SampleDataArray)[10][500][1100][2];
+        std::cout << "WRITE INFO " << std::endl;
+        png_set_invert_alpha(png_ptr);
+        png_write_info(png_ptr, info_ptr);
+        png_set_packing(png_ptr);
+
+        png_write_flush(png_ptr);
+
+        // Prepare data;
+
+        //png_byte *row_pointers[1100];
+        png_byte row[500*10];
+        
+        for (int i = 1099; i >= 0 ;i--)
+        {
+            for (std::size_t j = 0; j < 10;j++)
+                for (std::size_t k = 0; k < 500;k++)
+                    row[j*500 + k] = std::min(255.0,log10(norm(std::complex<float>((*_sample_data)[j][k][i][0], (*_sample_data)[j][k][i][1])))*10*4);
+            std::cout << "ROW: " << i << std::endl;
+            png_write_row(png_ptr, row);
+            png_write_flush(png_ptr);
+
+        }
+
+        //png_write_image(png_ptr, row_pointers);
+        png_write_end(png_ptr, info_ptr);
+
+        
+    }
+}
+
+
+
