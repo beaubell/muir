@@ -55,7 +55,7 @@ MuirData::MuirData(const std::string &filename_in)
  //   std::cout << "PW/TXBaud : " << _pulsewidth/_txbaud << std::endl;
 
     // Read Phasecode and run sanity checks
-    read_phasecode();
+//    read_phasecode();
 
  //   std::cout << "Phase Code: ";
  //   for(int i = 0; i < _phasecode.size(); i++)
@@ -65,9 +65,9 @@ MuirData::MuirData(const std::string &filename_in)
  //   std::cout << "Phase Code Len: " << _phasecode.size() << std::endl;
 
     // Check to see if Pulsewidth/TXBaud equals the amount of phase code parsed.
-    if(_phasecode.size() != _pulsewidth/_txbaud)
-       throw(std::runtime_error(std::string(__FILE__) + ": " + std::string(QUOTEME(__LINE__)) + "  " +
-                                std::string("Phase code parsed doesn't equal Pulsewidth/TXBaud! ")));
+//    if(_phasecode.size() != _pulsewidth/_txbaud)
+//       throw(std::runtime_error(std::string(__FILE__) + ": " + std::string(QUOTEME(__LINE__)) + "  " +
+//                                std::string("Phase code parsed doesn't equal Pulsewidth/TXBaud! ")));
 
     // Read start/stop times.
     read_times();
@@ -462,20 +462,22 @@ void MuirData::save_2dplot(const std::string &output_file)
     // Bah, don't need feedback
     //png_set_write_status_fn(png_ptr, write_row_callback);
 
+	std::size_t dataset_width  = 500*10; // 500 pulses * 10 sets
+	std::size_t dataset_height = 1100; // Range bins
+	
     // Set up header
-    {
-        png_uint_32 width            = 500*10; // 500 pulses * 10 sets
-        png_uint_32 height           = 1100;  // Range bins
-        int         bit_depth        = 8;
-        int         color_type       = PNG_COLOR_TYPE_PALETTE;
-        int         interlace_type   = PNG_INTERLACE_NONE;
-        int         compression_type = PNG_COMPRESSION_TYPE_DEFAULT;
-        int         filter_method    = PNG_FILTER_TYPE_DEFAULT;
+	png_uint_32 width            = dataset_width+9+3+20;
+	png_uint_32 height           = dataset_height+2; 
+	int         bit_depth        = 8;
+	int         color_type       = PNG_COLOR_TYPE_PALETTE;
+	int         interlace_type   = PNG_INTERLACE_NONE;
+	int         compression_type = PNG_COMPRESSION_TYPE_DEFAULT;
+	int         filter_method    = PNG_FILTER_TYPE_DEFAULT;
 
-        png_set_IHDR(png_ptr, info_ptr, width, height,
-                     bit_depth, color_type, interlace_type,
-                     compression_type, filter_method);
-    }
+	png_set_IHDR(png_ptr, info_ptr, width, height,
+				 bit_depth, color_type, interlace_type,
+				 compression_type, filter_method);
+    
 
     png_color palette[256];
     for (int i = 0; i < 32;i++) // blk -> blue
@@ -525,21 +527,34 @@ void MuirData::save_2dplot(const std::string &output_file)
 
         // Prepare data;
 
-        //png_byte *row_pointers[1100];
-        png_byte row[500*10];
-        
-        for (int i = 1099; i >= 0 ;i--)
+        png_byte row[width];
+		for (std::size_t i = 0; i<width ; i++)
+			row[i] = 0;
+	
+		// black top border
+		png_write_row(png_ptr, row);		
+
+        for (int i = dataset_height-1; i >= 0 ;i--)
         {
             for (std::size_t j = 0; j < 10;j++)
                 for (std::size_t k = 0; k < 500;k++)
-                    row[j*500 + k] = std::min(255.0,log10(norm(std::complex<float>((*_sample_data)[j][k][i][0], (*_sample_data)[j][k][i][1])))*10*4);
-            std::cout << "ROW: " << i << std::endl;
+                    row[j*500 +k+j+1] = std::min(255.0,log10(norm(std::complex<float>((*_sample_data)[j][k][i][0], (*_sample_data)[j][k][i][1])))*10*4);
+            for (std::size_t j = 0; j < 20;j++)
+				row[dataset_width+2+9+j] = (float(i)/dataset_height)*(256.0);
+			
+			std::cout << "ROW: " << i << std::endl;
             png_write_row(png_ptr, row);
-            png_write_flush(png_ptr);
+            
+			
 
         }
 
-        //png_write_image(png_ptr, row_pointers);
+		// Bottom border
+		for (std::size_t i = 0; i<width ; i++)
+			row[i] = 0;
+		png_write_row(png_ptr, row);
+		
+		// Done with file
         png_write_end(png_ptr, info_ptr);
 
         
