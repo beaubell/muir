@@ -447,7 +447,7 @@ void MuirData::save_2dplot(const std::string &output_file)
                 std::string("Failed to create info_ptr.")));
     }
 
-    // XXX FIXME - No idea what this does
+    // XXX FIXME - No idea what this does..  seems to be a location to jump back to when libpng doesn't know what to do.
     if (setjmp(png_jmpbuf(png_ptr)))
     {
         png_destroy_write_struct(&png_ptr, &info_ptr);
@@ -549,15 +549,30 @@ void MuirData::save_2dplot(const std::string &output_file)
 
         }
 
-		// Bottom border
-		for (std::size_t i = 0; i<width ; i++)
-			row[i] = 0;
-		png_write_row(png_ptr, row);
+	// Bottom border
+	for (std::size_t i = 0; i<width ; i++)
+		row[i] = 0;
+	png_write_row(png_ptr, row);
 		
 		// Done with file
         png_write_end(png_ptr, info_ptr);
 
-        
+        char buf[80];
+        time_t then;
+        struct tm *ts;
+
+        // Display time (for now)
+        for(int i = 0; i < 10; i++)
+        {
+            for(int j = 0; j < 2; j++)
+            {
+                then = _time[i][j]/1000000;
+                ts = localtime(&then);
+                strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
+                //std::cout << _time[i][0] << "," << _time[i][1] << std::endl;
+                std::cout << buf << "(" << (_time[i][j]/1000000-then)*1000 << "ms)" << std::endl << (j?"--\n":"");
+            }
+        }
     }
 }
 
