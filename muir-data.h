@@ -45,6 +45,7 @@ class MuirData
     void        read_times(void);
     void        read_sampledata(void);
     void        read_samplerange(void);
+	void        read_framecount(void);
 
     void        print_onesamplecolumn(float (&sample)[1100][2], float (&range)[1100]);
     std::vector<int> _phasecode;
@@ -53,6 +54,8 @@ class MuirData
     SampleDataArray _sample_data;
     typedef float (*SampleRangeArray)[1][1100];
     SampleRangeArray _sample_range;
+	typedef unsigned int (*FrameCountArray)[10][500];
+    FrameCountArray _framecount;
 
     double _time[10][2];
 
