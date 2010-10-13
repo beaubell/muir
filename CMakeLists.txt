@@ -9,6 +9,7 @@ SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake.local)
 FIND_PACKAGE(HDF5)
 FIND_PACKAGE(Boost)
 FIND_PACKAGE(PNG)
+FIND_PACKAGE(GD)
 
 # Make sure the compiler can find include files from our Hello library.
 include_directories (${MUIR_SOURCE_DIR} ${HDF5_INCLUDE_DIR} ${PNG_PNG_INCLUDE_DIR})

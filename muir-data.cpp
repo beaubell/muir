@@ -91,8 +91,9 @@ MuirData::MuirData(const std::string &filename_in)
 // Destructor
 MuirData::~MuirData()
 {
-    delete[] (*_sample_data);
-    delete[] (*_sample_range);
+    delete[] _sample_data;
+    delete[] _sample_range;
+    delete[] _framecount;
 
 }
 
@@ -449,7 +450,7 @@ void MuirData::read_framecount()
     {
         for (i = 0; i < dimsm[1]; i++)
         {
-            (*_sample_range)[j][i] = 0;
+            (*_framecount)[j][i] = 0;
         }
     }
 	
@@ -492,7 +493,7 @@ void MuirData::save_2dplot(const std::string &output_file)
     //png_structp png_ptr = png_create_write_struct
     //        (PNG_LIBPNG_VER_STRING, (png_voidp)user_error_ptr,
     //         user_error_fn, user_warning_fn);
-    
+
     png_structp png_ptr = png_create_write_struct
             (PNG_LIBPNG_VER_STRING, NULL,
              NULL, NULL);
@@ -525,7 +526,8 @@ void MuirData::save_2dplot(const std::string &output_file)
     // Bah, don't need feedback
     //png_set_write_status_fn(png_ptr, write_row_callback);
 
-	std::size_t delta_t = 1;
+    // Image and Dataset Variables
+	std::size_t delta_t = 2;
 	std::size_t dataset_width  = 500;
 	std::size_t dataset_count  = 10;   // # sets
 	std::size_t dataset_height = 1100; // Range bins
@@ -537,7 +539,7 @@ void MuirData::save_2dplot(const std::string &output_file)
 	std::size_t end_frame = (*_framecount)[9][499];
 	std::size_t num_frames = end_frame - start_frame;
 	
-	std::cout << "Start Frame: " << start_frame << ", Endframe: " << end_frame << ", Numframes: " << num_frames << std::endl;
+	//std::cout << "Start Frame: " << start_frame << ", Endframe: " << end_frame << ", Numframes: " << num_frames << std::endl;
 	
     // Set up header
 	//png_uint_32 width            = (dataset_width*dataset_count)/delta_t+9+3+20;
@@ -675,7 +677,9 @@ void MuirData::save_2dplot(const std::string &output_file)
 		}		
 		// Done with file
         png_write_end(png_ptr, info_ptr);
-
+        png_destroy_write_struct(&png_ptr, &info_ptr);
+        fclose(fp);
+        
         char buf[80];
         time_t then;
         struct tm *ts;
