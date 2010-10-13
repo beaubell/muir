@@ -15,6 +15,7 @@
 #include "muir-data.h"
 
 #include <png.h>
+#include <gd.h>
 #include "H5Cpp.h"
 
 #include <iostream>  // std::cout
@@ -731,7 +732,145 @@ void MuirData::save_2dplot(const std::string &output_file)
 		}
 			
     }
+    
 }
 
+void MuirData::save_2dplotgd(const std::string &output_file)
+{
+    // Image and Dataset Variables
+    std::size_t delta_t = 2;
+    std::size_t dataset_width  = 500;
+    std::size_t dataset_count  = 10;   // # sets
+    std::size_t dataset_height = 1100; // Range bins
 
+    std::size_t axis_x_height = 10;
+    std::size_t border = 1;
+
+    std::size_t start_frame = (*_framecount)[0][0];
+    std::size_t end_frame = (*_framecount)[9][499];
+    std::size_t num_frames = end_frame - start_frame;
+
+    png_uint_32 width            = (num_frames)/delta_t+(border*4)+20;
+    png_uint_32 height           = dataset_height+(2*border)+axis_x_height; 
+    int         bit_depth        = 8;
+    int         color_type       = PNG_COLOR_TYPE_PALETTE;
+    int         interlace_type   = PNG_INTERLACE_NONE;
+    int         compression_type = PNG_COMPRESSION_TYPE_DEFAULT;
+    int         filter_method    = PNG_FILTER_TYPE_DEFAULT;
+
+    // Open File for Writing
+    FILE *fp = fopen(output_file.c_str(), "wb");
+    if (!fp)
+    {
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Unable to open file for output (") + output_file + ")"));
+    }
+
+    // Allocate Image Object
+    gdImagePtr im;
+    im = gdImageCreate(width, height);
+
+    if (!im)
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Failed to create GD Image Pointer.")));
+
+    // 
+    int black;
+    int white;
+
+    unsigned int palette[256];
+
+    for (int i = 0; i < 32;i++) // blk -> blue
+    {
+        palette[i] = gdImageColorAllocate(im, 0, 0, i*8); 
+    }
+    black = palette[0];
+
+    for (int i = 0; i < 64;i++) // blue -> light blue
+    {
+        palette[32 + i] = gdImageColorAllocate(im, 0, i*4, 255); 
+    }
+    for (int i = 0; i < 64;i++) // light blue -> green
+    {
+        palette[96 + i] = gdImageColorAllocate(im, 0, 255, 255-i*4); 
+    }
+    for (int i = 0; i < 64;i++) // green -> yellow
+    {
+        palette[160 + i] = gdImageColorAllocate(im, i*4, 255, 0);
+    }
+    for (int i = 0; i < 31;i++) // yellow -> red (one less so we can allocate white)
+    {
+        palette[224 + i] = gdImageColorAllocate(im, 255-i*2, 255-i*8, 0);
+    }
+	
+    white = gdImageColorAllocate(im, 255, 255, 255);
+    palette[255] = white;
+
+    // Write data
+    {
+
+        std::cerr << "CREATING IMAGE" << std::endl;
+
+        //
+        png_byte row[width];
+        for (std::size_t i = 0; i<width ; i++)
+            row[i] = 0;	
+
+        size_t imageset_width = (dataset_width/delta_t);
+		
+        for (unsigned int i = 0; i < dataset_height ;i++)
+        {
+            for (std::size_t set = 0; set < dataset_count;set++)
+            {
+                std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t;
+			
+                for (std::size_t k = 0; k < imageset_width; k++)
+                {
+					//std::cout << "COL: " << k << ":" << imageset_width << std::endl;
+                    if (delta_t == 1)
+                    {
+                        unsigned int pixel = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][k][i][0], (*_sample_data)[set][k][i][1])))*10*4);
+                        gdImageSetPixel(im, border + frameoffset + k, dataset_height-i, pixel);
+                    }
+                    else if (delta_t == 2)
+                    {
+                        float col1 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k][i][0], (*_sample_data)[set][delta_t*k][i][1])))*10*4);
+                        float col2 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+1][i][0], (*_sample_data)[set][delta_t*k+1][i][1])))*10*4);
+                        gdImageSetPixel(im, border + frameoffset + k, dataset_height-i, (col1 + col2)/2.0);
+                    }
+                    else if (delta_t == 4) // It might be better if this was a loop.....  just a thought.  It does look rather loopworthy...
+                    {
+                        float col1 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k][i][0], (*_sample_data)[set][delta_t*k][i][1])))*10*4);
+                        float col2 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+1][i][0], (*_sample_data)[set][delta_t*k+1][i][1])))*10*4);
+                        float col3 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+2][i][0], (*_sample_data)[set][delta_t*k+2][i][1])))*10*4);
+                        float col4 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+3][i][0], (*_sample_data)[set][delta_t*k+3][i][1])))*10*4);
+                        row[set*dataset_width/delta_t+k+set+1] = (col1 + col2 + col3 + col4)/4.0;
+                    }
+                }
+            }
+			
+            // Color bar
+            for (std::size_t col = 0; col < 20; col++)
+                gdImageSetPixel(im, width-col-2, dataset_height-i, (float(i)/dataset_height)*(256.0));
+
+			
+            if (!(i%10))
+                std::cout << "ROW: " << i << std::endl;
+
+
+        }
+
+		// Bottom Axis
+        for (std::size_t x = border; x<(width-border*2-20); x = x + 5)
+            gdImageLine(im, x, (dataset_height+border*2), x, (dataset_height + ((x-border)%10?(axis_x_height/2):axis_x_height)), white); 
+
+
+		// Done with file
+        std::cerr << "WRITING IMAGE " << std::endl;
+        gdImagePng(im, fp);
+        gdImageDestroy(im);
+        fclose(fp);
+			
+    }
+}
 

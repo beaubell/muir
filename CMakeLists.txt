@@ -20,4 +20,4 @@ link_directories (${MUIR_BINARY_DIR})
 add_executable (readdata readdata.cpp muir-data.cpp)
 
 # Link the executable to the Hello library.
-target_link_libraries (readdata ${HDF5_LIBRARIES_CXX} ${HDF5_LIBRARIES} ${PNG_LIBRARY}) 
+target_link_libraries (readdata ${HDF5_LIBRARIES_CXX} ${HDF5_LIBRARIES} ${PNG_LIBRARY} ${GD_LIBRARY}) 

@@ -31,6 +31,7 @@ class MuirData
 
     void print_onesamplecolumn(const std::size_t run, const std::size_t column);
     void save_2dplot(const std::string &output_file);
+    void save_2dplotgd(const std::string &output_file);
     
    private:
     std::string _filename;
