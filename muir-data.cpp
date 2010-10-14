@@ -14,7 +14,6 @@
 
 #include "muir-data.h"
 
-#include <png.h>
 #include <gd.h>
 #include "H5Cpp.h"
 
@@ -43,7 +42,11 @@ MuirData::MuirData(const std::string &filename_in)
 : _filename(filename_in),
   _h5file( _filename.c_str(), H5F_ACC_RDONLY ),
   _pulsewidth(0),
-  _txbaud(0)
+  _txbaud(0),
+  _phasecode(),
+  _sample_data(NULL),
+  _sample_range(NULL),
+  _framecount(NULL)
 {
     // Read Pulsewidth
     _pulsewidth = read_scalar_float(PULSEWIDTH_PATH);
@@ -240,9 +243,9 @@ void MuirData::read_times()
 
 #endif
 
-    for (int j = 0; j < dimsm[0]; j++)
+    for (hsize_t j = 0; j < dimsm[0]; j++)
     {
-        for (int i = 0; i < dimsm[1]; i++)
+        for (hsize_t i = 0; i < dimsm[1]; i++)
         {
             _time[j][i] = 0;
         }
@@ -389,7 +392,7 @@ void MuirData::read_samplerange()
                 std::string("Expecting dimensions (1,1100) in ") + dataset_name + " from " + _filename));
 
 
-    hsize_t i, j, k, l;
+    hsize_t i, j;
     for (j = 0; j < dimsm[0]; j++)
     {
         for (i = 0; i < dimsm[1]; i++)
@@ -446,7 +449,7 @@ void MuirData::read_framecount()
 								 std::string("Expecting dimensions (10,500) in ") + dataset_name + " from " + _filename));
 	
 	
-    hsize_t i, j, k, l;
+    hsize_t i, j;
     for (j = 0; j < dimsm[0]; j++)
     {
         for (i = 0; i < dimsm[1]; i++)
@@ -480,262 +483,62 @@ void MuirData::print_onesamplecolumn(std::size_t run, std::size_t column)
 }
 
 
-void MuirData::save_2dplot(const std::string &output_file)
+void MuirData::print_stats()
 {
-    FILE *fp = fopen(output_file.c_str(), "wb");
-    if (!fp)
+
+    char buf[80];
+    time_t then;
+    struct tm *ts;
+
+    // Display time (for now)
+    for(int i = 0; i < 10; i++)
     {
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Unable to open file for output (") + output_file + ")"));
-    }
-
-
-// XXX
-    //png_structp png_ptr = png_create_write_struct
-    //        (PNG_LIBPNG_VER_STRING, (png_voidp)user_error_ptr,
-    //         user_error_fn, user_warning_fn);
-
-    png_structp png_ptr = png_create_write_struct
-            (PNG_LIBPNG_VER_STRING, NULL,
-             NULL, NULL);
-
-    if (!png_ptr)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Failed to create png_ptr.")));
-
-    png_infop info_ptr = png_create_info_struct(png_ptr);
-    if (!info_ptr)
-    {
-        png_destroy_write_struct(&png_ptr,
-                                  (png_infopp)NULL);
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Failed to create info_ptr.")));
-    }
-
-    // XXX FIXME - No idea what this does..  seems to be a location to jump back to when libpng doesn't know what to do.
-    if (setjmp(png_jmpbuf(png_ptr)))
-    {
-        png_destroy_write_struct(&png_ptr, &info_ptr);
-        fclose(fp);
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("OMG Epic Fail while writing png.")));
-    }
-
-    // Associate file pointer to png
-    png_init_io(png_ptr, fp);
-
-    // Bah, don't need feedback
-    //png_set_write_status_fn(png_ptr, write_row_callback);
-
-    // Image and Dataset Variables
-	std::size_t delta_t = 2;
-	std::size_t dataset_width  = 500;
-	std::size_t dataset_count  = 10;   // # sets
-	std::size_t dataset_height = 1100; // Range bins
-	
-	std::size_t axis_x_height = 10;
-	std::size_t border = 1;
-	
-	std::size_t start_frame = (*_framecount)[0][0];
-	std::size_t end_frame = (*_framecount)[9][499];
-	std::size_t num_frames = end_frame - start_frame;
-	
-	//std::cout << "Start Frame: " << start_frame << ", Endframe: " << end_frame << ", Numframes: " << num_frames << std::endl;
-	
-    // Set up header
-	//png_uint_32 width            = (dataset_width*dataset_count)/delta_t+9+3+20;
-	png_uint_32 width            = (num_frames)/delta_t+(border*4)+20;
-	png_uint_32 height           = dataset_height+(2*border)+axis_x_height; 
-	int         bit_depth        = 8;
-	int         color_type       = PNG_COLOR_TYPE_PALETTE;
-	int         interlace_type   = PNG_INTERLACE_NONE;
-	int         compression_type = PNG_COMPRESSION_TYPE_DEFAULT;
-	int         filter_method    = PNG_FILTER_TYPE_DEFAULT;
-
-	png_set_IHDR(png_ptr, info_ptr, width, height,
-				 bit_depth, color_type, interlace_type,
-				 compression_type, filter_method);
-    
-
-    png_color palette[256];
-    for (int i = 0; i < 32;i++) // blk -> blue
-    {
-        palette[i].red = 0;
-        palette[i].green = 0;
-        palette[i].blue = i*8;
-    }
-    for (int i = 0; i < 64;i++) // blue -> light blue
-    {
-        palette[32 + i].red = 0;
-        palette[32 + i].green = i*4;
-        palette[32 + i].blue = 255;
-    }
-    for (int i = 0; i < 64;i++) // light blue -> green
-    {
-        palette[96 + i].red = 0;
-        palette[96 + i].green = 255;
-        palette[96 + i].blue = 255-i*4;
-    }
-    for (int i = 0; i < 64;i++) // green -> yellow
-    {
-        palette[160 + i].red = i*4;
-        palette[160 + i].green = 255;
-        palette[160 + i].blue = 0;
-    }
-    for (int i = 0; i < 32;i++) // yellow -> red
-    {
-        palette[224 + i].red = 255-i*2;
-        palette[224 + i].green = 255-i*8;
-        palette[224 + i].blue = 0;
-    }
-	
-	palette[255].red = 255;
-	palette[255].green = 255;
-	palette[255].blue = 255;
-    
-    png_set_PLTE(png_ptr, info_ptr, palette, 256);
-
-    // Write data
-    {
-        //int png_transforms = PNG_TRANSFORM_IDENTITY;
-        //png_write_png(png_ptr, info_ptr, png_transforms, NULL);
-        //typedef float (*SampleDataArray)[10][500][1100][2];
-        std::cout << "WRITE INFO " << std::endl;
-        png_set_invert_alpha(png_ptr);
-        png_write_info(png_ptr, info_ptr);
-        png_set_packing(png_ptr);
-
-        png_write_flush(png_ptr);
-
-        // Prepare data;
-
-        png_byte row[width];
-		for (std::size_t i = 0; i<width ; i++)
-			row[i] = 0;
-	
-		// black top border
-		png_write_row(png_ptr, row);		
-        
-		size_t imageset_width = (dataset_width/delta_t);
-		
-        for (int i = dataset_height-1; i >= 0 ;i--)
+        for(int k = 0; k < 2; k++)
         {
-            for (std::size_t set = 0; set < dataset_count;set++)
-			{
-				std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t;
-			
-                for (std::size_t k = 0; k < imageset_width; k++)
-				{
-					//std::cout << "COL: " << k << ":" << imageset_width << std::endl;
-                    if (delta_t == 1)
-						row[border + frameoffset + k] = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][k][i][0], (*_sample_data)[set][k][i][1])))*10*4);
-					else if (delta_t == 2)
-					{
-					    float col1 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k][i][0], (*_sample_data)[set][delta_t*k][i][1])))*10*4);
-						float col2 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+1][i][0], (*_sample_data)[set][delta_t*k+1][i][1])))*10*4);
-					    row[border + frameoffset + k] = (col1 + col2)/2.0;
-					}
-					else if (delta_t == 4) // It might be better if this was a loop.....  just a thought.  It does look rather loopworthy...
-					{
-					    float col1 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k][i][0], (*_sample_data)[set][delta_t*k][i][1])))*10*4);
-						float col2 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+1][i][0], (*_sample_data)[set][delta_t*k+1][i][1])))*10*4);
-						float col3 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+2][i][0], (*_sample_data)[set][delta_t*k+2][i][1])))*10*4);
-						float col4 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+3][i][0], (*_sample_data)[set][delta_t*k+3][i][1])))*10*4);
-					    row[set*dataset_width/delta_t+k+set+1] = (col1 + col2 + col3 + col4)/4.0;
-					}
-				}
-			}
-			
-			for (std::size_t col = 0; col < 20; col++)
-				row[width-col-2] = (float(i)/dataset_height)*(256.0);
-			
-			if (!i%10)
-				std::cout << "ROW: " << i << std::endl;
-            
-			png_write_row(png_ptr, row);
-
+            then = _time[i][k]/1000000;
+            ts = localtime(&then);
+            strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
+            //std::cout << _time[i][0] << "," << _time[i][1] << std::endl;
+            std::cout << buf << "(" << (_time[i][k]/1000000-then)*1000 << "ms)" << std::endl << (k?"--\n":"");
         }
 
-	    // Bottom border
-		for (std::size_t i = 0; i<width ; i++)
-			row[i] = 0;
-		png_write_row(png_ptr, row);
-		
-		// Bottom Axis
-		for (std::size_t i = 0; i<axis_x_height/2; i++)
-	    {
-		    for (std::size_t j = 0; j<width; j++)
-			    row[j] = (j-border)%5?255:0;
-			
-			png_write_row(png_ptr, row);
-		}
-		for (std::size_t i = axis_x_height/2; i<axis_x_height; i++)
-	    {
-		    for (std::size_t j = 0; j<width; j++)
-			    row[j] = (j-border)%10?255:0;
-			
-			png_write_row(png_ptr, row);
-		}		
-		// Done with file
-        png_write_end(png_ptr, info_ptr);
-        png_destroy_write_struct(&png_ptr, &info_ptr);
-        fclose(fp);
-        
-        char buf[80];
-        time_t then;
-        struct tm *ts;
-
-        // Display time (for now)
-        for(int i = 0; i < 10; i++)
-        {
-            for(int k = 0; k < 2; k++)
-            {
-                then = _time[i][k]/1000000;
-                ts = localtime(&then);
-                strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
-                //std::cout << _time[i][0] << "," << _time[i][1] << std::endl;
-                std::cout << buf << "(" << (_time[i][k]/1000000-then)*1000 << "ms)" << std::endl << (k?"--\n":"");
-            }
-			
-        }
-
-		std::cout << "Pulsewidth: " << _pulsewidth << std::endl;
-		std::cout << "TX Baud   : " << _txbaud << std::endl;
-		std::cout << "PW/TXBaud : " << _pulsewidth/_txbaud << std::endl;		
-
-		double pulse_time_sum = 0;
-		
-		// Display pulse deltas for each set
-		for(int i = 0; i < 10; i++)
-        {
-			double beg_t = _time[i][0];
-			double end_t = _time[i][1];
-			double pulse_time_d = (end_t - beg_t)/500;
-			pulse_time_sum += pulse_time_d;
-			std::cout << "Pulse time delta set"<< i << ": " << pulse_time_d << std::endl;
-		}
-		
-		double pulse_time_avg = pulse_time_sum /10;
-		std::cout << "Pulse time averge: " << pulse_time_avg << std::endl;
-
-		
-		// Display missed pulses
-		for(int i = 0; i < 9; i++)
-        {
-			double end_t = _time[i][1];
-            double beg_t = _time[i+1][0];
-			
-			double gap_t = beg_t - end_t;
-			
-			std::cout << "Time gap between run " << i << " and " << i+1 << ":" << gap_t << "us, Missed Pulses:" << (gap_t)/(pulse_time_avg) << std::endl;
-		
-		}
-			
     }
-    
+
+    std::cout << "Pulsewidth: " << _pulsewidth << std::endl;
+    std::cout << "TX Baud   : " << _txbaud << std::endl;
+    std::cout << "PW/TXBaud : " << _pulsewidth/_txbaud << std::endl;		
+
+    double pulse_time_sum = 0;
+
+    // Display pulse deltas for each set
+    for(int i = 0; i < 10; i++)
+    {
+        double beg_t = _time[i][0];
+        double end_t = _time[i][1];
+        double pulse_time_d = (end_t - beg_t)/500;
+        pulse_time_sum += pulse_time_d;
+        std::cout << "Pulse time delta set"<< i << ": " << pulse_time_d << std::endl;
+    }
+
+    double pulse_time_avg = pulse_time_sum /10;
+    std::cout << "Pulse time averge: " << pulse_time_avg << std::endl;
+
+
+    // Display missed pulses
+    for(int i = 0; i < 9; i++)
+    {
+        double end_t = _time[i][1];
+        double beg_t = _time[i+1][0];
+
+        double gap_t = beg_t - end_t;
+
+        std::cout << "Time gap between run " << i << " and " << i+1 << ":" << gap_t << "us, Missed Pulses:" << (gap_t)/(pulse_time_avg) << std::endl;
+
+    }
+
 }
 
-void MuirData::save_2dplotgd(const std::string &output_file)
+void MuirData::save_2dplot(const std::string &output_file)
 {
     // Image and Dataset Variables
     std::size_t delta_t = 1;
@@ -750,13 +553,9 @@ void MuirData::save_2dplotgd(const std::string &output_file)
     std::size_t end_frame = (*_framecount)[9][499];
     std::size_t num_frames = end_frame - start_frame;
 
-    png_uint_32 width            = (num_frames)/delta_t+(border*4)+20;
-    png_uint_32 height           = dataset_height+(2*border)+axis_x_height; 
+    std::size_t width            = (num_frames)/delta_t+(border*4)+20;
+    std::size_t height           = dataset_height+(2*border)+axis_x_height; 
     int         bit_depth        = 8;
-    int         color_type       = PNG_COLOR_TYPE_PALETTE;
-    int         interlace_type   = PNG_INTERLACE_NONE;
-    int         compression_type = PNG_COMPRESSION_TYPE_DEFAULT;
-    int         filter_method    = PNG_FILTER_TYPE_DEFAULT;
 
     // Open File for Writing
     FILE *fp = fopen(output_file.c_str(), "wb");
@@ -802,75 +601,67 @@ void MuirData::save_2dplotgd(const std::string &output_file)
     {
         palette[224 + i] = gdImageColorAllocate(im, 255-i*2, 255-i*8, 0);
     }
-	
+
     white = gdImageColorAllocate(im, 255, 255, 255);
     palette[255] = white;
 
     // Write data
+    std::cerr << "CREATING IMAGE" << std::endl;
+
+    size_t imageset_width = (dataset_width/delta_t);
+
+    for (unsigned int i = 0; i < dataset_height ;i++)
     {
-
-        std::cerr << "CREATING IMAGE" << std::endl;
-
-        //
-        png_byte row[width];
-        for (std::size_t i = 0; i<width ; i++)
-            row[i] = 0;	
-
-        size_t imageset_width = (dataset_width/delta_t);
-		
-        for (unsigned int i = 0; i < dataset_height ;i++)
+        for (std::size_t set = 0; set < dataset_count;set++)
         {
-            for (std::size_t set = 0; set < dataset_count;set++)
+            std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t;
+
+            for (std::size_t k = 0; k < imageset_width; k++)
             {
-                std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t;
-			
-                for (std::size_t k = 0; k < imageset_width; k++)
+
+                if (delta_t == 1)
                 {
-					//std::cout << "COL: " << k << ":" << imageset_width << std::endl;
-                    if (delta_t == 1)
-                    {
-                        unsigned int pixel = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][k][i][0], (*_sample_data)[set][k][i][1])))*10*4);
-                        gdImageSetPixel(im, border + frameoffset + k, dataset_height-i, pixel);
-                    }
-                    else if (delta_t == 2)
-                    {
-                        float col1 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k][i][0], (*_sample_data)[set][delta_t*k][i][1])))*10*4);
-                        float col2 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+1][i][0], (*_sample_data)[set][delta_t*k+1][i][1])))*10*4);
-                        gdImageSetPixel(im, border + frameoffset + k, dataset_height-i, (col1 + col2)/2.0);
-                    }
-                    else if (delta_t == 4) // It might be better if this was a loop.....  just a thought.  It does look rather loopworthy...
-                    {
-                        float col1 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k][i][0], (*_sample_data)[set][delta_t*k][i][1])))*10*4);
-                        float col2 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+1][i][0], (*_sample_data)[set][delta_t*k+1][i][1])))*10*4);
-                        float col3 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+2][i][0], (*_sample_data)[set][delta_t*k+2][i][1])))*10*4);
-                        float col4 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+3][i][0], (*_sample_data)[set][delta_t*k+3][i][1])))*10*4);
-                        gdImageSetPixel(im, border + frameoffset + k, dataset_height-i, (col1 + col2 + col3 + col4)/4.0);
-                    }
+                    unsigned char pixel = static_cast<unsigned int>(std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][k][i][0], (*_sample_data)[set][k][i][1])))*10*4));
+                    gdImageSetPixel(im, border + frameoffset + k, dataset_height-i, pixel);
+                }
+                else if (delta_t == 2)
+                {
+                    float col1 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k][i][0], (*_sample_data)[set][delta_t*k][i][1])))*10*4);
+                    float col2 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+1][i][0], (*_sample_data)[set][delta_t*k+1][i][1])))*10*4);
+                    gdImageSetPixel(im, border + frameoffset + k, dataset_height-i, static_cast<unsigned char>((col1 + col2)/2.0));
+                }
+                else if (delta_t == 4) // It might be better if this was a loop.....  just a thought.  It does look rather loopworthy...
+                {
+                    float col1 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k][i][0], (*_sample_data)[set][delta_t*k][i][1])))*10*4);
+                    float col2 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+1][i][0], (*_sample_data)[set][delta_t*k+1][i][1])))*10*4);
+                    float col3 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+2][i][0], (*_sample_data)[set][delta_t*k+2][i][1])))*10*4);
+                    float col4 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+3][i][0], (*_sample_data)[set][delta_t*k+3][i][1])))*10*4);
+                    gdImageSetPixel(im, border + frameoffset + k, dataset_height-i, static_cast<unsigned char>((col1 + col2 + col3 + col4)/4.0));
                 }
             }
-			
-            // Color bar
-            for (std::size_t col = 0; col < 20; col++)
-                gdImageSetPixel(im, width-col-2, dataset_height-i, (float(i)/dataset_height)*(256.0));
-
-			
-            if (!(i%10))
-                std::cout << "ROW: " << i << std::endl;
-
-
         }
 
-		// Bottom Axis
-        for (std::size_t x = border; x<(width-border*2-20); x = x + 5)
-            gdImageLine(im, x, (dataset_height+border*2), x, (dataset_height + ((x-border)%10?(axis_x_height/2):axis_x_height)), white); 
+        // Color bar
+        for (std::size_t col = 0; col < 20; col++)
+            gdImageSetPixel(im, width-col-2, dataset_height-i, static_cast<unsigned char>((float(i)/dataset_height)*(256.0)));
 
 
-		// Done with file
-        std::cerr << "WRITING IMAGE " << std::endl;
-        gdImagePngEx(im, fp, 9);
-        gdImageDestroy(im);
-        fclose(fp);
-			
+        if (!(i%10))
+            std::cout << "ROW: " << i << std::endl;
+
+
     }
+
+    // Bottom Axis
+    for (std::size_t x = border; x<(width-border*2-20); x = x + 5)
+        gdImageLine(im, x, (dataset_height+border*2), x, (dataset_height + ((x-border)%10?(axis_x_height/2):axis_x_height)), white); 
+
+
+    // Done with file
+    std::cerr << "WRITING IMAGE " << std::endl;
+    gdImagePngEx(im, fp, 9);
+    gdImageDestroy(im);
+    fclose(fp);
+
 }
 

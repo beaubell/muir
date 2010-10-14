@@ -36,7 +36,7 @@ int main (int argc, const char * argv[])
    if ( argc > 3 )
    data.print_onesamplecolumn(atoi(argv[2]), atoi(argv[3]));
 
-   data.save_2dplotgd("plot.png");
+   data.save_2dplot("plot.png");
 
    return 0;  // successfully terminated
 }
