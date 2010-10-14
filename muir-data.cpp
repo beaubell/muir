@@ -738,7 +738,7 @@ void MuirData::save_2dplot(const std::string &output_file)
 void MuirData::save_2dplotgd(const std::string &output_file)
 {
     // Image and Dataset Variables
-    std::size_t delta_t = 2;
+    std::size_t delta_t = 1;
     std::size_t dataset_width  = 500;
     std::size_t dataset_count  = 10;   // # sets
     std::size_t dataset_height = 1100; // Range bins
@@ -844,7 +844,7 @@ void MuirData::save_2dplotgd(const std::string &output_file)
                         float col2 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+1][i][0], (*_sample_data)[set][delta_t*k+1][i][1])))*10*4);
                         float col3 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+2][i][0], (*_sample_data)[set][delta_t*k+2][i][1])))*10*4);
                         float col4 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+3][i][0], (*_sample_data)[set][delta_t*k+3][i][1])))*10*4);
-                        row[set*dataset_width/delta_t+k+set+1] = (col1 + col2 + col3 + col4)/4.0;
+                        gdImageSetPixel(im, border + frameoffset + k, dataset_height-i, (col1 + col2 + col3 + col4)/4.0);
                     }
                 }
             }
@@ -867,7 +867,7 @@ void MuirData::save_2dplotgd(const std::string &output_file)
 
 		// Done with file
         std::cerr << "WRITING IMAGE " << std::endl;
-        gdImagePng(im, fp);
+        gdImagePngEx(im, fp, 9);
         gdImageDestroy(im);
         fclose(fp);
 			
