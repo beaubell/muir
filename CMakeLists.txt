@@ -9,7 +9,7 @@ FIND_PACKAGE(Boost)
 
 SUBDIRS(gd-2.0.35)
 
-SET( CMAKE_CXX_FLAGS "-ggdb -Wall -Wextra -Weffc++")
+SET( CMAKE_CXX_FLAGS "-ggdb -Wall -Wextra -Weffc++ -fopenmp")
 
 # Make sure the compiler can find include files from our Hello library.
 include_directories (${MUIR_SOURCE_DIR} ${HDF5_INCLUDE_DIR} ${GD_SOURCE_DIR})

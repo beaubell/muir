@@ -613,11 +613,14 @@ void MuirData::save_2dplot(const std::string &output_file)
 
     size_t imageset_width = (dataset_width/delta_t);
 
-    for (unsigned int i = 0; i < dataset_height ;i++)
-    {
-        for (std::size_t set = 0; set < dataset_count;set++)
-        {
-            std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t;
+    #pragma omp parallel for
+	for (std::size_t set = 0; set < dataset_count;set++)
+	{
+		std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t;
+		
+    
+		for (unsigned int i = 0; i < dataset_height ;i++)
+		{
 
             for (std::size_t k = 0; k < imageset_width; k++)
             {
@@ -642,15 +645,16 @@ void MuirData::save_2dplot(const std::string &output_file)
                     gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, static_cast<unsigned char>((col1 + col2 + col3 + col4)/4.0));
                 }
             }
-        }
+			// Color bar
+			for (std::size_t col = 0; col < colorbar_width/3; col++)
+				gdImageSetPixel(im, width-1-colorbar_width+col, dataset_height-i, static_cast<unsigned char>((float(i)/dataset_height)*(256.0)));
+			
+		}
 
-        // Color bar
-        for (std::size_t col = 0; col < colorbar_width/3; col++)
-            gdImageSetPixel(im, width-1-colorbar_width+col, dataset_height-i, static_cast<unsigned char>((float(i)/dataset_height)*(256.0)));
+        
 
-
-        if (!(i%10))
-            std::cout << "ROW: " << i << std::endl;
+        //if (!(i%10))
+            std::cout << "SET: " << set << std::endl;
 
 
     }
