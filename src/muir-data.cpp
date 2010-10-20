@@ -25,6 +25,8 @@
 #include <cmath>
 #include <complex>
 
+#include <fftw3.h>
+
 #define QUOTEME_(x) #x
 #define QUOTEME(x) QUOTEME_(x)
 
@@ -60,7 +62,7 @@ MuirData::MuirData(const std::string &filename_in)
  //   std::cout << "PW/TXBaud : " << _pulsewidth/_txbaud << std::endl;
 
     // Read Phasecode and run sanity checks
-//    read_phasecode();
+    read_phasecode();
 
  //   std::cout << "Phase Code: ";
  //   for(int i = 0; i < _phasecode.size(); i++)
@@ -78,7 +80,8 @@ MuirData::MuirData(const std::string &filename_in)
     read_times();
 
     // Dynamically allocate data storage arrays
-    _sample_data  = (SampleDataArray) new float[10][500][1100][2]; 
+    _sample_data  = (SampleDataArray) new float[10][500][1100][2];
+    _fftw_data    = (FFTWDataArray) new float[10][500][1100][2]; 
     _sample_range = (SampleRangeArray) new float[1][1100];
 	_framecount = (FrameCountArray) new float[10][500];
 
@@ -729,5 +732,284 @@ void MuirData::save_2dplot(const std::string &output_file)
     gdImageDestroy(im);
     fclose(fp);
 
+}
+
+
+void MuirData::save_fftw_2dplot(const std::string &output_file)
+{
+    // Image and Dataset Variables
+    std::size_t delta_t = 1;
+    std::size_t dataset_width  = 500;
+    std::size_t dataset_count  = 10;   // # sets
+    std::size_t dataset_height = 1100; // Range bins
+
+    std::size_t axis_x_height = 40;
+    std::size_t axis_y_width  = 40;
+    std::size_t border = 1;
+    std::size_t colorbar_width = 60;
+
+    std::size_t start_frame = (*_framecount)[0][0];
+    std::size_t end_frame = (*_framecount)[9][499];
+    std::size_t num_frames = end_frame - start_frame;
+
+    std::size_t width            = (num_frames)/delta_t+(border*4)+ colorbar_width + axis_y_width;
+    std::size_t height           = dataset_height + (2*border) + axis_x_height; 
+    int         bit_depth        = 8;
+
+    // Open File for Writing
+    FILE *fp = fopen(output_file.c_str(), "wb");
+    if (!fp)
+    {
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Unable to open file for output (") + output_file + ")"));
+    }
+
+    // Allocate Image Object
+    gdImagePtr im;
+    im = gdImageCreate(width, height);
+
+    if (!im)
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Failed to create GD Image Pointer.")));
+
+    // 
+    int black;
+    int white;
+
+    unsigned int palette[256];
+
+    for (int i = 0; i < 32;i++) // blk -> blue
+    {
+        palette[i] = gdImageColorAllocate(im, 0, 0, i*8); 
+    }
+    black = palette[0];
+
+    for (int i = 0; i < 64;i++) // blue -> light blue
+    {
+        palette[32 + i] = gdImageColorAllocate(im, 0, i*4, 255); 
+    }
+    for (int i = 0; i < 64;i++) // light blue -> green
+    {
+        palette[96 + i] = gdImageColorAllocate(im, 0, 255, 255-i*4); 
+    }
+    for (int i = 0; i < 64;i++) // green -> yellow
+    {
+        palette[160 + i] = gdImageColorAllocate(im, i*4, 255, 0);
+    }
+    for (int i = 0; i < 31;i++) // yellow -> red (one less so we can allocate white)
+    {
+        palette[224 + i] = gdImageColorAllocate(im, 255-i*2, 255-i*8, 0);
+    }
+
+    white = gdImageColorAllocate(im, 255, 255, 255);
+    palette[255] = white;
+
+    // Write data
+    std::cerr << "CREATING IMAGE" << std::endl;
+
+    size_t imageset_width = (dataset_width/delta_t);
+
+    #pragma omp parallel for
+	for (std::size_t set = 0; set < dataset_count;set++)
+	{
+		std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t;
+		
+    
+		for (unsigned int i = 0; i < dataset_height ;i++)
+		{
+
+            for (std::size_t k = 0; k < imageset_width; k++)
+            {
+
+                if (delta_t == 1)
+                {
+                    unsigned char pixel = static_cast<unsigned int>(std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][k][i][0], (*_fftw_data)[set][k][i][1])))*10));
+                    gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, pixel);
+                }
+                else if (delta_t == 2)
+                {
+                    float col1 = std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][delta_t*k][i][0], (*_fftw_data)[set][delta_t*k][i][1])))*10);
+                    float col2 = std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][delta_t*k+1][i][0], (*_fftw_data)[set][delta_t*k+1][i][1])))*10);
+                    gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, static_cast<unsigned char>((col1 + col2)/2.0));
+                }
+                else if (delta_t == 4) // It might be better if this was a loop.....  just a thought.  It does look rather loopworthy...
+                {
+                    float col1 = std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][delta_t*k][i][0], (*_fftw_data)[set][delta_t*k][i][1])))*10);
+                    float col2 = std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][delta_t*k+1][i][0], (*_fftw_data)[set][delta_t*k+1][i][1])))*10);
+                    float col3 = std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][delta_t*k+2][i][0], (*_fftw_data)[set][delta_t*k+2][i][1])))*10);
+                    float col4 = std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][delta_t*k+3][i][0], (*_fftw_data)[set][delta_t*k+3][i][1])))*10);
+                    gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, static_cast<unsigned char>((col1 + col2 + col3 + col4)/4.0));
+                }
+            }
+			// Color bar
+			for (std::size_t col = 0; col < colorbar_width/3; col++)
+				gdImageSetPixel(im, width-1-colorbar_width+col, dataset_height-i, static_cast<unsigned char>((float(i)/dataset_height)*(256.0)));
+			
+		}
+
+        
+
+        //if (!(i%10))
+            std::cout << "SET: " << set << std::endl;
+
+
+    }
+
+    // Fontness
+    gdFontPtr font = gdFontGetLarge();
+    //char *str = "TEST TEST TEST TEST TEST TEST";
+    //gdImageString(im, font, 10,10, reinterpret_cast<unsigned char*>(str), white);
+    
+    // Bottom Axis
+
+    std::size_t xaxis_offset = (axis_y_width + border);
+    std::size_t xaxis_end = num_frames/delta_t;
+    std::size_t xaxis_height1 = axis_x_height / 4;
+    std::size_t xaxis_height2 = axis_x_height / 8;
+    std::size_t xaxis_yoffset = dataset_height+border*2;
+
+    gdImageFilledRectangle(im, 0, xaxis_yoffset, width, height, white);
+    gdImageFilledRectangle(im, 0, 0, axis_y_width-border, height, white);
+    for (std::size_t x = 0; x < xaxis_end; x = x + 5)
+    {
+        gdImageLine(im, xaxis_offset + x, xaxis_yoffset, xaxis_offset + x, (xaxis_yoffset + ((x%10)?(xaxis_height2):xaxis_height1)), black); 
+    }
+    for (std::size_t set = 0; set < dataset_count; set++)
+    {
+        std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t + axis_y_width + border;
+        gdImageLine(im, frameoffset, xaxis_yoffset, frameoffset, xaxis_yoffset + xaxis_height1*2 , black);
+        
+        char buf1[80];
+        char buf2[80];
+        time_t then;
+        struct tm *ts;
+        then = _time[set][0]/1000000;
+        ts = gmtime(&then);
+        //strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
+        strftime(buf1, sizeof(buf1), "%H:%M:%S", ts);
+        sprintf(buf2,"%s:%06.3f",buf1, (_time[set][0]/1000000-then)*1000);
+        gdImageString(im, font, frameoffset + 2, xaxis_yoffset + xaxis_height1 + 2, reinterpret_cast<unsigned char*>(buf2), black);
+        //gdImageString(im, font, frameoffset + 2, xaxis_yoffset + xaxis_height1 + 2, reinterpret_cast<unsigned char*>(buf), black);
+    }
+
+
+    // Print date
+    {
+    char gmtbuf[80];
+    char lclbuf[80];
+    char buf2[200];
+    time_t then;
+    struct tm *ts;
+    then = _time[0][0]/1000000;
+    ts = gmtime(&then);
+    strftime(gmtbuf, sizeof(gmtbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
+    ts = localtime(&then);
+    strftime(lclbuf, sizeof(lclbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
+    sprintf(buf2,"Experiment Date: %s (%s)   File: %s   Column Width: %d Frame(s)", gmtbuf, lclbuf,  _filename.c_str(), delta_t);
+    gdImageString(im, font, axis_y_width + border, xaxis_yoffset + xaxis_height1*2 + 5, reinterpret_cast<unsigned char*>(buf2), black);
+    }
+
+    // Left Axis
+    for (std::size_t y = 50; y <= dataset_height; y = y + 80)
+    {
+        gdImageLine(im, axis_y_width/2, y, axis_y_width, y, black);
+        char buf[80];
+        sprintf(buf,"%-3.1fkm",((*_sample_range)[0][1100-y])/1000);
+        gdImageStringUp(im, font, 5, y+border+20, reinterpret_cast<unsigned char*>(buf), black);
+        //std::cout << y << ":" << 1099-y << "-" << (*_sample_range)[0][1099-y]/1000 << " " << std::endl;
+    }
+
+    // Done with file
+    std::cerr << "WRITING IMAGE " << std::endl;
+    gdImagePngEx(im, fp, 9);
+    gdImageDestroy(im);
+    fclose(fp);
+
+}
+
+
+void MuirData::process_fftw()
+{
+    std::size_t max_rows = 1100;  //hard coded for now
+    std::size_t max_sets = 10;    //hard coded for now
+    std::size_t max_cols = 500;   //hard coded for now
+
+    fftw_complex *in, *out;
+    fftw_plan p;
+
+    fftw_init_threads();
+    
+    fftw_plan_with_nthreads(1);
+    
+    in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
+    out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
+
+    //std::size_t phase_code_offset = 0;
+
+    for(std::size_t phase_code_offset = 0; phase_code_offset < max_rows; phase_code_offset++)
+    {
+        std::cout << "FFTW Row:" << phase_code_offset << std::endl;
+        for(std::size_t row = 0; row < max_rows; row++)
+        {
+            if((row >= phase_code_offset) && (row < (_phasecode.size() + phase_code_offset)))
+            {
+                float phase_multiplier = _phasecode[row-phase_code_offset];
+    
+                for(std::size_t set = 0; set < max_sets; set++)
+                    for(std::size_t col = 0; col < max_cols; col++)
+                    {
+                        std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
+                        in[index][0] = (*_sample_data)[set][col][row][0] * phase_multiplier;
+                        in[index][1] = (*_sample_data)[set][col][row][1] * phase_multiplier;
+                    }
+            }
+            else // ZEROS!
+            {
+                for(std::size_t set = 0; set < max_sets; set++)
+                    for(std::size_t col = 0; col < max_cols; col++)
+                    {
+                        std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
+                        in[index][0] = 0;
+                        in[index][1] = 0;
+                    }
+            }
+        }
+    
+        // 1-Dimensional
+        //p   = fftw_plan_dft_1d(N, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
+    
+        // 2-Dimenstional
+        p   = fftw_plan_dft_2d(max_rows, max_sets*max_cols, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
+        fftw_execute(p);
+    
+        // Put fttw data into an array
+        for(std::size_t set = 0; set < max_sets; set++)
+            for(std::size_t col = 0; col < max_cols; col++)
+            {
+                fftw_complex max_value = {0.0,0.0};
+    
+                for(std::size_t row = 0; row < max_rows; row++)
+                {
+                    std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
+                    //(*_fftw_data)[set][col][row][0] = out[index][0];
+                    //(*_fftw_data)[set][col][row][1] = out[index][1];
+                    if (out[index][0] > max_value[0])
+                    {
+                        max_value[0] = out[index][0];
+                        max_value[1] = out[index][1];
+                    }
+    
+                }
+    
+                //std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
+                (*_fftw_data)[set][col][phase_code_offset][0] = max_value[0];
+                (*_fftw_data)[set][col][phase_code_offset][1] = max_value[1];
+            }
+    }
+
+    fftw_destroy_plan(p);
+    fftw_free(in);
+    fftw_free(out);
+    fftw_cleanup_threads();
 }
 

@@ -32,6 +32,9 @@ class MuirData
     void print_onesamplecolumn(const std::size_t run, const std::size_t column);
     void print_stats();
     void save_2dplot(const std::string &output_file);
+    void save_fftw_2dplot(const std::string &output_file);
+    
+    void process_fftw();
 
    private:
     std::string _filename;
@@ -53,6 +56,9 @@ class MuirData
 
     typedef float (*SampleDataArray)[10][500][1100][2];
     SampleDataArray _sample_data;
+    typedef float (*FFTWDataArray)[10][500][1100][2];
+    SampleDataArray _fftw_data;
+
     typedef float (*SampleRangeArray)[1][1100];
     SampleRangeArray _sample_range;
 	typedef unsigned int (*FrameCountArray)[10][500];

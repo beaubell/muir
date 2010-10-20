@@ -38,6 +38,11 @@ int main (int argc, const char * argv[])
 
    data.save_2dplot("plot.png");
 
+   std::cout << "Processing FFTW..." << std::endl;
+   data.process_fftw();
+   std::cout << "Saving FFTW plot..." << std::endl;
+   data.save_fftw_2dplot("fftw.png");
+   
    return 0;  // successfully terminated
 }
 
