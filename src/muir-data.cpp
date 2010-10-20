@@ -48,6 +48,7 @@ MuirData::MuirData(const std::string &filename_in)
   _txbaud(0),
   _phasecode(),
   _sample_data(NULL),
+_fftw_data(NULL),
   _sample_range(NULL),
   _framecount(NULL)
 {
@@ -69,7 +70,7 @@ MuirData::MuirData(const std::string &filename_in)
  //     std::cout << _phasecode[i] << ",";
 
  //   std::cout << std::endl;
- //   std::cout << "Phase Code Len: " << _phasecode.size() << std::endl;
+    std::cout << "Phase Code Len: " << _phasecode.size() << std::endl;
 
     // Check to see if Pulsewidth/TXBaud equals the amount of phase code parsed.
 //    if(_phasecode.size() != _pulsewidth/_txbaud)
@@ -617,12 +618,12 @@ void MuirData::save_2dplot(const std::string &output_file)
     size_t imageset_width = (dataset_width/delta_t);
 
     #pragma omp parallel for
-	for (std::size_t set = 0; set < dataset_count;set++)
+	for (std::size_t set = 0; set < dataset_count; set++)
 	{
 		std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t;
 		
     
-		for (unsigned int i = 0; i < dataset_height ;i++)
+		for (unsigned int i = 0; i < dataset_height; i++)
 		{
 
             for (std::size_t k = 0; k < imageset_width; k++)
@@ -712,7 +713,7 @@ void MuirData::save_2dplot(const std::string &output_file)
     strftime(gmtbuf, sizeof(gmtbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
     ts = localtime(&then);
     strftime(lclbuf, sizeof(lclbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
-    sprintf(buf2,"Experiment Date: %s (%s)   File: %s   Column Width: %d Frame(s)", gmtbuf, lclbuf,  _filename.c_str(), delta_t);
+    sprintf(buf2,"Experiment Date: %s (%s)   File: %s   Column Width: %lu Frame(s)", gmtbuf, lclbuf,  _filename.c_str(), static_cast<unsigned long>(delta_t));
     gdImageString(im, font, axis_y_width + border, xaxis_yoffset + xaxis_height1*2 + 5, reinterpret_cast<unsigned char*>(buf2), black);
     }
 
@@ -905,7 +906,7 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
     strftime(gmtbuf, sizeof(gmtbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
     ts = localtime(&then);
     strftime(lclbuf, sizeof(lclbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
-    sprintf(buf2,"Experiment Date: %s (%s)   File: %s   Column Width: %d Frame(s)", gmtbuf, lclbuf,  _filename.c_str(), delta_t);
+		sprintf(buf2,"Experiment Date: %s (%s)   File: %s   Column Width: %lu Frame(s)", gmtbuf, lclbuf,  _filename.c_str(), static_cast<unsigned long>(delta_t));
     gdImageString(im, font, axis_y_width + border, xaxis_yoffset + xaxis_height1*2 + 5, reinterpret_cast<unsigned char*>(buf2), black);
     }
 
@@ -939,7 +940,7 @@ void MuirData::process_fftw()
 
     fftw_init_threads();
     
-    fftw_plan_with_nthreads(1);
+    fftw_plan_with_nthreads(2);
     
     in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
     out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);

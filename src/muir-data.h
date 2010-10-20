@@ -27,7 +27,7 @@ class MuirData
 {
    public:
     MuirData(const std::string &filename_in);
-    ~MuirData();
+    virtual ~MuirData();
 
     void print_onesamplecolumn(const std::size_t run, const std::size_t column);
     void print_stats();
@@ -37,7 +37,11 @@ class MuirData
     void process_fftw();
 
    private:
-    std::string _filename;
+	// No copying
+	MuirData(const MuirData &in);
+	MuirData& operator= (const MuirData &right);
+	
+	std::string _filename;
     H5::H5File  _h5file;
     float       _pulsewidth;
     float       _txbaud;
