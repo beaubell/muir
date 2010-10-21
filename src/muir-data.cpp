@@ -40,6 +40,8 @@ const H5std_string SAMPLEDATA_PATH("/Raw11/Data/Samples/Data");
 const H5std_string SAMPLERANGE_PATH("/Raw11/Data/Samples/Range");
 const H5std_string FRAMECOUNT_PATH("/Raw11/Data/RadacHeader/FrameCount");
 
+const H5std_string DECODEDDATA_PATH("/Decoded/Data");
+
 // Constructor
 MuirData::MuirData(const std::string &filename_in)
 : _filename(filename_in),
@@ -500,7 +502,7 @@ void MuirData::print_stats()
     {
         for(int k = 0; k < 2; k++)
         {
-            then = _time[i][k]/1000000;
+            then = static_cast<time_t>(_time[i][k]/1000000.0);
             ts = localtime(&then);
             strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
             //std::cout << _time[i][0] << "," << _time[i][1] << std::endl;
@@ -562,7 +564,7 @@ void MuirData::save_2dplot(const std::string &output_file)
 
     std::size_t width            = (num_frames)/delta_t+(border*4)+ colorbar_width + axis_y_width;
     std::size_t height           = dataset_height + (2*border) + axis_x_height; 
-    int         bit_depth        = 8;
+    //int         bit_depth        = 8;
 
     // Open File for Writing
     FILE *fp = fopen(output_file.c_str(), "wb");
@@ -617,13 +619,14 @@ void MuirData::save_2dplot(const std::string &output_file)
 
     size_t imageset_width = (dataset_width/delta_t);
 
+    // Signed iteration variable to silence openmp warnings
     #pragma omp parallel for
-	for (std::size_t set = 0; set < dataset_count; set++)
+	for (signed int set = 0; set < static_cast<signed int>(dataset_count); set++)
 	{
 		std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t;
 		
     
-		for (unsigned int i = 0; i < dataset_height; i++)
+		for (std::size_t i = 0; i < dataset_height; i++)
 		{
 
             for (std::size_t k = 0; k < imageset_width; k++)
@@ -691,7 +694,7 @@ void MuirData::save_2dplot(const std::string &output_file)
         char buf2[80];
         time_t then;
         struct tm *ts;
-        then = _time[set][0]/1000000;
+        then = static_cast<time_t>(_time[set][0]/1000000.0);
         ts = gmtime(&then);
         //strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
         strftime(buf1, sizeof(buf1), "%H:%M:%S", ts);
@@ -708,7 +711,7 @@ void MuirData::save_2dplot(const std::string &output_file)
     char buf2[200];
     time_t then;
     struct tm *ts;
-    then = _time[0][0]/1000000;
+    then = static_cast<time_t>(_time[0][0]/1000000.0);
     ts = gmtime(&then);
     strftime(gmtbuf, sizeof(gmtbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
     ts = localtime(&then);
@@ -755,7 +758,7 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
 
     std::size_t width            = (num_frames)/delta_t+(border*4)+ colorbar_width + axis_y_width;
     std::size_t height           = dataset_height + (2*border) + axis_x_height; 
-    int         bit_depth        = 8;
+    //int         bit_depth        = 8;
 
     // Open File for Writing
     FILE *fp = fopen(output_file.c_str(), "wb");
@@ -810,8 +813,9 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
 
     size_t imageset_width = (dataset_width/delta_t);
 
+    // Signed iteration variable to silence openmp warnings
     #pragma omp parallel for
-	for (std::size_t set = 0; set < dataset_count;set++)
+    for (signed int set = 0; set < static_cast<signed int>(dataset_count); set++)
 	{
 		std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t;
 		
@@ -884,7 +888,7 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
         char buf2[80];
         time_t then;
         struct tm *ts;
-        then = _time[set][0]/1000000;
+        then = static_cast<time_t>(_time[set][0]/1000000.0);
         ts = gmtime(&then);
         //strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
         strftime(buf1, sizeof(buf1), "%H:%M:%S", ts);
@@ -901,7 +905,7 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
     char buf2[200];
     time_t then;
     struct tm *ts;
-    then = _time[0][0]/1000000;
+    then = static_cast<time_t>(_time[0][0]/1000000.0);
     ts = gmtime(&then);
     strftime(gmtbuf, sizeof(gmtbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
     ts = localtime(&then);
@@ -940,7 +944,7 @@ void MuirData::process_fftw()
 
     fftw_init_threads();
     
-    fftw_plan_with_nthreads(2);
+    fftw_plan_with_nthreads(4);
     
     in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
     out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
@@ -1013,5 +1017,42 @@ void MuirData::process_fftw()
     fftw_free(in);
     fftw_free(out);
     fftw_cleanup_threads();
+}
+
+void MuirData::save_decoded_data(const std::string &output_file)
+{
+    const H5std_string GROUP_PATH("/Decoded");
+ 
+    // Open File for Writing
+    H5::H5File h5file( output_file.c_str(), H5F_ACC_TRUNC );
+
+    // Specify Dimensions
+    hsize_t rank = 4;
+    hsize_t dimsf[rank];
+    dimsf[0] = 10;
+    dimsf[1] = 500;
+    dimsf[2] = 1100;
+    dimsf[3] = 2;
+
+    // Create dataspace
+    H5::DataSpace dataspace( rank, dimsf );
+
+    // Define Datatype
+    H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
+    datatype.setOrder( H5T_ORDER_LE);
+
+    // Create group
+    h5file.createGroup(GROUP_PATH);
+
+    // Create a new dataset within the file...
+    H5::DataSet dataset = h5file.createDataSet( DECODEDDATA_PATH, datatype, dataspace);
+
+    // Write data
+    dataset.write(_fftw_data, H5::PredType::NATIVE_FLOAT);
+
+    h5file.close();
+    return;
+
+
 }
 

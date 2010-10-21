@@ -38,9 +38,13 @@ int main (int argc, const char * argv[])
 
    data.save_2dplot("plot.png");
 
-   std::cout << "Processing FFTW..." << std::endl;
+   std::cout << "Decoding Data..." << std::endl;
    data.process_fftw();
-   std::cout << "Saving FFTW plot..." << std::endl;
+
+   std::cout << "Saving Decoded Data..." << std::endl;
+   data.save_decoded_data("decoded.h5");
+   
+   std::cout << "Generating Plot..." << std::endl;
    data.save_fftw_2dplot("fftw.png");
    
    return 0;  // successfully terminated

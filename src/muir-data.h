@@ -35,6 +35,7 @@ class MuirData
     void save_fftw_2dplot(const std::string &output_file);
     
     void process_fftw();
+    void save_decoded_data(const std::string &output_file);
 
    private:
 	// No copying
