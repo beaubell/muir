@@ -944,12 +944,17 @@ void MuirData::process_fftw()
     
     in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
     out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
-
-    //std::size_t phase_code_offset = 0;
-
+	int N[1] = {max_rows};
+	
+	// Setup Plan
+	p = fftw_plan_many_dft(1, N, max_sets*max_cols, in, NULL, 1, max_rows, out, NULL, 1, max_rows, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
+	
+	// Calculate each row
     for(std::size_t phase_code_offset = 0; phase_code_offset < max_rows; phase_code_offset++)
     {
         std::cout << "FFTW Row:" << phase_code_offset << std::endl;
+		
+		// Copy data into fftw vector, apply phasecode, and zero out the rest
         for(std::size_t row = 0; row < max_rows; row++)
         {
             if((row >= phase_code_offset) && (row < (_phasecode.size() + phase_code_offset)))
@@ -976,14 +981,10 @@ void MuirData::process_fftw()
             }
         }
     
-        // 1-Dimensional
-        //p   = fftw_plan_dft_1d(N, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
+		// Execute FFTW
+		fftw_execute(p);
     
-        // 2-Dimenstional
-        p   = fftw_plan_dft_2d(max_rows, max_sets*max_cols, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
-        fftw_execute(p);
-    
-        // Put fttw data into an array
+        // Output FFTW data
         for(std::size_t set = 0; set < max_sets; set++)
             for(std::size_t col = 0; col < max_cols; col++)
             {
