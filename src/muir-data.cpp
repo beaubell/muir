@@ -968,8 +968,7 @@ void MuirData::process_fftw()
                 for(std::size_t set = 0; set < max_sets; set++)
                     for(std::size_t col = 0; col < max_cols; col++)
                     {
-                        //std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
-                        std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
+						std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
                         in[index][0] = (*_sample_data)[set][col][row][0] * phase_multiplier;
                         in[index][1] = (*_sample_data)[set][col][row][1] * phase_multiplier;
                     }
@@ -979,7 +978,6 @@ void MuirData::process_fftw()
                 for(std::size_t set = 0; set < max_sets; set++)
                     for(std::size_t col = 0; col < max_cols; col++)
                     {
-                        //std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
                         std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
                         in[index][0] = 0;
                         in[index][1] = 0;
@@ -989,18 +987,19 @@ void MuirData::process_fftw()
     
 		// Execute FFTW
 		fftw_execute(p);
-//#if 0
+
         // Output FFTW data
         for(std::size_t set = 0; set < max_sets; set++)
             for(std::size_t col = 0; col < max_cols; col++)
             {
                 fftw_complex max_value = {0.0,0.0};
     
+				// Iterate through the column spectra and find the max value
                 for(std::size_t row = 0; row < max_rows; row++)
                 {
-                    std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
-                    //(*_fftw_data)[set][col][row][0] = out[index][0];
-                    //(*_fftw_data)[set][col][row][1] = out[index][1];
+                    std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
+
+				    // FIXME - Comparing real part for now
                     if (out[index][0] > max_value[0])
                     {
                         max_value[0] = out[index][0];
@@ -1009,24 +1008,9 @@ void MuirData::process_fftw()
     
                 }
     
-                //std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
                 (*_fftw_data)[set][col][phase_code_offset][0] = max_value[0];
                 (*_fftw_data)[set][col][phase_code_offset][1] = max_value[1];
             }
-//#endif
-#if 0
-    for(std::size_t row = 0; row < max_rows; row++)
-        for(std::size_t set = 0; set < max_sets; set++)
-            for(std::size_t col = 0; col < max_cols; col++)
-            {
-                //std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
-                std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
-                (*_fftw_data)[set][col][row][0] = out[index][0];
-                (*_fftw_data)[set][col][row][1] = out[index][1];
-            }
-            
-            break;
-#endif
     }
             
     fftw_destroy_plan(p);
