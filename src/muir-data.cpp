@@ -40,20 +40,25 @@ const H5std_string SAMPLEDATA_PATH("/Raw11/Data/Samples/Data");
 const H5std_string SAMPLERANGE_PATH("/Raw11/Data/Samples/Range");
 const H5std_string FRAMECOUNT_PATH("/Raw11/Data/RadacHeader/FrameCount");
 
-const H5std_string DECODEDDATA_PATH("/Decoded/Data");
+const H5std_string DECODEDDATA_PATH ("/Decoded/Data");
+const H5std_string DECODEDRANGE_PATH("/Decoded/Range");
+const H5std_string DECODEDRADAC_PATH("/Decoded/RadacTime");
+const H5std_string DECODEDFRAME_PATH("/Decoded/FrameCount");
 
 // Constructor
-MuirData::MuirData(const std::string &filename_in)
+MuirData::MuirData(const std::string &filename_in, int option)
 : _filename(filename_in),
   _h5file( _filename.c_str(), H5F_ACC_RDONLY ),
   _pulsewidth(0),
   _txbaud(0),
   _phasecode(),
   _sample_data(NULL),
-_fftw_data(NULL),
+  _fftw_data(NULL),
   _sample_range(NULL),
   _framecount(NULL)
 {
+    if (option == 0)
+    {
     // Read Pulsewidth
     _pulsewidth = read_scalar_float(PULSEWIDTH_PATH);
 
@@ -72,7 +77,7 @@ _fftw_data(NULL),
  //     std::cout << _phasecode[i] << ",";
 
  //   std::cout << std::endl;
-    std::cout << "Phase Code Len: " << _phasecode.size() << std::endl;
+    //std::cout << "Phase Code Len: " << _phasecode.size() << std::endl;
 
     // Check to see if Pulsewidth/TXBaud equals the amount of phase code parsed.
 //    if(_phasecode.size() != _pulsewidth/_txbaud)
@@ -92,11 +97,20 @@ _fftw_data(NULL),
     read_sampledata();
     read_samplerange();
 	read_framecount();
+    }
 	
-	//for (int i = 0; i < 10; i++)
-	//	for (int j = 0 ; j < 500; j++)
-	//		std::cout << i << "," << j << ":" << (*_framecount)[i][j] << std::endl;
+    if (option == 1)
+    {
 
+        // Dynamically allocate data storage arrays
+        _sample_data  = NULL;
+        _fftw_data    = (FFTWDataArray) new float[10][500][1100][2]; 
+        _sample_range = (SampleRangeArray) new float[1][1100];
+        _framecount = (FrameCountArray) new float[10][500];
+
+        read_decoded_data(filename_in);
+    }
+    
 }
 
 // Destructor
@@ -105,6 +119,7 @@ MuirData::~MuirData()
     delete[] _sample_data;
     delete[] _sample_range;
     delete[] _framecount;
+    delete[] _fftw_data;
 
 }
 
@@ -782,27 +797,12 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
 
     unsigned int palette[256];
 
-    for (int i = 0; i < 32;i++) // blk -> blue
-    {
-        palette[i] = gdImageColorAllocate(im, 0, 0, i*8); 
-    }
+    palette[0] = gdImageColorAllocate(im, 0, 0, 0); 
     black = palette[0];
 
-    for (int i = 0; i < 64;i++) // blue -> light blue
+    for (int i = 1; i < 255;i++) // blue -> red
     {
-        palette[32 + i] = gdImageColorAllocate(im, 0, i*4, 255); 
-    }
-    for (int i = 0; i < 64;i++) // light blue -> green
-    {
-        palette[96 + i] = gdImageColorAllocate(im, 0, 255, 255-i*4); 
-    }
-    for (int i = 0; i < 64;i++) // green -> yellow
-    {
-        palette[160 + i] = gdImageColorAllocate(im, i*4, 255, 0);
-    }
-    for (int i = 0; i < 31;i++) // yellow -> red (one less so we can allocate white)
-    {
-        palette[224 + i] = gdImageColorAllocate(im, 255-i*2, 255-i*8, 0);
+        palette[i] = gdImageColorAllocate(im, 0, 0, i); 
     }
 
     white = gdImageColorAllocate(im, 255, 255, 255);
@@ -828,7 +828,7 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
 
                 if (delta_t == 1)
                 {
-                    unsigned char pixel = static_cast<unsigned int>(std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][k][i][0], (*_fftw_data)[set][k][i][1])))*10));
+                    unsigned char pixel = static_cast<unsigned int>(std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][k][i][0], (*_fftw_data)[set][k][i][1])))*10*4));
                     gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, pixel);
                 }
                 else if (delta_t == 2)
@@ -968,7 +968,8 @@ void MuirData::process_fftw()
                 for(std::size_t set = 0; set < max_sets; set++)
                     for(std::size_t col = 0; col < max_cols; col++)
                     {
-                        std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
+                        //std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
+                        std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
                         in[index][0] = (*_sample_data)[set][col][row][0] * phase_multiplier;
                         in[index][1] = (*_sample_data)[set][col][row][1] * phase_multiplier;
                     }
@@ -978,7 +979,8 @@ void MuirData::process_fftw()
                 for(std::size_t set = 0; set < max_sets; set++)
                     for(std::size_t col = 0; col < max_cols; col++)
                     {
-                        std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
+                        //std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
+                        std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
                         in[index][0] = 0;
                         in[index][1] = 0;
                     }
@@ -987,7 +989,7 @@ void MuirData::process_fftw()
     
 		// Execute FFTW
 		fftw_execute(p);
-    
+//#if 0
         // Output FFTW data
         for(std::size_t set = 0; set < max_sets; set++)
             for(std::size_t col = 0; col < max_cols; col++)
@@ -1011,8 +1013,22 @@ void MuirData::process_fftw()
                 (*_fftw_data)[set][col][phase_code_offset][0] = max_value[0];
                 (*_fftw_data)[set][col][phase_code_offset][1] = max_value[1];
             }
+//#endif
+#if 0
+    for(std::size_t row = 0; row < max_rows; row++)
+        for(std::size_t set = 0; set < max_sets; set++)
+            for(std::size_t col = 0; col < max_cols; col++)
+            {
+                //std::size_t index = row*(max_sets*max_cols) + set*(max_cols) + col;
+                std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
+                (*_fftw_data)[set][col][row][0] = out[index][0];
+                (*_fftw_data)[set][col][row][1] = out[index][1];
+            }
+            
+            break;
+#endif
     }
-
+            
     fftw_destroy_plan(p);
     fftw_free(in);
     fftw_free(out);
@@ -1026,33 +1042,160 @@ void MuirData::save_decoded_data(const std::string &output_file)
     // Open File for Writing
     H5::H5File h5file( output_file.c_str(), H5F_ACC_TRUNC );
 
-    // Specify Dimensions
-    hsize_t rank = 4;
-    hsize_t dimsf[rank];
-    dimsf[0] = 10;
-    dimsf[1] = 500;
-    dimsf[2] = 1100;
-    dimsf[3] = 2;
-
-    // Create dataspace
-    H5::DataSpace dataspace( rank, dimsf );
-
-    // Define Datatype
-    H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
-    datatype.setOrder( H5T_ORDER_LE);
-
     // Create group
     h5file.createGroup(GROUP_PATH);
 
-    // Create a new dataset within the file...
-    H5::DataSet dataset = h5file.createDataSet( DECODEDDATA_PATH, datatype, dataspace);
-
-    // Write data
-    dataset.write(_fftw_data, H5::PredType::NATIVE_FLOAT);
-
+    /// Prepare and write decoded sample data
+    {
+        // Specify Dimensions
+        hsize_t rank = 4;
+        hsize_t dimsf[rank];
+        dimsf[0] = 10;
+        dimsf[1] = 500;
+        dimsf[2] = 1100;
+        dimsf[3] = 2;
+    
+        // Create dataspace
+        H5::DataSpace dataspace( rank, dimsf );
+    
+        // Define Datatype
+        H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
+        datatype.setOrder( H5T_ORDER_LE);
+    
+        // Create a new dataset within the file...
+        H5::DataSet dataset = h5file.createDataSet( DECODEDDATA_PATH, datatype, dataspace);
+    
+        // Write data
+        dataset.write(_fftw_data, H5::PredType::NATIVE_FLOAT);
+    }
+    
+    /// Prepare and write range data
+    {
+        // Specify Dimensions
+        hsize_t rank = 2;
+        hsize_t dimsf[rank];
+        dimsf[0] = 1;
+        dimsf[1] = 1100;
+    
+        // Create dataspace
+        H5::DataSpace dataspace( rank, dimsf );
+    
+        // Define Datatype
+        H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
+        datatype.setOrder( H5T_ORDER_LE);;
+    
+        // Create a new dataset within the file...
+        H5::DataSet dataset = h5file.createDataSet( DECODEDRANGE_PATH, datatype, dataspace);
+    
+        // Write data
+        dataset.write(_sample_range, H5::PredType::NATIVE_FLOAT);
+    }
+    
+    /// Prepare and write radac data
+    {
+        // Specify Dimensions
+        hsize_t rank = 2;
+        hsize_t dimsf[rank];
+        dimsf[0] = 10;
+        dimsf[1] = 2;
+    
+        // Create dataspace
+        H5::DataSpace dataspace( rank, dimsf );
+    
+        // Define Datatype
+        H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
+        datatype.setOrder( H5T_ORDER_LE);;
+    
+        // Create a new dataset within the file...
+        H5::DataSet dataset = h5file.createDataSet( DECODEDRADAC_PATH, datatype, dataspace);
+    
+        // Write data
+        dataset.write(_time, H5::PredType::NATIVE_FLOAT);
+    }
+    
+    /// Prepare and write framecount data
+    {
+        // Specify Dimensions
+        hsize_t rank = 2;
+        hsize_t dimsf[rank];
+        dimsf[0] = 10;
+        dimsf[1] = 500;
+    
+        // Create dataspace
+        H5::DataSpace dataspace( rank, dimsf );
+    
+        // Define Datatype
+        H5::IntType datatype( H5::PredType::NATIVE_UINT );
+        datatype.setOrder( H5T_ORDER_LE);;
+    
+        // Create a new dataset within the file...
+        H5::DataSet dataset = h5file.createDataSet( DECODEDFRAME_PATH, datatype, dataspace);
+    
+        // Write data
+        dataset.write(_framecount, H5::PredType::NATIVE_UINT);
+    }
     h5file.close();
     return;
 
 
 }
 
+void MuirData::read_decoded_data(const std::string &input_file)
+{
+    // Open file
+    H5::H5File h5file( input_file.c_str(), H5F_ACC_RDONLY );
+
+    // Get Dataset
+    const std::string &dataset_name = DECODEDDATA_PATH;
+    H5::DataSet dataset = h5file.openDataSet( dataset_name );
+
+    // Get Type classype::NATIVE_FLOAT
+    H5T_class_t type_class = dataset.getTypeClass();
+
+    // Check to see if we are dealing with floats
+    if( type_class != H5T_FLOAT )
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Expecting H5T_FLOAT Type in ") + dataset_name + " from " + _filename));
+
+    // Get size of datatpe and verify
+    H5::FloatType floattype = dataset.getFloatType();
+    size_t size = floattype.getSize();
+    if(size != 4)
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Expecting float size to be 4 (float) in ") + dataset_name + " from " + _filename));
+
+    // Get dataspace handle
+    H5::DataSpace dataspace = dataset.getSpace();
+
+    // Get rank and verify
+    int rank = dataspace.getSimpleExtentNdims();
+    if(rank != 4)
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Expecting rank to be 4 dimensions in ") + dataset_name + " from " + _filename));
+
+    // Get dimensions and verify
+    hsize_t dimsm[rank];
+    dataspace.getSimpleExtentDims( dimsm, NULL);
+
+    if(dimsm[0] != 10 || dimsm[1] != 500 || dimsm[2] != 1100 || dimsm[3] != 2)
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Expecting dimensions (10,500,1100,2) in ") + dataset_name + " from " + _filename));
+
+    hsize_t i, j, k, l;
+
+    for (j = 0; j < dimsm[0]; j++)
+    {
+        for (i = 0; i < dimsm[1]; i++)
+        {
+            for (k = 0; k < dimsm[2]; k++)
+                for (l = 0; l < dimsm[3]; l++) 
+                    (*_fftw_data)[j][i][k][l] = 0;
+        }
+    }
+
+    // Get data
+    dataset.read(_fftw_data, H5::PredType::NATIVE_FLOAT);
+
+    h5file.close();
+    return;
+}

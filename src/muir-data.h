@@ -26,7 +26,7 @@ extern const std::string SAMPLERANGE_PATH;
 class MuirData
 {
    public:
-    MuirData(const std::string &filename_in);
+    MuirData(const std::string &filename_in, int option = 0);
     virtual ~MuirData();
 
     void print_onesamplecolumn(const std::size_t run, const std::size_t column);
@@ -36,6 +36,7 @@ class MuirData
     
     void process_fftw();
     void save_decoded_data(const std::string &output_file);
+    void read_decoded_data(const std::string &input_file);
 
    private:
 	// No copying
