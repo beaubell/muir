@@ -1103,14 +1103,14 @@ void MuirData::save_decoded_data(const std::string &output_file)
         H5::DataSpace dataspace( rank, dimsf );
     
         // Define Datatype
-        H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
+        H5::FloatType datatype( H5::PredType::NATIVE_DOUBLE );
         datatype.setOrder( H5T_ORDER_LE);;
     
         // Create a new dataset within the file...
         H5::DataSet dataset = h5file.createDataSet( DECODEDRADAC_PATH, datatype, dataspace);
     
         // Write data
-        dataset.write(_time, H5::PredType::NATIVE_FLOAT);
+        dataset.write(_time, H5::PredType::NATIVE_DOUBLE);
     }
     
     /// Prepare and write framecount data
