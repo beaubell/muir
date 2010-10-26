@@ -24,7 +24,7 @@
 #include <stdexcept> // std::runtime_error
 #include <cmath>
 #include <complex>
-
+#include <complex.h>
 #include <fftw3.h>
 
 #define QUOTEME_(x) #x
@@ -939,6 +939,8 @@ void MuirData::process_fftw()
     std::size_t max_sets = 10;    //hard coded for now
     std::size_t max_cols = 500;   //hard coded for now
 
+    std::size_t phasecode_size = _phasecode.size();
+    
     fftw_complex *in, *out;
     fftw_plan p;
 
@@ -955,13 +957,14 @@ void MuirData::process_fftw()
 	
 	// Calculate each row
     for(std::size_t phase_code_offset = 0; phase_code_offset < max_rows; phase_code_offset++)
+    //for(std::size_t phase_code_offset = 0; phase_code_offset < 100; phase_code_offset++)
     {
         std::cout << "FFTW Row:" << phase_code_offset << std::endl;
 		
 		// Copy data into fftw vector, apply phasecode, and zero out the rest
         for(std::size_t row = 0; row < max_rows; row++)
         {
-            if((row >= phase_code_offset) && (row < (_phasecode.size() + phase_code_offset)))
+            if((row >= phase_code_offset) && (row < (phasecode_size + phase_code_offset)))
             {
                 float phase_multiplier = _phasecode[row-phase_code_offset];
     
@@ -993,17 +996,19 @@ void MuirData::process_fftw()
             for(std::size_t col = 0; col < max_cols; col++)
             {
                 fftw_complex max_value = {0.0,0.0};
+                double       max_abs = 0.0;
     
 				// Iterate through the column spectra and find the max value
                 for(std::size_t row = 0; row < max_rows; row++)
                 {
                     std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
 
-				    // FIXME - Comparing real part for now
-                    if (out[index][0] > max_value[0])
+                    double abs = sqrt(pow(out[index][0],2) + pow(out[index][1],2));
+                    if (abs > max_abs)
                     {
                         max_value[0] = out[index][0];
                         max_value[1] = out[index][1];
+                        max_abs = abs;
                     }
     
                 }
@@ -1012,7 +1017,7 @@ void MuirData::process_fftw()
                 (*_fftw_data)[set][col][phase_code_offset][1] = max_value[1];
             }
     }
-            
+
     fftw_destroy_plan(p);
     fftw_free(in);
     fftw_free(out);
