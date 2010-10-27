@@ -940,27 +940,36 @@ void MuirData::process_fftw()
     std::size_t max_cols = 500;   //hard coded for now
 
     std::size_t phasecode_size = _phasecode.size();
-    
-    fftw_complex *in, *out;
-    fftw_plan p;
 
-    fftw_init_threads();
+    #pragma omp critical (fftw)
+    {
+        fftw_init_threads();
+        fftw_plan_with_nthreads(4);
+    }
     
-    fftw_plan_with_nthreads(4);
-    
-    in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
-    out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
 	int N[1] = {max_rows};
 	
 	// Setup Plan
-	p = fftw_plan_many_dft(1, N, max_sets*max_cols, in, NULL, 1, max_rows, out, NULL, 1, max_rows, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
+	
 	
 	// Calculate each row
-    for(std::size_t phase_code_offset = 0; phase_code_offset < max_rows; phase_code_offset++)
+    #pragma omp parallel for
+    for(int phase_code_offset = 0; phase_code_offset < static_cast<int>(max_rows); phase_code_offset++)
     //for(std::size_t phase_code_offset = 0; phase_code_offset < 100; phase_code_offset++)
     {
-        std::cout << "FFTW Row:" << phase_code_offset << std::endl;
-		
+
+        // Setup for row
+        fftw_complex *in, *out;
+        fftw_plan p;
+
+        #pragma omp critical (fftw)
+        {
+            std::cout << "FFTW Row:" << phase_code_offset << std::endl;
+            in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
+            out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
+            p = fftw_plan_many_dft(1, N, max_sets*max_cols, in, NULL, 1, max_rows, out, NULL, 1, max_rows, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
+        }
+        
 		// Copy data into fftw vector, apply phasecode, and zero out the rest
         for(std::size_t row = 0; row < max_rows; row++)
         {
@@ -993,6 +1002,7 @@ void MuirData::process_fftw()
 
         // Output FFTW data
         for(std::size_t set = 0; set < max_sets; set++)
+        {
             for(std::size_t col = 0; col < max_cols; col++)
             {
                 fftw_complex max_value = {0.0,0.0};
@@ -1016,11 +1026,17 @@ void MuirData::process_fftw()
                 (*_fftw_data)[set][col][phase_code_offset][0] = max_value[0];
                 (*_fftw_data)[set][col][phase_code_offset][1] = max_value[1];
             }
+        }
+
+        #pragma omp critical (fftw)
+        {
+            fftw_destroy_plan(p);
+            fftw_free(in);
+            fftw_free(out);
+        }
     }
 
-    fftw_destroy_plan(p);
-    fftw_free(in);
-    fftw_free(out);
+    #pragma omp critical (fftw)
     fftw_cleanup_threads();
 }
 
