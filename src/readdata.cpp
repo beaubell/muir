@@ -60,8 +60,6 @@ int main (const int argc, const char * argv[])
 
    Flags flags;
 
-   // Signed iteration variable to silence openmp warnings
-   //#pragma omp parallel for
    for (int argi = 1; argi < argc; argi++)
    {
        // Check for commands

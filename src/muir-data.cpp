@@ -24,8 +24,10 @@
 #include <stdexcept> // std::runtime_error
 #include <cmath>
 #include <complex>
-#include <complex.h>
 #include <fftw3.h>
+
+
+#include <cassert>
 
 #define QUOTEME_(x) #x
 #define QUOTEME(x) QUOTEME_(x)
@@ -52,7 +54,7 @@ MuirData::MuirData(const std::string &filename_in, int option)
   _pulsewidth(0),
   _txbaud(0),
   _phasecode(),
-  _sample_data(NULL),
+  _sample_data(boost::extents[1][1][1][2]),
   _fftw_data(NULL),
   _sample_range(NULL),
   _framecount(NULL)
@@ -88,7 +90,8 @@ MuirData::MuirData(const std::string &filename_in, int option)
     read_times();
 
     // Dynamically allocate data storage arrays
-    _sample_data  = (SampleDataArray) new float[10][500][1100][2];
+    //_sample_data  = (SampleDataArray) new float[10][500][1100][2];
+    
     _fftw_data    = (FFTWDataArray) new float[10][500][1100][2]; 
     _sample_range = (SampleRangeArray) new float[1][1100];
 	_framecount = (FrameCountArray) new float[10][500];
@@ -103,7 +106,7 @@ MuirData::MuirData(const std::string &filename_in, int option)
     {
 
         // Dynamically allocate data storage arrays
-        _sample_data  = NULL;
+        //_sample_data  = NULL;
         _fftw_data    = (FFTWDataArray) new float[10][500][1100][2]; 
         _sample_range = (SampleRangeArray) new float[1][1100];
         _framecount = (FrameCountArray) new float[10][500];
@@ -116,7 +119,7 @@ MuirData::MuirData(const std::string &filename_in, int option)
 // Destructor
 MuirData::~MuirData()
 {
-    delete[] _sample_data;
+    //delete[] _sample_data;
     delete[] _sample_range;
     delete[] _framecount;
     delete[] _fftw_data;
@@ -332,6 +335,7 @@ void MuirData::read_sampledata()
         throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
               std::string("Expecting dimensions (10,500,1100,2) in ") + dataset_name + " from " + _filename));
 
+    
 
 #if 0  // memspaces and hyperslabs are not used
     H5::DataSpace memspace( rank, dimsm );
@@ -354,6 +358,10 @@ void MuirData::read_sampledata()
 
 #endif
 
+    // Initialize boost multi_array;
+    _sample_data.resize(boost::extents[dimsm[0]][dimsm[1]][dimsm[2]][dimsm[3]]);
+
+
     hsize_t i, j, k, l;
 
     for (j = 0; j < dimsm[0]; j++)
@@ -362,12 +370,12 @@ void MuirData::read_sampledata()
         {
         for (k = 0; k < dimsm[2]; k++)
             for (l = 0; l < dimsm[3]; l++) 
-                (*_sample_data)[j][i][k][l] = 0;
+                _sample_data[j][i][k][l] = 0;
         }
     }
 
     // Get data
-    dataset.read(_sample_data, H5::PredType::NATIVE_FLOAT);
+    dataset.read(_sample_data.data(), H5::PredType::NATIVE_FLOAT);
 
     return;
 }
@@ -499,11 +507,12 @@ void MuirData::print_onesamplecolumn(float (&sample)[1100][2], float (&range)[11
     std::cout << std::endl;
 }
 
+/*
 void MuirData::print_onesamplecolumn(std::size_t run, std::size_t column)
 {
     print_onesamplecolumn((*_sample_data)[run][column], (*_sample_range)[0]);
 }
-
+*/
 
 void MuirData::print_stats()
 {
@@ -649,21 +658,21 @@ void MuirData::save_2dplot(const std::string &output_file)
 
                 if (delta_t == 1)
                 {
-                    unsigned char pixel = static_cast<unsigned int>(std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][k][i][0], (*_sample_data)[set][k][i][1])))*10*4));
+                    unsigned char pixel = static_cast<unsigned int>(std::min(254.0,log10(norm(std::complex<float>(_sample_data[set][k][i][0], _sample_data[set][k][i][1])))*10*4));
                     gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, pixel);
                 }
                 else if (delta_t == 2)
                 {
-                    float col1 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k][i][0], (*_sample_data)[set][delta_t*k][i][1])))*10*4);
-                    float col2 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+1][i][0], (*_sample_data)[set][delta_t*k+1][i][1])))*10*4);
+                    float col1 = std::min(254.0,log10(norm(std::complex<float>(_sample_data[set][delta_t*k][i][0], _sample_data[set][delta_t*k][i][1])))*10*4);
+                    float col2 = std::min(254.0,log10(norm(std::complex<float>(_sample_data[set][delta_t*k+1][i][0], _sample_data[set][delta_t*k+1][i][1])))*10*4);
                     gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, static_cast<unsigned char>((col1 + col2)/2.0));
                 }
                 else if (delta_t == 4) // It might be better if this was a loop.....  just a thought.  It does look rather loopworthy...
                 {
-                    float col1 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k][i][0], (*_sample_data)[set][delta_t*k][i][1])))*10*4);
-                    float col2 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+1][i][0], (*_sample_data)[set][delta_t*k+1][i][1])))*10*4);
-                    float col3 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+2][i][0], (*_sample_data)[set][delta_t*k+2][i][1])))*10*4);
-                    float col4 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+3][i][0], (*_sample_data)[set][delta_t*k+3][i][1])))*10*4);
+                    float col1 = std::min(254.0,log10(norm(std::complex<float>(_sample_data[set][delta_t*k][i][0], _sample_data[set][delta_t*k][i][1])))*10*4);
+                    float col2 = std::min(254.0,log10(norm(std::complex<float>(_sample_data[set][delta_t*k+1][i][0], _sample_data[set][delta_t*k+1][i][1])))*10*4);
+                    float col3 = std::min(254.0,log10(norm(std::complex<float>(_sample_data[set][delta_t*k+2][i][0], _sample_data[set][delta_t*k+2][i][1])))*10*4);
+                    float col4 = std::min(254.0,log10(norm(std::complex<float>(_sample_data[set][delta_t*k+3][i][0], _sample_data[set][delta_t*k+3][i][1])))*10*4);
                     gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, static_cast<unsigned char>((col1 + col2 + col3 + col4)/4.0));
                 }
             }
@@ -944,7 +953,7 @@ void MuirData::process_fftw()
     #pragma omp critical (fftw)
     {
         fftw_init_threads();
-        fftw_plan_with_nthreads(4);
+        fftw_plan_with_nthreads(2);
     }
     
 	int N[1] = {max_rows};
@@ -969,20 +978,20 @@ void MuirData::process_fftw()
             out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
             p = fftw_plan_many_dft(1, N, max_sets*max_cols, in, NULL, 1, max_rows, out, NULL, 1, max_rows, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
         }
-        
+
 		// Copy data into fftw vector, apply phasecode, and zero out the rest
         for(std::size_t row = 0; row < max_rows; row++)
         {
             if((row >= phase_code_offset) && (row < (phasecode_size + phase_code_offset)))
             {
                 float phase_multiplier = _phasecode[row-phase_code_offset];
-    
+
                 for(std::size_t set = 0; set < max_sets; set++)
                     for(std::size_t col = 0; col < max_cols; col++)
                     {
 						std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
-                        in[index][0] = (*_sample_data)[set][col][row][0] * phase_multiplier;
-                        in[index][1] = (*_sample_data)[set][col][row][1] * phase_multiplier;
+                        in[index][0] = _sample_data[set][col][row][0] * phase_multiplier;
+                        in[index][1] = _sample_data[set][col][row][1] * phase_multiplier;
                     }
             }
             else // ZEROS!
@@ -1006,14 +1015,14 @@ void MuirData::process_fftw()
             for(std::size_t col = 0; col < max_cols; col++)
             {
                 fftw_complex max_value = {0.0,0.0};
-                double       max_abs = 0.0;
+                float       max_abs = 0.0;
     
 				// Iterate through the column spectra and find the max value
                 for(std::size_t row = 0; row < max_rows; row++)
                 {
                     std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
 
-                    double abs = sqrt(pow(out[index][0],2) + pow(out[index][1],2));
+                    float abs = sqrtf(powf(out[index][0],2) + powf(out[index][1],2));
                     if (abs > max_abs)
                     {
                         max_value[0] = out[index][0];

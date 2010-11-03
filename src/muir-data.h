@@ -11,7 +11,7 @@
 //
 
 #include "H5Cpp.h"
-
+#include "boost/multi_array.hpp"
 #include <string>
 #include <vector>
 
@@ -60,10 +60,13 @@ class MuirData
     void        print_onesamplecolumn(float (&sample)[1100][2], float (&range)[1100]);
     std::vector<int> _phasecode;
 
-    typedef float (*SampleDataArray)[10][500][1100][2];
+    //typedef float (*SampleDataArray)[10][500][1100][2];
+    //SampleDataArray _sample_data;
+    typedef boost::multi_array<float , 4> SampleDataArray;
     SampleDataArray _sample_data;
+    
     typedef float (*FFTWDataArray)[10][500][1100][2];
-    SampleDataArray _fftw_data;
+    FFTWDataArray _fftw_data;
 
     typedef float (*SampleRangeArray)[1][1100];
     SampleRangeArray _sample_range;
