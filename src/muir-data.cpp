@@ -13,6 +13,7 @@
 
 
 #include "muir-data.h"
+#include "muir-hd5.h"
 
 #include <gd.h>
 #include <gdfontl.h>
@@ -61,18 +62,19 @@ MuirData::MuirData(const std::string &filename_in, int option)
 {
     if (option == 0)
     {
+        MuirHD5 file_in(_filename, H5F_ACC_RDONLY);
     // Read Pulsewidth
-    _pulsewidth = read_scalar_float(PULSEWIDTH_PATH);
+    _pulsewidth = file_in.read_scalar_float(PULSEWIDTH_PATH);
 
     // Read TXBuad
-    _txbaud = read_scalar_float(BAUDLENGTH_PATH);
+    _txbaud = file_in.read_scalar_float(BAUDLENGTH_PATH);
 
  //   std::cout << "Pulsewidth: " << _pulsewidth << std::endl;
  //   std::cout << "TX Baud   : " << _txbaud << std::endl;
  //   std::cout << "PW/TXBaud : " << _pulsewidth/_txbaud << std::endl;
 
     // Read Phasecode and run sanity checks
-    read_phasecode();
+    read_phasecode(file_in);
 
  //   std::cout << "Phase Code: ";
  //   for(int i = 0; i < _phasecode.size(); i++)
@@ -96,8 +98,9 @@ MuirData::MuirData(const std::string &filename_in, int option)
     _sample_range = (SampleRangeArray) new float[1][1100];
 	_framecount = (FrameCountArray) new float[10][500];
 
+    // Read in sample data
+    file_in.read_4D_float(SAMPLEDATA_PATH, _sample_data);
 
-    read_sampledata();
     read_samplerange();
 	read_framecount();
     }
@@ -127,60 +130,9 @@ MuirData::~MuirData()
 }
 
 
-float MuirData::read_scalar_float(const H5std_string &dataset_name)
+void MuirData::read_phasecode(const MuirHD5 &file_in)
 {
-
-   float data_out[1] = {0.0f};
-
-   // Get dataset
-   H5::DataSet dataset = _h5file.openDataSet( dataset_name );
-
-   // Get Type class
-   H5T_class_t type_class = dataset.getTypeClass();
-
-   // Check to see if we are dealing with floats
-   if( type_class != H5T_FLOAT )
-      throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                               std::string("Expecting FLOAT Type from ") + dataset_name + " in " + _filename));
-
-   // Read scalar float
-   dataset.read(data_out, H5::PredType::NATIVE_FLOAT);
-
-   return data_out[0];
-}
-
-
-std::string MuirData::read_string(const H5std_string &dataset_name)
-{
-
-   H5std_string buffer("");
-
-   // Get dataset
-   H5::DataSet dataset = _h5file.openDataSet( dataset_name );
-
-   // Get Type class
-   H5T_class_t type_class = dataset.getTypeClass();
-
-   // Check to see if we are dealing with floats
-   if( type_class != H5T_STRING )
-      throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                               std::string("Expecting STRING Type from ") + dataset_name + " in " + _filename));
-
-   H5::DataType dtype = dataset.getDataType();
-
-   //hsize_t size = dataset.getStorageSize ();
-   //std::cout << "Storage size required: " << size << std::endl;
-
-   // Read string
-   dataset.read( buffer, dtype);
-
-   return buffer;
-}
-
-
-void MuirData::read_phasecode()
-{
-    std::string experimentfile = read_string(EXPERIMENTFILE_PATH);
+    std::string experimentfile = file_in.read_string(EXPERIMENTFILE_PATH);
 
     // Parse experimentfile...
     std::size_t index_min = experimentfile.find(";Code=");
@@ -196,14 +148,14 @@ void MuirData::read_phasecode()
     {
         if (phasecode_bulk[i] == '+')
         {
-           _phasecode.push_back(1);
-           continue;
+            _phasecode.push_back(1);
+            continue;
         }
  
         if (phasecode_bulk[i] == '-')
         {
-           _phasecode.push_back(-1);
-           continue;
+            _phasecode.push_back(-1);
+            continue;
         }
     }
 }
@@ -296,92 +248,6 @@ void MuirData::read_times()
 
     return;
 }
-
-
-void MuirData::read_sampledata()
-{
-
-    // Get Dataset
-    const std::string &dataset_name = SAMPLEDATA_PATH;
-    H5::DataSet dataset = _h5file.openDataSet( dataset_name );
-
-    // Get Type classype::NATIVE_FLOAT
-    H5T_class_t type_class = dataset.getTypeClass();
-
-    // Check to see if we are dealing with floats
-    if( type_class != H5T_FLOAT )
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting H5T_FLOAT Type in ") + dataset_name + " from " + _filename));
-
-    // Get size of datatpe and verify
-    H5::FloatType floattype = dataset.getFloatType();
-    size_t size = floattype.getSize();
-    if(size != 4)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-              std::string("Expecting float size to be 4 (float) in ") + dataset_name + " from " + _filename));
-
-    // Get dataspace handle
-    H5::DataSpace dataspace = dataset.getSpace();
-
-    // Get rank and verify
-    int rank = dataspace.getSimpleExtentNdims();
-    if(rank != 4)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-              std::string("Expecting rank to be 4 dimensions in ") + dataset_name + " from " + _filename));
-
-    // Get dimensions and verify
-    hsize_t dimsm[4];
-    int ndims = dataspace.getSimpleExtentDims( dimsm, NULL);
-
-    if(dimsm[0] != 10 || dimsm[1] != 500 || dimsm[2] != 1100 || dimsm[3] != 2)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-              std::string("Expecting dimensions (10,500,1100,2) in ") + dataset_name + " from " + _filename));
-
-    
-
-#if 0  // memspaces and hyperslabs are not used
-    H5::DataSpace memspace( rank, dimsm );
-
-    /*
-    * Define memory hyperslab.
-    */
-    hsize_t      offset_out[4];	// hyperslab offset in memory
-    hsize_t      count_out[4];	// size of the hyperslab in memory
-    offset_out[0] = 0;
-    offset_out[1] = 0;
-    offset_out[2] = 0;
-    offset_out[3] = 0;
-    count_out[0]  = dimsm[0];
-    count_out[1]  = dimsm[1];
-    count_out[2]  = dimsm[2];
-    count_out[3]  = dimsm[3];
-
-    memspace.selectHyperslab( H5S_SELECT_SET, count_out, offset_out );
-
-#endif
-
-    // Initialize boost multi_array;
-    _sample_data.resize(boost::extents[dimsm[0]][dimsm[1]][dimsm[2]][dimsm[3]]);
-
-
-    hsize_t i, j, k, l;
-
-    for (j = 0; j < dimsm[0]; j++)
-    {
-        for (i = 0; i < dimsm[1]; i++)
-        {
-        for (k = 0; k < dimsm[2]; k++)
-            for (l = 0; l < dimsm[3]; l++) 
-                _sample_data[j][i][k][l] = 0;
-        }
-    }
-
-    // Get data
-    dataset.read(_sample_data.data(), H5::PredType::NATIVE_FLOAT);
-
-    return;
-}
-
 
 
 void MuirData::read_samplerange()

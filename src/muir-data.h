@@ -13,11 +13,13 @@
 //
 #define BOOST_DISABLE_ASSERTS 1
 #define NDEBUG 1
+#include "boost/multi_array.hpp"
 
 #include "H5Cpp.h"
-#include "boost/multi_array.hpp"
 #include <string>
 #include <vector>
+
+#include "muir-hd5.h"
 
 extern const std::string PULSEWIDTH_PATH;
 extern const std::string BAUDLENGTH_PATH;
@@ -37,7 +39,7 @@ class MuirData
     void print_stats();
     void save_2dplot(const std::string &output_file);
     void save_fftw_2dplot(const std::string &output_file);
-    
+
     void process_fftw();
     void save_decoded_data(const std::string &output_file);
     void read_decoded_data(const std::string &input_file);
@@ -52,12 +54,8 @@ class MuirData
     float       _pulsewidth;
     float       _txbaud;
 
-    float       read_scalar_float(const H5std_string &dataset_name);
-    std::string read_string(const H5std_string &dataset_name);
-
-    void        read_phasecode(void);
+    void        read_phasecode(const MuirHD5 &in);
     void        read_times(void);
-    void        read_sampledata(void);
     void        read_samplerange(void);
 	void        read_framecount(void);
 
