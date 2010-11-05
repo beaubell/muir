@@ -1,3 +1,5 @@
+#ifndef MUIR_DATA_H
+#define MUIR_DATA_H
 //
 // C++ Interface: muir-data
 //
@@ -81,3 +83,5 @@ class MuirData
 
 
 };
+
+#endif // #ifndef MUIR_DATA_H
