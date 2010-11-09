@@ -1,3 +1,5 @@
+#ifndef MUIR_DATA_H
+#define MUIR_DATA_H
 //
 // C++ Interface: muir-data
 //
@@ -9,11 +11,15 @@
 // 
 //
 //
+#define BOOST_DISABLE_ASSERTS 1
+#define NDEBUG 1
+#include "boost/multi_array.hpp"
 
 #include "H5Cpp.h"
-
 #include <string>
 #include <vector>
+
+#include "muir-hd5.h"
 
 extern const std::string PULSEWIDTH_PATH;
 extern const std::string BAUDLENGTH_PATH;
@@ -33,7 +39,7 @@ class MuirData
     void print_stats();
     void save_2dplot(const std::string &output_file);
     void save_fftw_2dplot(const std::string &output_file);
-    
+
     void process_fftw();
     void save_decoded_data(const std::string &output_file);
     void read_decoded_data(const std::string &input_file);
@@ -48,30 +54,34 @@ class MuirData
     float       _pulsewidth;
     float       _txbaud;
 
-    float       read_scalar_float(const H5std_string &dataset_name);
-    std::string read_string(const H5std_string &dataset_name);
-
-    void        read_phasecode(void);
+    void        read_phasecode(const MuirHD5 &in);
     void        read_times(void);
-    void        read_sampledata(void);
     void        read_samplerange(void);
 	void        read_framecount(void);
 
     void        print_onesamplecolumn(float (&sample)[1100][2], float (&range)[1100]);
     std::vector<int> _phasecode;
 
-    typedef float (*SampleDataArray)[10][500][1100][2];
+    typedef boost::multi_array<float , 4> SampleDataArray;
     SampleDataArray _sample_data;
-    typedef float (*FFTWDataArray)[10][500][1100][2];
-    SampleDataArray _fftw_data;
 
-    typedef float (*SampleRangeArray)[1][1100];
-    SampleRangeArray _sample_range;
-	typedef unsigned int (*FrameCountArray)[10][500];
-    FrameCountArray _framecount;
+    typedef boost::multi_array<float , 3> DecodedDataArray;
+    DecodedDataArray _decoded_data;
+    
+    //typedef float (*FFTWDataArray)[10][500][1100][2];
+    //FFTWDataArray _fftw_data;
 
-    double _time[10][2];
+    //typedef float (*SampleRangeArray)[1][1100];
+    //SampleRangeArray _sample_range;
+	//typedef unsigned int (*FrameCountArray)[10][500];
+    //FrameCountArray _framecount;
+
+	Muir2DArrayF  _sample_range;
+	Muir2DArrayUI _framecount;
+    Muir2DArrayD  _time;
 
 
 
 };
+
+#endif // #ifndef MUIR_DATA_H

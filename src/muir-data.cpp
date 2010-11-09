@@ -13,6 +13,7 @@
 
 
 #include "muir-data.h"
+#include "muir-hd5.h"
 
 #include <gd.h>
 #include <gdfontl.h>
@@ -24,8 +25,10 @@
 #include <stdexcept> // std::runtime_error
 #include <cmath>
 #include <complex>
-
 #include <fftw3.h>
+
+
+#include <cassert>
 
 #define QUOTEME_(x) #x
 #define QUOTEME(x) QUOTEME_(x)
@@ -48,65 +51,48 @@ const H5std_string DECODEDFRAME_PATH("/Decoded/FrameCount");
 // Constructor
 MuirData::MuirData(const std::string &filename_in, int option)
 : _filename(filename_in),
-  _h5file( _filename.c_str(), H5F_ACC_RDONLY ),
+  _h5file( _filename, H5F_ACC_RDONLY ),
   _pulsewidth(0),
   _txbaud(0),
   _phasecode(),
-  _sample_data(NULL),
-  _fftw_data(NULL),
-  _sample_range(NULL),
-  _framecount(NULL)
+  _sample_data(boost::extents[1][1][1][2]),
+  _decoded_data(boost::extents[1][1][1]),
+  _sample_range(boost::extents[1][1]),
+  _framecount(boost::extents[1][1]),
+  _time(boost::extents[1][2])
 {
     if (option == 0)
     {
+        MuirHD5 file_in(_filename, H5F_ACC_RDONLY);
     // Read Pulsewidth
-    _pulsewidth = read_scalar_float(PULSEWIDTH_PATH);
+    _pulsewidth = file_in.read_scalar_float(PULSEWIDTH_PATH);
 
     // Read TXBuad
-    _txbaud = read_scalar_float(BAUDLENGTH_PATH);
-
- //   std::cout << "Pulsewidth: " << _pulsewidth << std::endl;
- //   std::cout << "TX Baud   : " << _txbaud << std::endl;
- //   std::cout << "PW/TXBaud : " << _pulsewidth/_txbaud << std::endl;
+    _txbaud = file_in.read_scalar_float(BAUDLENGTH_PATH);
 
     // Read Phasecode and run sanity checks
-    read_phasecode();
-
- //   std::cout << "Phase Code: ";
- //   for(int i = 0; i < _phasecode.size(); i++)
- //     std::cout << _phasecode[i] << ",";
-
- //   std::cout << std::endl;
-    //std::cout << "Phase Code Len: " << _phasecode.size() << std::endl;
-
-    // Check to see if Pulsewidth/TXBaud equals the amount of phase code parsed.
-//    if(_phasecode.size() != _pulsewidth/_txbaud)
-//       throw(std::runtime_error(std::string(__FILE__) + ": " + std::string(QUOTEME(__LINE__)) + "  " +
-//                                std::string("Phase code parsed doesn't equal Pulsewidth/TXBaud! ")));
-
-    // Read start/stop times.
-    read_times();
+    read_phasecode(file_in);
 
     // Dynamically allocate data storage arrays
-    _sample_data  = (SampleDataArray) new float[10][500][1100][2];
-    _fftw_data    = (FFTWDataArray) new float[10][500][1100][2]; 
-    _sample_range = (SampleRangeArray) new float[1][1100];
-	_framecount = (FrameCountArray) new float[10][500];
+    //_sample_range = (SampleRangeArray) new float[1][1100];
+	//_framecount = (FrameCountArray) new float[10][500];
 
-
-    read_sampledata();
-    read_samplerange();
-	read_framecount();
+    // Read in sample data
+    file_in.read_4D_float(SAMPLEDATA_PATH, _sample_data);
+	file_in.read_2D_double(RADACTIME_PATH, _time);
+    file_in.read_2D_float(SAMPLERANGE_PATH, _sample_range);
+	file_in.read_2D_uint(FRAMECOUNT_PATH, _framecount);
+		
     }
 	
     if (option == 1)
     {
 
         // Dynamically allocate data storage arrays
-        _sample_data  = NULL;
-        _fftw_data    = (FFTWDataArray) new float[10][500][1100][2]; 
-        _sample_range = (SampleRangeArray) new float[1][1100];
-        _framecount = (FrameCountArray) new float[10][500];
+        //_sample_data  = NULL;
+        //_fftw_data    = (FFTWDataArray) new float[10][500][1100][2]; 
+        //_sample_range = (SampleRangeArray) new float[1][1100];
+        //_framecount = (FrameCountArray) new float[10][500];
 
         read_decoded_data(filename_in);
     }
@@ -116,68 +102,17 @@ MuirData::MuirData(const std::string &filename_in, int option)
 // Destructor
 MuirData::~MuirData()
 {
-    delete[] _sample_data;
-    delete[] _sample_range;
-    delete[] _framecount;
-    delete[] _fftw_data;
+    //delete[] _sample_data;
+    //delete[] _sample_range;
+    //delete[] _framecount;
+    //delete[] _fftw_data;
 
 }
 
 
-float MuirData::read_scalar_float(const H5std_string &dataset_name)
+void MuirData::read_phasecode(const MuirHD5 &file_in)
 {
-
-   float data_out[1] = {0.0f};
-
-   // Get dataset
-   H5::DataSet dataset = _h5file.openDataSet( dataset_name );
-
-   // Get Type class
-   H5T_class_t type_class = dataset.getTypeClass();
-
-   // Check to see if we are dealing with floats
-   if( type_class != H5T_FLOAT )
-      throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                               std::string("Expecting FLOAT Type from ") + dataset_name + " in " + _filename));
-
-   // Read scalar float
-   dataset.read(data_out, H5::PredType::NATIVE_FLOAT);
-
-   return data_out[0];
-}
-
-
-std::string MuirData::read_string(const H5std_string &dataset_name)
-{
-
-   H5std_string buffer("");
-
-   // Get dataset
-   H5::DataSet dataset = _h5file.openDataSet( dataset_name );
-
-   // Get Type class
-   H5T_class_t type_class = dataset.getTypeClass();
-
-   // Check to see if we are dealing with floats
-   if( type_class != H5T_STRING )
-      throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                               std::string("Expecting STRING Type from ") + dataset_name + " in " + _filename));
-
-   H5::DataType dtype = dataset.getDataType();
-
-   //hsize_t size = dataset.getStorageSize ();
-   //std::cout << "Storage size required: " << size << std::endl;
-
-   // Read string
-   dataset.read( buffer, dtype);
-
-   return buffer;
-}
-
-
-void MuirData::read_phasecode()
-{
-    std::string experimentfile = read_string(EXPERIMENTFILE_PATH);
+    std::string experimentfile = file_in.read_string(EXPERIMENTFILE_PATH);
 
     // Parse experimentfile...
     std::size_t index_min = experimentfile.find(";Code=");
@@ -193,297 +128,16 @@ void MuirData::read_phasecode()
     {
         if (phasecode_bulk[i] == '+')
         {
-           _phasecode.push_back(1);
-           continue;
+            _phasecode.push_back(1);
+            continue;
         }
  
         if (phasecode_bulk[i] == '-')
         {
-           _phasecode.push_back(-1);
-           continue;
+            _phasecode.push_back(-1);
+            continue;
         }
     }
-}
-
-
-void MuirData::read_times()
-{
-
-    // Get Dataset
-    const std::string &dataset_name = RADACTIME_PATH;
-    H5::DataSet dataset = _h5file.openDataSet( dataset_name );
-
-    // Get Type class
-    H5T_class_t type_class = dataset.getTypeClass();
-
-    // Check to see if we are dealing with floats
-    if( type_class != H5T_FLOAT )
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting H5T_FLOAT Type in ") + dataset_name + " from " + _filename));
-
-    // Get size of datatpe and verify
-    H5::FloatType floattype = dataset.getFloatType();
-    size_t size = floattype.getSize();
-    if(size != 8)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting float size to be 8 (double) in ") + dataset_name + " from " + _filename));
-
-    // Get dataspace handle
-    H5::DataSpace dataspace = dataset.getSpace();
-    
-    // Get rank and verify
-    int rank = dataspace.getSimpleExtentNdims();
-    if(rank != 2)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting rank to be 2 dimensions in ") + dataset_name + " from " + _filename));
-
-    // Get dimensions and verify
-    hsize_t dimsm[2];
-    int ndims = dataspace.getSimpleExtentDims( dimsm, NULL);
-
-    if(dimsm[0] != 10 || dimsm[1] != 2)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-              std::string("Expecting dimensions (10,2) in ") + dataset_name + " from " + _filename));
-    
-#if 0  //** NOT USED **
-                
-    H5::DataSpace memspace( rank, dimsm );
-    
-    /*
-    * Define memory hyperslab.   
-    */
-
-    hsize_t      offset_out[2];	// hyperslab offset in memory
-    hsize_t      count_out[2];	// size of the hyperslab in memory
-    offset_out[0] = 0;
-    offset_out[1] = 0;
-    count_out[0]  = dimsm[0];
-    count_out[1]  = dimsm[1];
-
-
-    memspace.selectHyperslab( H5S_SELECT_SET, count_out, offset_out );
-
-#endif
-
-    for (hsize_t j = 0; j < dimsm[0]; j++)
-    {
-        for (hsize_t i = 0; i < dimsm[1]; i++)
-        {
-            _time[j][i] = 0;
-        }
-    }
-
-#if 0
-    // Get attributes
-    H5::Attribute myatt_out = dataset.openAttribute("Descriptions");
-
-    H5::StrType strdatatype(H5::PredType::C_S1, myatt_out.getStorageSize());
-    std::string strreadbuf;
-
-    myatt_out.read(strdatatype, strreadbuf);
-    std::cout << "Description: " << strreadbuf << std::endl;
-#endif
-
-
-    // get data
-    dataset.read( _time, H5::PredType::NATIVE_DOUBLE );
-
-
-    return;
-}
-
-
-void MuirData::read_sampledata()
-{
-
-    // Get Dataset
-    const std::string &dataset_name = SAMPLEDATA_PATH;
-    H5::DataSet dataset = _h5file.openDataSet( dataset_name );
-
-    // Get Type classype::NATIVE_FLOAT
-    H5T_class_t type_class = dataset.getTypeClass();
-
-    // Check to see if we are dealing with floats
-    if( type_class != H5T_FLOAT )
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting H5T_FLOAT Type in ") + dataset_name + " from " + _filename));
-
-    // Get size of datatpe and verify
-    H5::FloatType floattype = dataset.getFloatType();
-    size_t size = floattype.getSize();
-    if(size != 4)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-              std::string("Expecting float size to be 4 (float) in ") + dataset_name + " from " + _filename));
-
-    // Get dataspace handle
-    H5::DataSpace dataspace = dataset.getSpace();
-
-    // Get rank and verify
-    int rank = dataspace.getSimpleExtentNdims();
-    if(rank != 4)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-              std::string("Expecting rank to be 4 dimensions in ") + dataset_name + " from " + _filename));
-
-    // Get dimensions and verify
-    hsize_t dimsm[4];
-    int ndims = dataspace.getSimpleExtentDims( dimsm, NULL);
-
-    if(dimsm[0] != 10 || dimsm[1] != 500 || dimsm[2] != 1100 || dimsm[3] != 2)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-              std::string("Expecting dimensions (10,500,1100,2) in ") + dataset_name + " from " + _filename));
-
-
-#if 0  // memspaces and hyperslabs are not used
-    H5::DataSpace memspace( rank, dimsm );
-
-    /*
-    * Define memory hyperslab.
-    */
-    hsize_t      offset_out[4];	// hyperslab offset in memory
-    hsize_t      count_out[4];	// size of the hyperslab in memory
-    offset_out[0] = 0;
-    offset_out[1] = 0;
-    offset_out[2] = 0;
-    offset_out[3] = 0;
-    count_out[0]  = dimsm[0];
-    count_out[1]  = dimsm[1];
-    count_out[2]  = dimsm[2];
-    count_out[3]  = dimsm[3];
-
-    memspace.selectHyperslab( H5S_SELECT_SET, count_out, offset_out );
-
-#endif
-
-    hsize_t i, j, k, l;
-
-    for (j = 0; j < dimsm[0]; j++)
-    {
-        for (i = 0; i < dimsm[1]; i++)
-        {
-        for (k = 0; k < dimsm[2]; k++)
-            for (l = 0; l < dimsm[3]; l++) 
-                (*_sample_data)[j][i][k][l] = 0;
-        }
-    }
-
-    // Get data
-    dataset.read(_sample_data, H5::PredType::NATIVE_FLOAT);
-
-    return;
-}
-
-
-
-void MuirData::read_samplerange()
-{
-
-    // Get Dataset
-    const std::string &dataset_name = SAMPLERANGE_PATH;
-    H5::DataSet dataset = _h5file.openDataSet( dataset_name );
-
-    // Get Type class
-    H5T_class_t type_class = dataset.getTypeClass();
-
-    // Check to see if we are dealing with floats
-    if( type_class != H5T_FLOAT )
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting H5T_FLOAT Type in ") + dataset_name + " from " + _filename));
-
-    // Get size of datatpe and verify
-    H5::FloatType floattype = dataset.getFloatType();
-    size_t size = floattype.getSize();
-    if(size != 4)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting float size to be 4 (float) in ") + dataset_name + " from " + _filename));
-
-    // Get dataspace handle
-    H5::DataSpace dataspace = dataset.getSpace();
-
-    // Get rank and verify
-    int rank = dataspace.getSimpleExtentNdims();
-    if(rank != 2)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting rank to be 2 dimensions in ") + dataset_name + " from " + _filename));
-
-    // Get dimensions and verify
-    hsize_t dimsm[2];
-    int ndims = dataspace.getSimpleExtentDims( dimsm, NULL);
-
-    if(dimsm[0] != 1 || dimsm[1] != 1100 )
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting dimensions (1,1100) in ") + dataset_name + " from " + _filename));
-
-
-    hsize_t i, j;
-    for (j = 0; j < dimsm[0]; j++)
-    {
-        for (i = 0; i < dimsm[1]; i++)
-        {
-            (*_sample_range)[j][i] = 0;
-        }
-    }
-
-    // Get data
-    dataset.read(_sample_range, H5::PredType::NATIVE_FLOAT);
-
-    return;
-}
-
-
-// READ FRAMECOUNTS
-void MuirData::read_framecount()
-{
-	
-    // Get Dataset
-    const std::string &dataset_name = FRAMECOUNT_PATH;
-    H5::DataSet dataset = _h5file.openDataSet( dataset_name );
-	
-    // Get Type class
-    H5T_class_t type_class = dataset.getTypeClass();
-	
-    // Check to see if we are dealing with floats
-    if( type_class != H5T_INTEGER )
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-								 std::string("Expecting H5T_INTEGER Type in ") + dataset_name + " from " + _filename));
-	
-    // Get size of datatpe and verify
-    H5::IntType inttype = dataset.getIntType();
-    size_t size = inttype.getSize();
-    if(size != 4)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-								 std::string("Expecting float size to be 4 (integer) in ") + dataset_name + " from " + _filename));
-	
-    // Get dataspace handle
-    H5::DataSpace dataspace = dataset.getSpace();
-	
-    // Get rank and verify
-    int rank = dataspace.getSimpleExtentNdims();
-    if(rank != 2)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-								 std::string("Expecting rank to be 2 dimensions in ") + dataset_name + " from " + _filename));
-	
-    // Get dimensions and verify
-    hsize_t dimsm[2];
-    int ndims = dataspace.getSimpleExtentDims( dimsm, NULL);
-	
-    if(dimsm[0] != 10 || dimsm[1] != 500 )
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-								 std::string("Expecting dimensions (10,500) in ") + dataset_name + " from " + _filename));
-	
-	
-    hsize_t i, j;
-    for (j = 0; j < dimsm[0]; j++)
-    {
-        for (i = 0; i < dimsm[1]; i++)
-        {
-            (*_framecount)[j][i] = 0;
-        }
-    }
-	
-    // Get data
-    dataset.read(_framecount, H5::PredType::NATIVE_UINT);
-	
-    return;
 }
 
 
@@ -499,11 +153,12 @@ void MuirData::print_onesamplecolumn(float (&sample)[1100][2], float (&range)[11
     std::cout << std::endl;
 }
 
+/*
 void MuirData::print_onesamplecolumn(std::size_t run, std::size_t column)
 {
     print_onesamplecolumn((*_sample_data)[run][column], (*_sample_range)[0]);
 }
-
+*/
 
 void MuirData::print_stats()
 {
@@ -564,17 +219,22 @@ void MuirData::save_2dplot(const std::string &output_file)
 {
     // Image and Dataset Variables
     std::size_t delta_t = 1;
-    std::size_t dataset_width  = 500;
-    std::size_t dataset_count  = 10;   // # sets
-    std::size_t dataset_height = 1100; // Range bins
+
+    // Get dataset shape
+    const SampleDataArray::size_type *array_dims = _sample_data.shape();
+    assert(_sample_data.num_dimensions() == 4);
+
+    SampleDataArray::size_type dataset_count = array_dims[0];  // # sets
+    SampleDataArray::size_type dataset_width = array_dims[1];  // Rows per set
+    SampleDataArray::size_type dataset_height = array_dims[2]; // Range bins
 
     std::size_t axis_x_height = 40;
     std::size_t axis_y_width  = 40;
     std::size_t border = 1;
     std::size_t colorbar_width = 60;
 
-    std::size_t start_frame = (*_framecount)[0][0];
-    std::size_t end_frame = (*_framecount)[9][499];
+    std::size_t start_frame = _framecount[0][0];
+    std::size_t end_frame = _framecount[dataset_count-1][dataset_width-1];
     std::size_t num_frames = end_frame - start_frame;
 
     std::size_t width            = (num_frames)/delta_t+(border*4)+ colorbar_width + axis_y_width;
@@ -629,6 +289,26 @@ void MuirData::save_2dplot(const std::string &output_file)
     white = gdImageColorAllocate(im, 255, 255, 255);
     palette[255] = white;
 
+    // Finding maxes and mins
+    std::cerr << "Determining data mins and maxes for color pallete" << std::endl;
+    float data_min = log10(norm(std::complex<float>(_sample_data[0][0][0][0], _sample_data[0][0][0][1]))+1)*10;
+    float data_max = log10(norm(std::complex<float>(_sample_data[0][0][0][0], _sample_data[0][0][0][1]))+1)*10;
+
+    for (SampleDataArray::size_type set = 0; set < dataset_count; set++)
+    {
+        for (SampleDataArray::size_type col = 0; col < dataset_width; col++)
+        {
+            for (SampleDataArray::size_type row = 0; row < dataset_height; row++)
+            {
+                float sample = log10(norm(std::complex<float>(_sample_data[set][col][row][0], _sample_data[set][col][row][1]))+1)*10;
+                data_min = std::min(data_min,sample);
+                data_max = std::max(data_max,sample);
+            }
+        }
+    }
+
+    std::cerr << "Found MIN/MAX: " << data_min << "," << data_max << std::endl;
+
     // Write data
     std::cerr << "CREATING IMAGE" << std::endl;
 
@@ -638,7 +318,7 @@ void MuirData::save_2dplot(const std::string &output_file)
     #pragma omp parallel for
 	for (signed int set = 0; set < static_cast<signed int>(dataset_count); set++)
 	{
-		std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t;
+		std::size_t frameoffset = (_framecount[set][0]-start_frame)/delta_t;
 		
     
 		for (std::size_t i = 0; i < dataset_height; i++)
@@ -649,31 +329,33 @@ void MuirData::save_2dplot(const std::string &output_file)
 
                 if (delta_t == 1)
                 {
-                    unsigned char pixel = static_cast<unsigned int>(std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][k][i][0], (*_sample_data)[set][k][i][1])))*10*4));
+                    float sample = log10(norm(std::complex<float>(_sample_data[set][k][i][0], _sample_data[set][k][i][1]))+1)*10;
+                    unsigned char pixel = static_cast<unsigned char>((sample-data_min)/(data_max-data_min)*255);
                     gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, pixel);
                 }
                 else if (delta_t == 2)
                 {
-                    float col1 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k][i][0], (*_sample_data)[set][delta_t*k][i][1])))*10*4);
-                    float col2 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+1][i][0], (*_sample_data)[set][delta_t*k+1][i][1])))*10*4);
-                    gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, static_cast<unsigned char>((col1 + col2)/2.0));
+                    float col1 = log10(norm(std::complex<float>(_sample_data[set][delta_t*k][i][0], _sample_data[set][delta_t*k][i][1])))*10;
+                    float col2 = log10(norm(std::complex<float>(_sample_data[set][delta_t*k+1][i][0], _sample_data[set][delta_t*k+1][i][1])))*10;
+                    unsigned char pixel = static_cast<unsigned char>((((col1 + col2)/2.0)-data_min)/(data_max-data_min)*255);
+                    gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, pixel);
                 }
                 else if (delta_t == 4) // It might be better if this was a loop.....  just a thought.  It does look rather loopworthy...
                 {
-                    float col1 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k][i][0], (*_sample_data)[set][delta_t*k][i][1])))*10*4);
-                    float col2 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+1][i][0], (*_sample_data)[set][delta_t*k+1][i][1])))*10*4);
-                    float col3 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+2][i][0], (*_sample_data)[set][delta_t*k+2][i][1])))*10*4);
-                    float col4 = std::min(254.0,log10(norm(std::complex<float>((*_sample_data)[set][delta_t*k+3][i][0], (*_sample_data)[set][delta_t*k+3][i][1])))*10*4);
-                    gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, static_cast<unsigned char>((col1 + col2 + col3 + col4)/4.0));
+                    float col1 = log10(norm(std::complex<float>(_sample_data[set][delta_t*k][i][0], _sample_data[set][delta_t*k][i][1])))*10;
+                    float col2 = log10(norm(std::complex<float>(_sample_data[set][delta_t*k+1][i][0], _sample_data[set][delta_t*k+1][i][1])))*10;
+                    float col3 = log10(norm(std::complex<float>(_sample_data[set][delta_t*k+2][i][0], _sample_data[set][delta_t*k+2][i][1])))*10;
+                    float col4 = log10(norm(std::complex<float>(_sample_data[set][delta_t*k+3][i][0], _sample_data[set][delta_t*k+3][i][1])))*10;
+                    unsigned char pixel = static_cast<unsigned char>((((col1 + col2 + col3 + col4)/4.0)-data_min)/(data_max-data_min)*255);
+                    gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, pixel);
                 }
             }
+
 			// Color bar
 			for (std::size_t col = 0; col < colorbar_width/3; col++)
-				gdImageSetPixel(im, width-1-colorbar_width+col, dataset_height-i, static_cast<unsigned char>((float(i)/dataset_height)*(256.0)));
-			
-		}
+				gdImageSetPixel(im, width-1-colorbar_width+col, dataset_height-i, static_cast<unsigned char>((float(i)/dataset_height)*(255.0)));
 
-        
+		}
 
         //if (!(i%10))
             std::cout << "SET: " << set << std::endl;
@@ -683,11 +365,8 @@ void MuirData::save_2dplot(const std::string &output_file)
 
     // Fontness
     gdFontPtr font = gdFontGetLarge();
-    //char *str = "TEST TEST TEST TEST TEST TEST";
-    //gdImageString(im, font, 10,10, reinterpret_cast<unsigned char*>(str), white);
-    
-    // Bottom Axis
 
+    // Bottom Axis
     std::size_t xaxis_offset = (axis_y_width + border);
     std::size_t xaxis_end = num_frames/delta_t;
     std::size_t xaxis_height1 = axis_x_height / 4;
@@ -702,7 +381,7 @@ void MuirData::save_2dplot(const std::string &output_file)
     }
     for (std::size_t set = 0; set < dataset_count; set++)
     {
-        std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t + axis_y_width + border;
+        std::size_t frameoffset = (_framecount[set][0]-start_frame)/delta_t + axis_y_width + border;
         gdImageLine(im, frameoffset, xaxis_yoffset, frameoffset, xaxis_yoffset + xaxis_height1*2 , black);
         
         char buf1[80];
@@ -740,8 +419,18 @@ void MuirData::save_2dplot(const std::string &output_file)
     {
         gdImageLine(im, axis_y_width/2, y, axis_y_width, y, black);
         char buf[80];
-        sprintf(buf,"%-3.1fkm",((*_sample_range)[0][1100-y])/1000);
+        sprintf(buf,"%-3.1fkm",(_sample_range[0][1100-y])/1000);
         gdImageStringUp(im, font, 5, y+border+20, reinterpret_cast<unsigned char*>(buf), black);
+    }
+
+    // Color Bar Text
+    gdImageFilledRectangle(im, width-colorbar_width+colorbar_width/3, 0, width, height, white);
+    for (std::size_t y = 50; y <= dataset_height; y = y + 80)
+    {
+        gdImageLine(im, width-1-colorbar_width+colorbar_width/3, y, width-1-colorbar_width+colorbar_width/2, y, black);
+        char buf[80];
+        sprintf(buf,"%-3.1fdb",(static_cast<float>(dataset_height-(y-border))/static_cast<float>(dataset_height)*(data_max-data_min))+data_min);
+        gdImageStringUp(im, font, width-20, y+border+20, reinterpret_cast<unsigned char*>(buf), black);
         //std::cout << y << ":" << 1099-y << "-" << (*_sample_range)[0][1099-y]/1000 << " " << std::endl;
     }
 
@@ -758,17 +447,22 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
 {
     // Image and Dataset Variables
     std::size_t delta_t = 1;
-    std::size_t dataset_width  = 500;
-    std::size_t dataset_count  = 10;   // # sets
-    std::size_t dataset_height = 1100; // Range bins
+
+    // Get dataset shape
+    const DecodedDataArray::size_type *array_dims = _decoded_data.shape();
+    assert(_decoded_data.num_dimensions() == 3);
+
+    DecodedDataArray::size_type dataset_count = array_dims[0];  // # sets
+    DecodedDataArray::size_type dataset_width = array_dims[1];  // Rows per set
+    DecodedDataArray::size_type dataset_height = array_dims[2]; // Range bins
 
     std::size_t axis_x_height = 40;
     std::size_t axis_y_width  = 40;
     std::size_t border = 1;
     std::size_t colorbar_width = 60;
 
-    std::size_t start_frame = (*_framecount)[0][0];
-    std::size_t end_frame = (*_framecount)[9][499];
+    std::size_t start_frame = _framecount[0][0];
+    std::size_t end_frame = _framecount[dataset_count-1][dataset_width-1];
     std::size_t num_frames = end_frame - start_frame;
 
     std::size_t width            = (num_frames)/delta_t+(border*4)+ colorbar_width + axis_y_width;
@@ -791,7 +485,7 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
         throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
                 std::string("Failed to create GD Image Pointer.")));
 
-    // 
+    // Initialize color pallete
     int black;
     int white;
 
@@ -800,13 +494,40 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
     palette[0] = gdImageColorAllocate(im, 0, 0, 0); 
     black = palette[0];
 
-    for (int i = 1; i < 255;i++) // blue -> red
+    for (int i = 1; i < 85;i++) // blue -> red
     {
-        palette[i] = gdImageColorAllocate(im, 0, 0, i); 
+        palette[i] = gdImageColorAllocate(im, 0, 0, i*3); 
     }
-
+    for (int i = 0; i < 85;i++) // blue -> red
+    {
+        palette[85+i] = gdImageColorAllocate(im, 0, i*3, 255-i*3); 
+    }
+    for (int i = 0; i < 85;i++) // blue -> red
+    {
+        palette[170+i] = gdImageColorAllocate(im, i*3, 255-i*3,0 ); 
+    }
     white = gdImageColorAllocate(im, 255, 255, 255);
     palette[255] = white;
+
+    // Finding maxes and mins
+    std::cerr << "Determining data mins and maxes for color pallete" << std::endl;
+    float data_min = log10(_decoded_data[0][0][0]+1)*10;
+    float data_max = log10(_decoded_data[0][0][0]+1)*10;
+
+    for (SampleDataArray::size_type set = 0; set < dataset_count; set++)
+    {
+        for (SampleDataArray::size_type col = 0; col < dataset_width; col++)
+        {
+            for (SampleDataArray::size_type row = 0; row < dataset_height; row++)
+            {
+                float sample = log10(_decoded_data[set][col][row]+1)*10;
+                data_min = std::min(data_min,sample);
+                data_max = std::max(data_max,sample);
+            }
+        }
+    }
+
+    std::cerr << "Found MIN/MAX: " << data_min << "," << data_max << std::endl;
 
     // Write data
     std::cerr << "CREATING IMAGE" << std::endl;
@@ -817,9 +538,8 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
     #pragma omp parallel for
     for (signed int set = 0; set < static_cast<signed int>(dataset_count); set++)
 	{
-		std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t;
-		
-    
+		std::size_t frameoffset = (_framecount[set][0]-start_frame)/delta_t;
+
 		for (unsigned int i = 0; i < dataset_height ;i++)
 		{
 
@@ -828,45 +548,42 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
 
                 if (delta_t == 1)
                 {
-                    unsigned char pixel = static_cast<unsigned int>(std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][k][i][0], (*_fftw_data)[set][k][i][1])))*10*4));
+                    float sample = log10(_decoded_data[set][k][i]+1)*10;
+                    unsigned char pixel = static_cast<unsigned char>((sample-data_min)/(data_max-data_min)*255);
                     gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, pixel);
                 }
                 else if (delta_t == 2)
                 {
-                    float col1 = std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][delta_t*k][i][0], (*_fftw_data)[set][delta_t*k][i][1])))*10);
-                    float col2 = std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][delta_t*k+1][i][0], (*_fftw_data)[set][delta_t*k+1][i][1])))*10);
-                    gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, static_cast<unsigned char>((col1 + col2)/2.0));
+                    float col1 = log10(_decoded_data[set][delta_t*k][i]+1)*10;
+                    float col2 = log10(_decoded_data[set][delta_t*k+1][i]+1)*10;
+                    unsigned char pixel = static_cast<unsigned char>((((col1 + col2)/2.0)-data_min)/(data_max-data_min)*255);
+                    gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, pixel);
                 }
                 else if (delta_t == 4) // It might be better if this was a loop.....  just a thought.  It does look rather loopworthy...
                 {
-                    float col1 = std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][delta_t*k][i][0], (*_fftw_data)[set][delta_t*k][i][1])))*10);
-                    float col2 = std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][delta_t*k+1][i][0], (*_fftw_data)[set][delta_t*k+1][i][1])))*10);
-                    float col3 = std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][delta_t*k+2][i][0], (*_fftw_data)[set][delta_t*k+2][i][1])))*10);
-                    float col4 = std::min(254.0,log10(norm(std::complex<float>((*_fftw_data)[set][delta_t*k+3][i][0], (*_fftw_data)[set][delta_t*k+3][i][1])))*10);
-                    gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, static_cast<unsigned char>((col1 + col2 + col3 + col4)/4.0));
+                    float col1 = log10(_decoded_data[set][delta_t*k][i]+1)*10;
+                    float col2 = log10(_decoded_data[set][delta_t*k+1][i]+1)*10;
+                    float col3 = log10(_decoded_data[set][delta_t*k+2][i]+1)*10;
+                    float col4 = log10(_decoded_data[set][delta_t*k+3][i]+1)*10;
+                    unsigned char pixel = static_cast<unsigned char>((((col1 + col2 + col3 + col4)/4.0)-data_min)/(data_max-data_min)*255);
+                    gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, pixel);
                 }
             }
 			// Color bar
 			for (std::size_t col = 0; col < colorbar_width/3; col++)
-				gdImageSetPixel(im, width-1-colorbar_width+col, dataset_height-i, static_cast<unsigned char>((float(i)/dataset_height)*(256.0)));
-			
-		}
+				gdImageSetPixel(im, width-1-colorbar_width+col, dataset_height-i, static_cast<unsigned char>((float(i)/dataset_height)*(255.0)));
 
-        
+		}
 
         //if (!(i%10))
             std::cout << "SET: " << set << std::endl;
-
 
     }
 
     // Fontness
     gdFontPtr font = gdFontGetLarge();
-    //char *str = "TEST TEST TEST TEST TEST TEST";
-    //gdImageString(im, font, 10,10, reinterpret_cast<unsigned char*>(str), white);
-    
-    // Bottom Axis
 
+    // Bottom Axis
     std::size_t xaxis_offset = (axis_y_width + border);
     std::size_t xaxis_end = num_frames/delta_t;
     std::size_t xaxis_height1 = axis_x_height / 4;
@@ -881,7 +598,7 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
     }
     for (std::size_t set = 0; set < dataset_count; set++)
     {
-        std::size_t frameoffset = ((*_framecount)[set][0]-start_frame)/delta_t + axis_y_width + border;
+        std::size_t frameoffset = (_framecount[set][0]-start_frame)/delta_t + axis_y_width + border;
         gdImageLine(im, frameoffset, xaxis_yoffset, frameoffset, xaxis_yoffset + xaxis_height1*2 , black);
         
         char buf1[80];
@@ -919,8 +636,18 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
     {
         gdImageLine(im, axis_y_width/2, y, axis_y_width, y, black);
         char buf[80];
-        sprintf(buf,"%-3.1fkm",((*_sample_range)[0][1100-y])/1000);
+        sprintf(buf,"%-3.1fkm",(_sample_range[0][1100-y])/1000);
         gdImageStringUp(im, font, 5, y+border+20, reinterpret_cast<unsigned char*>(buf), black);
+	}
+
+    // Color Bar Text
+    gdImageFilledRectangle(im, width-colorbar_width+colorbar_width/3, 0, width, height, white);
+    for (std::size_t y = 50; y <= dataset_height; y = y + 80)
+    {
+        gdImageLine(im, width-1-colorbar_width+colorbar_width/3, y, width-1-colorbar_width+colorbar_width/2, y, black);
+        char buf[80];
+        sprintf(buf,"%-3.1fdb",(static_cast<float>(dataset_height-(y-border))/static_cast<float>(dataset_height)*(data_max-data_min))+data_min);
+        gdImageStringUp(im, font, width-20, y+border+20, reinterpret_cast<unsigned char*>(buf), black);
         //std::cout << y << ":" << 1099-y << "-" << (*_sample_range)[0][1099-y]/1000 << " " << std::endl;
     }
 
@@ -935,42 +662,56 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
 
 void MuirData::process_fftw()
 {
-    std::size_t max_rows = 1100;  //hard coded for now
-    std::size_t max_sets = 10;    //hard coded for now
-    std::size_t max_cols = 500;   //hard coded for now
+    const SampleDataArray::size_type *array_dims = _sample_data.shape();
+    assert(_sample_data.num_dimensions() == 4);
 
-    fftw_complex *in, *out;
-    fftw_plan p;
+    SampleDataArray::size_type max_sets = array_dims[0];
+    SampleDataArray::size_type max_cols = array_dims[1];
+    SampleDataArray::size_type max_rows = array_dims[2];
 
-    fftw_init_threads();
-    
-    fftw_plan_with_nthreads(4);
-    
-    in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
-    out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
-	int N[1] = {max_rows};
-	
-	// Setup Plan
-	p = fftw_plan_many_dft(1, N, max_sets*max_cols, in, NULL, 1, max_rows, out, NULL, 1, max_rows, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
-	
-	// Calculate each row
-    for(std::size_t phase_code_offset = 0; phase_code_offset < max_rows; phase_code_offset++)
+    std::size_t phasecode_size = _phasecode.size();
+
+    // Initialize decoded data boost multi_array;
+    _decoded_data.resize(boost::extents[max_sets][max_cols][max_rows]);
+
+    #pragma omp critical (fftw)
     {
-        std::cout << "FFTW Row:" << phase_code_offset << std::endl;
-		
-		// Copy data into fftw vector, apply phasecode, and zero out the rest
-        for(std::size_t row = 0; row < max_rows; row++)
+        fftw_init_threads();
+        fftw_plan_with_nthreads(2);
+    }
+
+    int N[1] = {max_rows};
+
+    // Calculate each row
+    #pragma omp parallel for
+    for(int phase_code_offset = 0; phase_code_offset < static_cast<int>(max_rows); phase_code_offset++)
+    {
+
+        // Setup for row
+        fftw_complex *in, *out;
+        fftw_plan p;
+
+        #pragma omp critical (fftw)
         {
-            if((row >= phase_code_offset) && (row < (_phasecode.size() + phase_code_offset)))
+            std::cout << "FFTW Row:" << phase_code_offset << std::endl;
+            in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
+            out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
+            p = fftw_plan_many_dft(1, N, max_sets*max_cols, in, NULL, 1, max_rows, out, NULL, 1, max_rows, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
+        }
+
+        // Copy data into fftw vector, apply phasecode, and zero out the rest
+        for(SampleDataArray::size_type row = 0; row < max_rows; row++)
+        {
+            if((row >= phase_code_offset) && (row < (phasecode_size + phase_code_offset)))
             {
                 float phase_multiplier = _phasecode[row-phase_code_offset];
-    
-                for(std::size_t set = 0; set < max_sets; set++)
-                    for(std::size_t col = 0; col < max_cols; col++)
+
+                for(SampleDataArray::size_type set = 0; set < max_sets; set++)
+                    for(SampleDataArray::size_type col = 0; col < max_cols; col++)
                     {
-						std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
-                        in[index][0] = (*_sample_data)[set][col][row][0] * phase_multiplier;
-                        in[index][1] = (*_sample_data)[set][col][row][1] * phase_multiplier;
+                        SampleDataArray::size_type index = set*(max_rows*max_cols) + col*(max_rows) + row;
+                        in[index][0] = _sample_data[set][col][row][0] * phase_multiplier;
+                        in[index][1] = _sample_data[set][col][row][1] * phase_multiplier;
                     }
             }
             else // ZEROS!
@@ -984,45 +725,55 @@ void MuirData::process_fftw()
                     }
             }
         }
-    
-		// Execute FFTW
-		fftw_execute(p);
+
+        // Execute FFTW
+        fftw_execute(p);
 
         // Output FFTW data
         for(std::size_t set = 0; set < max_sets; set++)
+        {
             for(std::size_t col = 0; col < max_cols; col++)
             {
                 fftw_complex max_value = {0.0,0.0};
-    
-				// Iterate through the column spectra and find the max value
+                float        max_power = 0.0;
+
+                // Iterate through the column spectra and find the max value
                 for(std::size_t row = 0; row < max_rows; row++)
                 {
                     std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
 
-				    // FIXME - Comparing real part for now
-                    if (out[index][0] > max_value[0])
+                    float power = norm(std::complex<float>(out[index][0], out[index][1]));
+                    if (power > max_power)
                     {
                         max_value[0] = out[index][0];
                         max_value[1] = out[index][1];
+                        max_power = power;
                     }
-    
+
                 }
-    
-                (*_fftw_data)[set][col][phase_code_offset][0] = max_value[0];
-                (*_fftw_data)[set][col][phase_code_offset][1] = max_value[1];
+
+                //(*_fftw_data)[set][col][phase_code_offset][0] = max_value[0];
+                //(*_fftw_data)[set][col][phase_code_offset][1] = max_value[1];
+                _decoded_data[set][col][phase_code_offset] = max_power;
             }
+        }
+
+        #pragma omp critical (fftw)
+        {
+            fftw_destroy_plan(p);
+            fftw_free(in);
+            fftw_free(out);
+        }
     }
-            
-    fftw_destroy_plan(p);
-    fftw_free(in);
-    fftw_free(out);
+
+    #pragma omp critical (fftw)
     fftw_cleanup_threads();
 }
 
 void MuirData::save_decoded_data(const std::string &output_file)
 {
     const H5std_string GROUP_PATH("/Decoded");
- 
+
     // Open File for Writing
     H5::H5File h5file( output_file.c_str(), H5F_ACC_TRUNC );
 
@@ -1032,12 +783,12 @@ void MuirData::save_decoded_data(const std::string &output_file)
     /// Prepare and write decoded sample data
     {
         // Specify Dimensions
-        hsize_t rank = 4;
+        hsize_t rank = 3;
         hsize_t dimsf[rank];
         dimsf[0] = 10;
         dimsf[1] = 500;
         dimsf[2] = 1100;
-        dimsf[3] = 2;
+        //dimsf[3] = 2;
     
         // Create dataspace
         H5::DataSpace dataspace( rank, dimsf );
@@ -1050,7 +801,7 @@ void MuirData::save_decoded_data(const std::string &output_file)
         H5::DataSet dataset = h5file.createDataSet( DECODEDDATA_PATH, datatype, dataspace);
     
         // Write data
-        dataset.write(_fftw_data, H5::PredType::NATIVE_FLOAT);
+        dataset.write(_decoded_data.data(), H5::PredType::NATIVE_FLOAT);
     }
     
     /// Prepare and write range data
@@ -1072,7 +823,7 @@ void MuirData::save_decoded_data(const std::string &output_file)
         H5::DataSet dataset = h5file.createDataSet( DECODEDRANGE_PATH, datatype, dataspace);
     
         // Write data
-        dataset.write(_sample_range, H5::PredType::NATIVE_FLOAT);
+        dataset.write(_sample_range.data(), H5::PredType::NATIVE_FLOAT);
     }
     
     /// Prepare and write radac data
@@ -1094,7 +845,7 @@ void MuirData::save_decoded_data(const std::string &output_file)
         H5::DataSet dataset = h5file.createDataSet( DECODEDRADAC_PATH, datatype, dataspace);
     
         // Write data
-        dataset.write(_time, H5::PredType::NATIVE_DOUBLE);
+        dataset.write(_time.data(), H5::PredType::NATIVE_DOUBLE);
     }
     
     /// Prepare and write framecount data
@@ -1116,7 +867,7 @@ void MuirData::save_decoded_data(const std::string &output_file)
         H5::DataSet dataset = h5file.createDataSet( DECODEDFRAME_PATH, datatype, dataspace);
     
         // Write data
-        dataset.write(_framecount, H5::PredType::NATIVE_UINT);
+        dataset.write(_framecount.data(), H5::PredType::NATIVE_UINT);
     }
     h5file.close();
     return;
@@ -1153,32 +904,34 @@ void MuirData::read_decoded_data(const std::string &input_file)
 
     // Get rank and verify
     int rank = dataspace.getSimpleExtentNdims();
-    if(rank != 4)
+    if(rank != 3)
         throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting rank to be 4 dimensions in ") + dataset_name + " from " + _filename));
+                std::string("Expecting rank to be 3 dimensions in ") + dataset_name + " from " + _filename));
 
     // Get dimensions and verify
     hsize_t dimsm[rank];
     dataspace.getSimpleExtentDims( dimsm, NULL);
 
-    if(dimsm[0] != 10 || dimsm[1] != 500 || dimsm[2] != 1100 || dimsm[3] != 2)
+    if(dimsm[0] != 10 || dimsm[1] != 500 || dimsm[2] != 1100 )
         throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting dimensions (10,500,1100,2) in ") + dataset_name + " from " + _filename));
+                std::string("Expecting dimensions (10,500,1100) in ") + dataset_name + " from " + _filename));
 
-    hsize_t i, j, k, l;
+    // Initialize decoded boost multi_array;
+    _decoded_data.resize(boost::extents[dimsm[0]][dimsm[1]][dimsm[2]]);
+
+    hsize_t i, j, k;
 
     for (j = 0; j < dimsm[0]; j++)
     {
         for (i = 0; i < dimsm[1]; i++)
         {
             for (k = 0; k < dimsm[2]; k++)
-                for (l = 0; l < dimsm[3]; l++) 
-                    (*_fftw_data)[j][i][k][l] = 0;
+                _decoded_data[j][i][k] = 0;
         }
     }
 
     // Get data
-    dataset.read(_fftw_data, H5::PredType::NATIVE_FLOAT);
+    dataset.read(_decoded_data.data(), H5::PredType::NATIVE_FLOAT);
 
     h5file.close();
     return;
