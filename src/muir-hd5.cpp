@@ -5,7 +5,8 @@
 #define QUOTEME(x) QUOTEME_(x)
 
 MuirHD5::MuirHD5(const std::string &filename_in, const unsigned int flags)
-    :_h5file( _filename.c_str(), flags )
+    :_filename(filename_in),
+     _h5file( _filename.c_str(), flags )
 {
 }
 
@@ -210,7 +211,7 @@ void MuirHD5::read_2D_double(const H5std_string &dataset_name, Muir2DArrayD &in)
     hsize_t dimsm[2];
     int ndims = dataspace.getSimpleExtentDims( dimsm, NULL);
 
-    assert(rank == ndims == 2);
+    assert((rank == 2) && (ndims == 2));
     
     if(dimsm[0] != 10 || dimsm[1] != 2)
         throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +

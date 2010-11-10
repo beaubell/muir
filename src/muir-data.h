@@ -71,12 +71,14 @@ class MuirData
     //typedef float (*FFTWDataArray)[10][500][1100][2];
     //FFTWDataArray _fftw_data;
 
-    typedef float (*SampleRangeArray)[1][1100];
-    SampleRangeArray _sample_range;
-	typedef unsigned int (*FrameCountArray)[10][500];
-    FrameCountArray _framecount;
+    //typedef float (*SampleRangeArray)[1][1100];
+    //SampleRangeArray _sample_range;
+	//typedef unsigned int (*FrameCountArray)[10][500];
+    //FrameCountArray _framecount;
 
-    double _time[10][2];
+	Muir2DArrayF  _sample_range;
+	Muir2DArrayUI _framecount;
+    Muir2DArrayD  _time;
 
 
 
