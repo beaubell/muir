@@ -13,5 +13,6 @@ FIND_PACKAGE(FFTW)
 
 SUBDIRS(src gd-2.0.35)
 
-SET( CMAKE_CXX_FLAGS "-ggdb -Wall -Wextra -Weffc++ -fopenmp")
+#SET( CMAKE_CXX_FLAGS "-ggdb -Wall -Wextra -Weffc++ -fopenmp")
+SET( CMAKE_CXX_FLAGS "-O3 -ggdb -Wall -Wextra -fopenmp")
 

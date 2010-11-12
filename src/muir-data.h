@@ -50,7 +50,6 @@ class MuirData
 	MuirData& operator= (const MuirData &right);
 	
 	std::string _filename;
-    H5::H5File  _h5file;
     float       _pulsewidth;
     float       _txbaud;
 
@@ -67,14 +66,6 @@ class MuirData
 
     typedef boost::multi_array<float , 3> DecodedDataArray;
     DecodedDataArray _decoded_data;
-    
-    //typedef float (*FFTWDataArray)[10][500][1100][2];
-    //FFTWDataArray _fftw_data;
-
-    //typedef float (*SampleRangeArray)[1][1100];
-    //SampleRangeArray _sample_range;
-	//typedef unsigned int (*FrameCountArray)[10][500];
-    //FrameCountArray _framecount;
 
 	Muir2DArrayF  _sample_range;
 	Muir2DArrayUI _framecount;

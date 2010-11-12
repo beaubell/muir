@@ -89,8 +89,23 @@ int main (const int argc, const char * argv[])
            return 0;
        }
 
+       fs::path path1(argv[argi]);
+
        // If not a command, must be a file
-       files.push_back(fs::path(argv[argi]));
+       if (fs::is_directory(path1))
+       {
+
+           for (fs::directory_iterator dirI(path1); dirI!=fs::directory_iterator(); ++dirI)
+           {
+               /// FIXME
+               //std::cout << dirI->path(). << std::endl;
+           }
+       }
+       else
+       {
+           // Just add this file
+           files.push_back(path1);
+       }
    }
 
    if (flags.option_decode_load)

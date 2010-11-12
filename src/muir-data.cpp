@@ -51,7 +51,6 @@ const H5std_string DECODEDFRAME_PATH("/Decoded/FrameCount");
 // Constructor
 MuirData::MuirData(const std::string &filename_in, int option)
 : _filename(filename_in),
-  _h5file( _filename, H5F_ACC_RDONLY ),
   _pulsewidth(0),
   _txbaud(0),
   _phasecode(),
