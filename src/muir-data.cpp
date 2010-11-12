@@ -17,7 +17,6 @@
 
 #include <gd.h>
 #include <gdfontl.h>
-#include "H5Cpp.h"
 
 #include <iostream>  // std::cout
 #include <iomanip>   // std::setprecision()
@@ -72,39 +71,25 @@ MuirData::MuirData(const std::string &filename_in, int option)
     // Read Phasecode and run sanity checks
     read_phasecode(file_in);
 
-    // Dynamically allocate data storage arrays
-    //_sample_range = (SampleRangeArray) new float[1][1100];
-	//_framecount = (FrameCountArray) new float[10][500];
-
-    // Read in sample data
+    // Read in experiment data
     file_in.read_4D_float(SAMPLEDATA_PATH, _sample_data);
-	file_in.read_2D_double(RADACTIME_PATH, _time);
+    file_in.read_2D_double(RADACTIME_PATH, _time);
     file_in.read_2D_float(SAMPLERANGE_PATH, _sample_range);
-	file_in.read_2D_uint(FRAMECOUNT_PATH, _framecount);
-		
+    file_in.read_2D_uint(FRAMECOUNT_PATH, _framecount);
+
     }
-	
+
     if (option == 1)
     {
 
-        // Dynamically allocate data storage arrays
-        //_sample_data  = NULL;
-        //_fftw_data    = (FFTWDataArray) new float[10][500][1100][2]; 
-        //_sample_range = (SampleRangeArray) new float[1][1100];
-        //_framecount = (FrameCountArray) new float[10][500];
-
         read_decoded_data(filename_in);
     }
-    
+
 }
 
 // Destructor
 MuirData::~MuirData()
 {
-    //delete[] _sample_data;
-    //delete[] _sample_range;
-    //delete[] _framecount;
-    //delete[] _fftw_data;
 
 }
 
@@ -130,7 +115,7 @@ void MuirData::read_phasecode(const MuirHD5 &file_in)
             _phasecode.push_back(1);
             continue;
         }
- 
+
         if (phasecode_bulk[i] == '-')
         {
             _phasecode.push_back(-1);
@@ -315,13 +300,13 @@ void MuirData::save_2dplot(const std::string &output_file)
 
     // Signed iteration variable to silence openmp warnings
     #pragma omp parallel for
-	for (signed int set = 0; set < static_cast<signed int>(dataset_count); set++)
-	{
-		std::size_t frameoffset = (_framecount[set][0]-start_frame)/delta_t;
-		
-    
-		for (std::size_t i = 0; i < dataset_height; i++)
-		{
+    for (signed int set = 0; set < static_cast<signed int>(dataset_count); set++)
+    {
+        std::size_t frameoffset = (_framecount[set][0]-start_frame)/delta_t;
+
+
+        for (std::size_t i = 0; i < dataset_height; i++)
+        {
 
             for (std::size_t k = 0; k < imageset_width; k++)
             {
@@ -350,11 +335,11 @@ void MuirData::save_2dplot(const std::string &output_file)
                 }
             }
 
-			// Color bar
-			for (std::size_t col = 0; col < colorbar_width/3; col++)
-				gdImageSetPixel(im, width-1-colorbar_width+col, dataset_height-i, static_cast<unsigned char>((float(i)/dataset_height)*(255.0)));
+            // Color bar
+            for (std::size_t col = 0; col < colorbar_width/3; col++)
+                gdImageSetPixel(im, width-1-colorbar_width+col, dataset_height-i, static_cast<unsigned char>((float(i)/dataset_height)*(255.0)));
 
-		}
+        }
 
         //if (!(i%10))
             std::cout << "SET: " << set << std::endl;
@@ -382,7 +367,7 @@ void MuirData::save_2dplot(const std::string &output_file)
     {
         std::size_t frameoffset = (_framecount[set][0]-start_frame)/delta_t + axis_y_width + border;
         gdImageLine(im, frameoffset, xaxis_yoffset, frameoffset, xaxis_yoffset + xaxis_height1*2 , black);
-        
+
         char buf1[80];
         char buf2[80];
         time_t then;
@@ -536,11 +521,11 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
     // Signed iteration variable to silence openmp warnings
     #pragma omp parallel for
     for (signed int set = 0; set < static_cast<signed int>(dataset_count); set++)
-	{
-		std::size_t frameoffset = (_framecount[set][0]-start_frame)/delta_t;
+    {
+        std::size_t frameoffset = (_framecount[set][0]-start_frame)/delta_t;
 
-		for (unsigned int i = 0; i < dataset_height ;i++)
-		{
+        for (unsigned int i = 0; i < dataset_height ;i++)
+        {
 
             for (std::size_t k = 0; k < imageset_width; k++)
             {
@@ -568,11 +553,11 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
                     gdImageSetPixel(im, (axis_y_width + border) + frameoffset + k, dataset_height-i, pixel);
                 }
             }
-			// Color bar
-			for (std::size_t col = 0; col < colorbar_width/3; col++)
-				gdImageSetPixel(im, width-1-colorbar_width+col, dataset_height-i, static_cast<unsigned char>((float(i)/dataset_height)*(255.0)));
+            // Color bar
+            for (std::size_t col = 0; col < colorbar_width/3; col++)
+                gdImageSetPixel(im, width-1-colorbar_width+col, dataset_height-i, static_cast<unsigned char>((float(i)/dataset_height)*(255.0)));
 
-		}
+        }
 
         //if (!(i%10))
             std::cout << "SET: " << set << std::endl;
@@ -599,7 +584,7 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
     {
         std::size_t frameoffset = (_framecount[set][0]-start_frame)/delta_t + axis_y_width + border;
         gdImageLine(im, frameoffset, xaxis_yoffset, frameoffset, xaxis_yoffset + xaxis_height1*2 , black);
-        
+
         char buf1[80];
         char buf2[80];
         time_t then;
@@ -626,7 +611,7 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
     strftime(gmtbuf, sizeof(gmtbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
     ts = localtime(&then);
     strftime(lclbuf, sizeof(lclbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
-		sprintf(buf2,"Experiment Date: %s (%s)   File: %s   Column Width: %lu Frame(s)", gmtbuf, lclbuf,  _filename.c_str(), static_cast<unsigned long>(delta_t));
+    sprintf(buf2,"Experiment Date: %s (%s)   File: %s   Column Width: %lu Frame(s)", gmtbuf, lclbuf,  _filename.c_str(), static_cast<unsigned long>(delta_t));
     gdImageString(im, font, axis_y_width + border, xaxis_yoffset + xaxis_height1*2 + 5, reinterpret_cast<unsigned char*>(buf2), black);
     }
 
@@ -637,7 +622,7 @@ void MuirData::save_fftw_2dplot(const std::string &output_file)
         char buf[80];
         sprintf(buf,"%-3.1fkm",(_sample_range[0][1100-y])/1000);
         gdImageStringUp(im, font, 5, y+border+20, reinterpret_cast<unsigned char*>(buf), black);
-	}
+    }
 
     // Color Bar Text
     gdImageFilledRectangle(im, width-colorbar_width+colorbar_width/3, 0, width, height, white);
