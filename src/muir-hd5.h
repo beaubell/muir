@@ -16,7 +16,7 @@
 #include <string>
 
 
-class MuirHD5
+class MuirHD5 : public H5::H5File
 {
     public:
         MuirHD5(const std::string &filename_in, const unsigned int flags);
@@ -58,8 +58,8 @@ class MuirHD5
         MuirHD5(const MuirHD5 &in);
         MuirHD5& operator= (const MuirHD5 &right);
 
-        std::string _filename;
-        H5::H5File  _h5file;
+        //std::string _filename;
+        //H5::H5File  _h5file;
 
 };
 

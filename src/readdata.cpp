@@ -47,7 +47,6 @@ void process_decfiles(const std::vector<fs::path> &files, const Flags& flags);
 
 int main (const int argc, const char * argv[])
 {
-    
 
    // There must at least be a file specified
    if ( argc < 2 )
@@ -97,8 +96,11 @@ int main (const int argc, const char * argv[])
 
            for (fs::directory_iterator dirI(path1); dirI!=fs::directory_iterator(); ++dirI)
            {
-               /// FIXME
-               //std::cout << dirI->path(). << std::endl;
+               //std::cout << dirI->string() << std::endl;
+
+               if (!fs::is_directory(*dirI))
+                   files.push_back(*dirI);
+               /// FIXME Doesn't scan higher directories
            }
        }
        else

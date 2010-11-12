@@ -774,100 +774,23 @@ void MuirData::save_decoded_data(const std::string &output_file)
     const H5std_string GROUP_PATH("/Decoded");
 
     // Open File for Writing
-    H5::H5File h5file( output_file.c_str(), H5F_ACC_TRUNC );
+    MuirHD5 h5file( output_file.c_str(), H5F_ACC_TRUNC );
 
     // Create group
     h5file.createGroup(GROUP_PATH);
 
-    /// Prepare and write decoded sample data
-    {
-        // Specify Dimensions
-        hsize_t rank = 3;
-        hsize_t dimsf[rank];
-        dimsf[0] = 10;
-        dimsf[1] = 500;
-        dimsf[2] = 1100;
-        //dimsf[3] = 2;
-    
-        // Create dataspace
-        H5::DataSpace dataspace( rank, dimsf );
-    
-        // Define Datatype
-        H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
-        datatype.setOrder( H5T_ORDER_LE);
-    
-        // Create a new dataset within the file...
-        H5::DataSet dataset = h5file.createDataSet( DECODEDDATA_PATH, datatype, dataspace);
-    
-        // Write data
-        dataset.write(_decoded_data.data(), H5::PredType::NATIVE_FLOAT);
-    }
-    
-    /// Prepare and write range data
-    {
-        // Specify Dimensions
-        hsize_t rank = 2;
-        hsize_t dimsf[rank];
-        dimsf[0] = 1;
-        dimsf[1] = 1100;
-    
-        // Create dataspace
-        H5::DataSpace dataspace( rank, dimsf );
-    
-        // Define Datatype
-        H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
-        datatype.setOrder( H5T_ORDER_LE);;
-    
-        // Create a new dataset within the file...
-        H5::DataSet dataset = h5file.createDataSet( DECODEDRANGE_PATH, datatype, dataspace);
-    
-        // Write data
-        dataset.write(_sample_range.data(), H5::PredType::NATIVE_FLOAT);
-    }
-    
-    /// Prepare and write radac data
-    {
-        // Specify Dimensions
-        hsize_t rank = 2;
-        hsize_t dimsf[rank];
-        dimsf[0] = 10;
-        dimsf[1] = 2;
-    
-        // Create dataspace
-        H5::DataSpace dataspace( rank, dimsf );
-    
-        // Define Datatype
-        H5::FloatType datatype( H5::PredType::NATIVE_DOUBLE );
-        datatype.setOrder( H5T_ORDER_LE);;
-    
-        // Create a new dataset within the file...
-        H5::DataSet dataset = h5file.createDataSet( DECODEDRADAC_PATH, datatype, dataspace);
-    
-        // Write data
-        dataset.write(_time.data(), H5::PredType::NATIVE_DOUBLE);
-    }
-    
-    /// Prepare and write framecount data
-    {
-        // Specify Dimensions
-        hsize_t rank = 2;
-        hsize_t dimsf[rank];
-        dimsf[0] = 10;
-        dimsf[1] = 500;
-    
-        // Create dataspace
-        H5::DataSpace dataspace( rank, dimsf );
-    
-        // Define Datatype
-        H5::IntType datatype( H5::PredType::NATIVE_UINT );
-        datatype.setOrder( H5T_ORDER_LE);;
-    
-        // Create a new dataset within the file...
-        H5::DataSet dataset = h5file.createDataSet( DECODEDFRAME_PATH, datatype, dataspace);
-    
-        // Write data
-        dataset.write(_framecount.data(), H5::PredType::NATIVE_UINT);
-    }
+    // Prepare and write decoded sample data
+    h5file.write_3D_float(DECODEDDATA_PATH, _decoded_data);
+
+    // Prepare and write range data
+    h5file.write_2D_float(DECODEDRANGE_PATH, _sample_range);
+
+    // Prepare and write radac data
+    h5file.write_2D_double(DECODEDRADAC_PATH, _time);
+
+    // Prepare and write framecount data
+    h5file.write_2D_uint(DECODEDFRAME_PATH, _framecount);
+
     h5file.close();
     return;
 
@@ -877,7 +800,7 @@ void MuirData::save_decoded_data(const std::string &output_file)
 void MuirData::read_decoded_data(const std::string &input_file)
 {
     // Open file
-    H5::H5File h5file( input_file.c_str(), H5F_ACC_RDONLY );
+    MuirHD5 h5file( input_file.c_str(), H5F_ACC_RDONLY );
 
     // Get Dataset
     const std::string &dataset_name = DECODEDDATA_PATH;
