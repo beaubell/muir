@@ -802,59 +802,10 @@ void MuirData::read_decoded_data(const std::string &input_file)
     // Open file
     MuirHD5 h5file( input_file.c_str(), H5F_ACC_RDONLY );
 
-    // Get Dataset
-    const std::string &dataset_name = DECODEDDATA_PATH;
-    H5::DataSet dataset = h5file.openDataSet( dataset_name );
-
-    // Get Type classype::NATIVE_FLOAT
-    H5T_class_t type_class = dataset.getTypeClass();
-
-    // Check to see if we are dealing with floats
-    if( type_class != H5T_FLOAT )
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting H5T_FLOAT Type in ") + dataset_name + " from " + _filename));
-
-    // Get size of datatpe and verify
-    H5::FloatType floattype = dataset.getFloatType();
-    size_t size = floattype.getSize();
-    if(size != 4)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting float size to be 4 (float) in ") + dataset_name + " from " + _filename));
-
-    // Get dataspace handle
-    H5::DataSpace dataspace = dataset.getSpace();
-
-    // Get rank and verify
-    int rank = dataspace.getSimpleExtentNdims();
-    if(rank != 3)
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting rank to be 3 dimensions in ") + dataset_name + " from " + _filename));
-
-    // Get dimensions and verify
-    hsize_t dimsm[rank];
-    dataspace.getSimpleExtentDims( dimsm, NULL);
-
-    if(dimsm[0] != 10 || dimsm[1] != 500 || dimsm[2] != 1100 )
-        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
-                std::string("Expecting dimensions (10,500,1100) in ") + dataset_name + " from " + _filename));
-
-    // Initialize decoded boost multi_array;
-    _decoded_data.resize(boost::extents[dimsm[0]][dimsm[1]][dimsm[2]]);
-
-    hsize_t i, j, k;
-
-    for (j = 0; j < dimsm[0]; j++)
-    {
-        for (i = 0; i < dimsm[1]; i++)
-        {
-            for (k = 0; k < dimsm[2]; k++)
-                _decoded_data[j][i][k] = 0;
-        }
-    }
-
     // Get data
-    dataset.read(_decoded_data.data(), H5::PredType::NATIVE_FLOAT);
+    h5file.read_3D_float(DECODEDDATA_PATH, _decoded_data);
 
+    // close file
     h5file.close();
     return;
 }
