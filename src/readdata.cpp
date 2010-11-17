@@ -8,6 +8,9 @@
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/convenience.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/date_time/local_time_adjustor.hpp>
+#include <boost/date_time/c_local_time_adjustor.hpp>
 
 #ifndef H5_NO_NAMESPACE
 #ifndef H5_NO_STD
@@ -25,6 +28,9 @@
 #endif
 
 namespace fs = boost::filesystem;
+namespace BST_PT = boost::posix_time;
+namespace BST_DT = boost::date_time;
+using namespace boost::gregorian;
 
 struct Flags
 {
@@ -32,18 +38,24 @@ struct Flags
     bool option_decode;
     bool option_decode_load;
     bool option_decode_plot;
-    
+    bool option_range;
+    BST_PT::time_period range;
+
     Flags()
     :option_plot(false),
      option_decode(false),
      option_decode_load(false),
-     option_decode_plot(false) {}
+     option_decode_plot(false),
+     option_range(false),
+     range(BST_PT::ptime(BST_DT::neg_infin),BST_PT::ptime(BST_DT::pos_infin))
+     {}
 };
 
 // Prototypes
 void print_help (void);
-void process_expfiles(const std::vector<fs::path> &files, const Flags& flags);
-void process_decfiles(const std::vector<fs::path> &files, const Flags& flags);
+void process_expfiles(std::vector<fs::path> files, const Flags& flags);  // No reference, want copies
+void process_decfiles(std::vector<fs::path> files, const Flags& flags);  // No reference, want copies
+void cull_files_range(std::vector<fs::path> &files, const Flags& flags);
 
 int main (const int argc, const char * argv[])
 {
@@ -80,6 +92,55 @@ int main (const int argc, const char * argv[])
        if (!strcmp(argv[argi],"--decode-plot"))
        {
            flags.option_decode_plot = true;
+           continue;
+       }
+       if (!strcmp(argv[argi],"--range"))  // Expects two more arguments
+       {
+           BST_PT::ptime t1,t2;
+
+           // Get first date
+           try
+           {
+               argi++;
+               t1 = BST_PT::from_iso_string(argv[argi]);
+
+               // Convert to local
+               //typedef BST_DT::c_local_adjustor<BST_PT::ptime> local_adj;
+               //BST_PT::ptime tlocal = local_adj::utc_to_local(t1);
+
+               //std::cout << "UTC Time (specified): " << BST_PT::to_simple_string(t1) 
+               //          << ", Local Time: " << BST_PT::to_simple_string(tlocal) << std::endl;
+           }
+           catch(...)
+           {
+               std::cout << "ERROR! Bad Date: " << argv[argi] << std::endl;
+               return 0;
+           }
+
+           // Get Second date
+           try
+           {
+               argi++;
+               t2 = BST_PT::from_iso_string(argv[argi]);
+
+               // Convert to local
+               //typedef BST_DT::c_local_adjustor<BST_PT::ptime> local_adj;
+               //BST_PT::ptime t2local = local_adj::utc_to_local(t2);
+
+               //std::cout << "UTC Time (specified): " << BST_PT::to_simple_string(t2) 
+               //          << ", Local Time: " << BST_PT::to_simple_string(t2local) << std::endl;
+
+           }
+           catch(...)
+           {
+               std::cout << "ERROR! Bad Date: " << argv[argi] << std::endl;
+               return 0;
+           }
+           // Date range specified
+           flags.option_range = true;
+           flags.range = BST_PT::time_period(t1, t2);
+
+           //std::cout << range << std::endl;
            continue;
        }
        if (!strcmp(argv[argi],"--help") || !strcmp(argv[argi],"-h"))
@@ -122,17 +183,19 @@ int main (const int argc, const char * argv[])
 }
 
 
-void process_expfiles(const std::vector<fs::path> &files, const Flags& flags)
+void process_expfiles(std::vector<fs::path> files, const Flags& flags)
 {
+    if (flags.option_range)
+    {
+        cull_files_range(files, flags);
+    }
+
     for (int i = 0; i < static_cast<int>(files.size()); i++)
     {
         std::string expfile =  files[i].string();
 
        // Strips two levels of .blah.h5
         std::string base =  fs::basename(fs::basename(files[i]));
-
-       // OK.. This is in place to mitigate a race condition between libHDF5 and openmp
-        sleep(rand() % 10);
 
        // Loading file
         std::cout << "Loading Experiment Data: " << expfile << std::endl;
@@ -166,17 +229,19 @@ void process_expfiles(const std::vector<fs::path> &files, const Flags& flags)
 }
 
 
-void process_decfiles(const std::vector<fs::path> &files, const Flags& flags)
+void process_decfiles(std::vector<fs::path> files, const Flags& flags)
 {
+    if (flags.option_range)
+    {
+        cull_files_range(files, flags);
+    }
+
     for (int i = 0; i < static_cast<int>(files.size()); i++)
     {
         std::string decfile =  files[i].string();
 
        // Strips two levels of .blah.h5
         std::string base =  fs::basename(fs::basename(files[i]));
-
-       // OK.. This is in place to mitigate a race condition between libHDF5 and openmp
-        sleep(rand() % 10);
 
        // Loading file
         std::cout << "Loading Decoded Data: " << decfile << std::endl;
@@ -191,12 +256,25 @@ void process_decfiles(const std::vector<fs::path> &files, const Flags& flags)
     }
 }
 
+void cull_files_range(std::vector<fs::path> &files, const Flags& flags)
+{
+    std::cout << "Scanning for files in range: " << BST_PT::to_simple_string(flags.range) << std::endl;
+    for(std::vector<fs::path>::iterator it = files.begin(); it != files.end(); it++)
+    {
+        //MuirHD5 file_in((*it), H5F_ACC_RDONLY);
+        // FIXME
+    }
+
+}
+
 
 void print_help ()
 {
-    std::cout << "usage: readdata [--plot] [--decode-load | --decode [--decode-plot]] hdf5files " << std::endl;
-    std::cout << "  --plot       : Generate a PNG file from data." << std::endl;
-    std::cout << "  --decode     : Decode data and save to a HDF5 file." << std::endl;
-    std::cout << "  --decode-load: Load decoded data from HDF5 file." << std::endl;
-    std::cout << "  --decode-plot: Generate a PNG file from decoded data." << std::endl;
+    std::cout << "usage: readdata [--range yyyymmddThhmmss yyyymmddThhmmss] [--plot] " << std::endl;
+    std::cout << "                [--decode-load | --decode [--decode-plot]] hdf5files " << std::endl;
+    std::cout << "  --plot        : Generate a PNG file from data." << std::endl;
+    std::cout << "  --decode      : Decode data and save to a HDF5 file." << std::endl;
+    std::cout << "  --decode-load : Load decoded data from HDF5 file." << std::endl;
+    std::cout << "  --decode-plot : Generate a PNG file from decoded data." << std::endl;
+    std::cout << "  --range       : Only process files that fall within a specified ISO date range in GMT." << std::endl;
 }

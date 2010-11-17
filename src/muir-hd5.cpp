@@ -225,10 +225,82 @@ void MuirHD5::read_2D_float(const H5std_string &dataset_name, Muir2DArrayF &in) 
 }
 
 
-/// NOT IMPLEMENTED
-//void MuirHD5::read_3D_float(const H5std_string &dataset_name, Muir3DArrayF &in) const
-//{
-//}
+// Read a 3D Float Array from a dataset path.
+void MuirHD5::read_3D_float(const H5std_string &dataset_name, Muir3DArrayF &in) const
+{
+
+    // Get Dataset
+    H5::DataSet dataset = openDataSet( dataset_name );
+
+    // Get Type classype::NATIVE_FLOAT
+    H5T_class_t type_class = dataset.getTypeClass();
+
+    // Check to see if we are dealing with floats
+    if( type_class != H5T_FLOAT )
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Expecting H5T_FLOAT Type in ") + dataset_name + " from " + getFileName()));
+
+    // Get size of datatpe and verify
+    H5::FloatType floattype = dataset.getFloatType();
+    size_t size = floattype.getSize();
+    if(size != 4)
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Expecting float size to be 4 (float) in ") + dataset_name + " from " + getFileName()));
+
+    // Get dataspace handle
+    H5::DataSpace dataspace = dataset.getSpace();
+
+    // Get rank and verify
+    int rank = dataspace.getSimpleExtentNdims();
+    if(rank != 3)
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+                std::string("Expecting rank to be 4 dimensions in ") + dataset_name + " from " + getFileName()));
+
+    // Get dimensions and verify
+    hsize_t dimsm[3];
+    dataspace.getSimpleExtentDims( dimsm, NULL);
+
+#if 0  // memspaces and hyperslabs are not used
+    H5::DataSpace memspace( rank, dimsm );
+
+    /*
+    * Define memory hyperslab.
+    */
+    hsize_t      offset_out[4];	// hyperslab offset in memory
+    hsize_t      count_out[4];	// size of the hyperslab in memory
+    offset_out[0] = 0;
+    offset_out[1] = 0;
+    offset_out[2] = 0;
+    offset_out[3] = 0;
+    count_out[0]  = dimsm[0];
+    count_out[1]  = dimsm[1];
+    count_out[2]  = dimsm[2];
+    count_out[3]  = dimsm[3];
+
+    memspace.selectHyperslab( H5S_SELECT_SET, count_out, offset_out );
+
+#endif
+
+    // Initialize boost multi_array;
+    in.resize(boost::extents[dimsm[0]][dimsm[1]][dimsm[2]]);
+
+
+    hsize_t i, j, k;
+
+    for (j = 0; j < dimsm[0]; j++)
+    {
+        for (i = 0; i < dimsm[1]; i++)
+        {
+            for (k = 0; k < dimsm[2]; k++)
+                in[j][i][k] = 0;
+        }
+    }
+
+    // Get data
+    dataset.read(in.data(), H5::PredType::NATIVE_FLOAT);
+
+    return;
+}
 
 
 // Read a 4D Float Array from a dataset path.
