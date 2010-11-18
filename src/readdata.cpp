@@ -12,20 +12,9 @@
 #include <boost/date_time/local_time_adjustor.hpp>
 #include <boost/date_time/c_local_time_adjustor.hpp>
 
-#ifndef H5_NO_NAMESPACE
-#ifndef H5_NO_STD
-    using std::cout;
-    using std::endl;
-#endif  // H5_NO_STD
-#endif
-
 #include "muir-data.h"
-
-#include "H5Cpp.h"
-
-#ifndef H5_NO_NAMESPACE
-    using namespace H5;
-#endif
+#include "muir-hd5.h"
+#include "muir-utility.h"
 
 namespace fs = boost::filesystem;
 namespace BST_PT = boost::posix_time;
@@ -259,10 +248,26 @@ void process_decfiles(std::vector<fs::path> files, const Flags& flags)
 void cull_files_range(std::vector<fs::path> &files, const Flags& flags)
 {
     std::cout << "Scanning for files in range: " << BST_PT::to_simple_string(flags.range) << std::endl;
-    for(std::vector<fs::path>::iterator it = files.begin(); it != files.end(); it++)
+    for(std::vector<fs::path>::iterator iter = files.begin(); iter != files.end(); iter++)
     {
-        //MuirHD5 file_in((*it), H5F_ACC_RDONLY);
-        // FIXME
+        try
+        {
+            MuirHD5 file_in(iter->string(), H5F_ACC_RDONLY);
+            if(have_range(file_in, flags.range))
+            {
+            }
+            else
+            {
+                iter = files.erase(iter);
+                iter--;  // Not sure this is a good idea, but seems to work even before the first element.
+            }
+        }
+        catch(...)
+        {
+            std::cout << "Bad file: " << iter->string() << std::endl;
+            iter = files.erase(iter);
+            iter--;
+        }
     }
 
 }

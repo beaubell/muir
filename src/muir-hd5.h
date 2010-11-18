@@ -11,8 +11,9 @@
 // 
 //
 
-#include "H5Cpp.h"
 #include "muir-types.h"
+
+#include <H5Cpp.h>
 #include <string>
 
 
@@ -50,8 +51,6 @@ class MuirHD5 : public H5::H5File
         void write_2D_double(const H5std_string &dataset_name, const Muir2DArrayD &out);
         void write_3D_double(const H5std_string &dataset_name, const Muir3DArrayD &out);
         void write_4D_double(const H5std_string &dataset_name, const Muir4DArrayD &out);
-
-        void read_phasecode(PhaseCodeT &in) const;
 
     private:
     // No copying

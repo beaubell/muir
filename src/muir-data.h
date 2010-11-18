@@ -11,6 +11,7 @@
 // 
 //
 //
+
 #define BOOST_DISABLE_ASSERTS 1
 #define NDEBUG 1
 #include "boost/multi_array.hpp"
@@ -20,14 +21,6 @@
 #include <vector>
 
 #include "muir-hd5.h"
-
-extern const std::string PULSEWIDTH_PATH;
-extern const std::string BAUDLENGTH_PATH;
-extern const std::string EXPERIMENTFILE_PATH;
-extern const std::string RADACTIME_PATH;
-extern const std::string SAMPLEDATA_PATH;
-extern const std::string SAMPLERANGE_PATH;
-
 
 class MuirData
 {
@@ -52,11 +45,6 @@ class MuirData
 	std::string _filename;
     float       _pulsewidth;
     float       _txbaud;
-
-    void        read_phasecode(const MuirHD5 &in);
-    void        read_times(void);
-    void        read_samplerange(void);
-	void        read_framecount(void);
 
     void        print_onesamplecolumn(float (&sample)[1100][2], float (&range)[1100]);
     std::vector<int> _phasecode;

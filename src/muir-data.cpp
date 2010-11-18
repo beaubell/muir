@@ -10,10 +10,10 @@
 //
 //
 
-
-
 #include "muir-data.h"
 #include "muir-hd5.h"
+#include "muir-constants.h"
+#include "muir-utility.h"
 
 #include <gd.h>
 #include <gdfontl.h>
@@ -32,20 +32,6 @@
 #define QUOTEME_(x) #x
 #define QUOTEME(x) QUOTEME_(x)
 
-
-// Location Constants
-const H5std_string PULSEWIDTH_PATH("/Raw11/Data/Pulsewidth");
-const H5std_string BAUDLENGTH_PATH("/Raw11/Data/TxBaud");
-const H5std_string EXPERIMENTFILE_PATH("/Setup/Experimentfile");
-const H5std_string RADACTIME_PATH("/Time/RadacTime");
-const H5std_string SAMPLEDATA_PATH("/Raw11/Data/Samples/Data");
-const H5std_string SAMPLERANGE_PATH("/Raw11/Data/Samples/Range");
-const H5std_string FRAMECOUNT_PATH("/Raw11/Data/RadacHeader/FrameCount");
-
-const H5std_string DECODEDDATA_PATH ("/Decoded/Data");
-const H5std_string DECODEDRANGE_PATH("/Decoded/Range");
-const H5std_string DECODEDRADAC_PATH("/Decoded/RadacTime");
-const H5std_string DECODEDFRAME_PATH("/Decoded/FrameCount");
 
 // Constructor
 MuirData::MuirData(const std::string &filename_in, int option)
@@ -69,7 +55,8 @@ MuirData::MuirData(const std::string &filename_in, int option)
     _txbaud = file_in.read_scalar_float(BAUDLENGTH_PATH);
 
     // Read Phasecode and run sanity checks
-    read_phasecode(file_in);
+    if (read_phasecode(file_in, _phasecode))
+        std::cout << "File: " << _filename << ", doesn't contain a phase code!" << std::endl;
 
     // Read in experiment data
     file_in.read_4D_float(SAMPLEDATA_PATH, _sample_data);
@@ -92,38 +79,6 @@ MuirData::~MuirData()
 {
 
 }
-
-
-void MuirData::read_phasecode(const MuirHD5 &file_in)
-{
-    std::string experimentfile = file_in.read_string(EXPERIMENTFILE_PATH);
-
-    // Parse experimentfile...
-    std::size_t index_min = experimentfile.find(";Code=");
-    std::size_t index_max = experimentfile.find("\n\n[Common Parameters]");
-
-    std::string phasecode_bulk = experimentfile.substr(index_min,index_max-index_min);
-    std::size_t size = phasecode_bulk.length();
-
-    _phasecode.clear();
-
-    // Get values for phasecode and dump them into string.
-    for (std::size_t i = 0; i < size; i++)
-    {
-        if (phasecode_bulk[i] == '+')
-        {
-            _phasecode.push_back(1);
-            continue;
-        }
-
-        if (phasecode_bulk[i] == '-')
-        {
-            _phasecode.push_back(-1);
-            continue;
-        }
-    }
-}
-
 
 
 void MuirData::print_onesamplecolumn(float (&sample)[1100][2], float (&range)[1100])
