@@ -6,7 +6,7 @@
 #include <cmath>
 #include <complex>
 #include <stdlib.h>
-#include <GL/glut.h>
+#include <glut.h>
 
 void renderScene(void);
 void changeSize(int w, int h);

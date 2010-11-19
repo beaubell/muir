@@ -1,7 +1,7 @@
 
 
 # Make sure the compiler can find include files from our Hello library.
-include_directories (${MUIR_SOURCE_DIR} ${HDF5_INCLUDE_DIR} ${GD_SOURCE_DIR} ${FFTW_INCLUDE_DIR} ${Boost_INCLUDE_DIR})
+include_directories (${MUIR_SOURCE_DIR} ${HDF5_INCLUDE_DIR} ${GD_SOURCE_DIR} ${FFTW_INCLUDE_DIR} ${Boost_INCLUDE_DIR} ${GLUT_INCLUDE_DIR})
 
 # Make sure the linker can find the Hello library once it is built.
 link_directories (${MUIR_BINARY_DIR} ${GD_BINARY_DIR} ${Boost_LIBRARY_DIRS})
