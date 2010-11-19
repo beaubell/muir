@@ -50,15 +50,21 @@ bool read_phasecode(const MuirHD5 &file_in, std::vector<int> &phasecode)
     std::size_t index_min = experimentfile.find(";Code=");
     std::size_t index_max = experimentfile.find("\n\n[Common Parameters]");
 
+    // If our phasecode bounds don't exist, there may be no phasecode.
+    if(index_min == std::string::npos || index_max == std::string::npos)
+        return false;
+
+    // Extract the section with the phasecode
     std::string phasecode_bulk = experimentfile.substr(index_min,index_max-index_min);
     std::size_t size = phasecode_bulk.length();
 
     if(size == 0)
         return false;
 
+    // Prepare the phasecode vector.
     phasecode.clear();
 
-    // Get values for phasecode and dump them into string.
+    // Get values for phasecode and dump them into the vector.
     for (std::size_t i = 0; i < size; i++)
     {
         if (phasecode_bulk[i] == '+')

@@ -54,8 +54,8 @@ MuirData::MuirData(const std::string &filename_in, int option)
     // Read TXBuad
     _txbaud = file_in.read_scalar_float(BAUDLENGTH_PATH);
 
-    // Read Phasecode and run sanity checks
-    if (read_phasecode(file_in, _phasecode))
+    // Read Phasecode
+    if (!read_phasecode(file_in, _phasecode))
         std::cout << "File: " << _filename << ", doesn't contain a phase code!" << std::endl;
 
     // Read in experiment data
