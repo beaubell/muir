@@ -8,7 +8,7 @@
 //
 // Author: Beau V.C. Bellamy <bvbellamy@arsc.edu>
 //         Arctic Region Supercomputing Center
-// 
+//
 //
 //
 
@@ -38,11 +38,11 @@ class MuirData
     void read_decoded_data(const std::string &input_file);
 
    private:
-	// No copying
-	MuirData(const MuirData &in);
-	MuirData& operator= (const MuirData &right);
-	
-	std::string _filename;
+    // No copying
+    MuirData(const MuirData &in);
+    MuirData& operator= (const MuirData &right);
+
+    std::string _filename;
     float       _pulsewidth;
     float       _txbaud;
 
@@ -55,11 +55,9 @@ class MuirData
     typedef boost::multi_array<float , 3> DecodedDataArray;
     DecodedDataArray _decoded_data;
 
-	Muir2DArrayF  _sample_range;
-	Muir2DArrayUI _framecount;
+    Muir2DArrayF  _sample_range;
+    Muir2DArrayUI _framecount;
     Muir2DArrayD  _time;
-
-
 
 };
 

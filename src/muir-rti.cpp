@@ -68,6 +68,16 @@ int main (const int argc, const char * argv[])
            flags.option_plot = true;
            continue;
        }
+       if (!strcmp(argv[argi],"--plot-powermin"))
+       {
+           argi++;
+           float power = strtof(argv[argi], argv[argi+1]);
+       }
+       if (!strcmp(argv[argi],"--plot-powermax"))
+       {
+           argi++;
+           float power = strtof(argv[argi], argv[argi+1]);
+       }
        if (!strcmp(argv[argi],"--decode"))
        {
            flags.option_decode = true;
@@ -92,18 +102,11 @@ int main (const int argc, const char * argv[])
            {
                argi++;
                t1 = BST_PT::from_iso_string(argv[argi]);
-
-               // Convert to local
-               //typedef BST_DT::c_local_adjustor<BST_PT::ptime> local_adj;
-               //BST_PT::ptime tlocal = local_adj::utc_to_local(t1);
-
-               //std::cout << "UTC Time (specified): " << BST_PT::to_simple_string(t1) 
-               //          << ", Local Time: " << BST_PT::to_simple_string(tlocal) << std::endl;
            }
            catch(...)
            {
                std::cout << "ERROR! Bad Date: " << argv[argi] << std::endl;
-               return 0;
+               return 1;
            }
 
            // Get Second date
@@ -111,25 +114,17 @@ int main (const int argc, const char * argv[])
            {
                argi++;
                t2 = BST_PT::from_iso_string(argv[argi]);
-
-               // Convert to local
-               //typedef BST_DT::c_local_adjustor<BST_PT::ptime> local_adj;
-               //BST_PT::ptime t2local = local_adj::utc_to_local(t2);
-
-               //std::cout << "UTC Time (specified): " << BST_PT::to_simple_string(t2) 
-               //          << ", Local Time: " << BST_PT::to_simple_string(t2local) << std::endl;
-
            }
            catch(...)
            {
                std::cout << "ERROR! Bad Date: " << argv[argi] << std::endl;
-               return 0;
+               return 1;
            }
+
            // Date range specified
            flags.option_range = true;
            flags.range = BST_PT::time_period(t1, t2);
 
-           //std::cout << range << std::endl;
            continue;
        }
        if (!strcmp(argv[argi],"--help") || !strcmp(argv[argi],"-h"))
@@ -230,7 +225,7 @@ void process_decfiles(std::vector<fs::path> files, const Flags& flags)
         std::string decfile =  files[i].string();
 
        // Strips two levels of .blah.h5
-        std::string base =  fs::basename(fs::basename(files[i]));
+        std::string base =  fs::basename(files[i]);
 
        // Loading file
         std::cout << "Loading Decoded Data: " << decfile << std::endl;
@@ -238,9 +233,9 @@ void process_decfiles(std::vector<fs::path> files, const Flags& flags)
 
         if (flags.option_decode_plot)
         {
-            std::string plotfile = base + std::string("-decoded.png");
+            std::string plotfile = base + std::string(".png");
             std::cout << "Generating decoding plot: " << plotfile << std::endl;
-            //data.save_fftw_2dplot(plotfile);
+            data.save_fftw_2dplot(plotfile);
         }
     }
 }

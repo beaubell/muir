@@ -254,7 +254,7 @@ void processMousePassiveMotion(int x, int y) {
 
 void processMouseEntry(int state) {
     //if (state == GLUT_LEFT)
-    //    deltaAngle = 0.0;
+    //    deltaAngle = 0.0;/scratch/bellamy/d0000598-decoded.h5
     //else
     //    deltaAngle = 1.0;
 }
@@ -300,15 +300,25 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
     }
 
     // allocate buffer
+    //width = 500;
+    //height = 1100;
     width = 2048;
     height = 2048;
     //width  = 512;
     //height = 512;
     data = reinterpret_cast<GLbyte*>(malloc( width * height ));
 
-    for (Muir3DArrayF::size_type col = 0; col < dataset_height ;col++)
+    for (Muir3DArrayF::size_type col = 0; col < width ;col++)
     {
-        for (Muir3DArrayF::size_type row = 0; row < dataset_width; row++)
+        for (Muir3DArrayF::size_type row = 0; row < height; row++)
+        {
+            data[row*width + col] = 50;
+        }
+    }
+    
+    for (Muir3DArrayF::size_type col = 0; col < dataset_width ;col++)
+    {
+        for (Muir3DArrayF::size_type row = 0; row < dataset_height; row++)
         {
                 float sample = log10(decoded_data[set][col][row]+1)*10;
                 unsigned char pixel = static_cast<unsigned char>((sample-data_min)/(data_max-data_min)*255);
@@ -337,7 +347,7 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
     glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP );
 
     // build our texture
-    //glTexImage2D( GL_TEXTURE_2D, 1, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
+    //glTexImage2D( GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
     gluBuild2DMipmaps( GL_TEXTURE_2D, 2, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, data );
 
     // free buffer
