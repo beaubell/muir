@@ -6,7 +6,7 @@
 #include <cmath>
 #include <complex>
 #include <stdlib.h>
-#include <glut.h>
+#include <GL/glut.h>
 
 void renderScene(void);
 void changeSize(int w, int h);
@@ -24,6 +24,7 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set );
 // the triangle will initially be white
 float red=1.0, blue=1.0, green=1.0;
 float angle=0.0;
+float scale=1.0;
 int mouse_x = 0;
 GLuint muirtex;
 
@@ -82,9 +83,9 @@ void renderScene(void) {
     glBindTexture( GL_TEXTURE_2D, muirtex );
     glBegin( GL_QUADS );
     glTexCoord2d(0.0,0.0); glVertex2d(0.0,0.0);
-    glTexCoord2d(1.0,0.0); glVertex2d(1.0,0.0);
-    glTexCoord2d(1.0,1.0); glVertex2d(1.0,1.0);
-    glTexCoord2d(0.0,1.0); glVertex2d(0.0,1.0);
+    glTexCoord2d(1.0,0.0); glVertex2d(scale,0.0);
+    glTexCoord2d(1.0,1.0); glVertex2d(scale,scale);
+    glTexCoord2d(0.0,1.0); glVertex2d(0.0,scale);
     glEnd();
     
     glPopMatrix();
@@ -252,7 +253,7 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
 
     // Get data
     Muir3DArrayF decoded_data;
-    h5file.read_3D_float(DECODEDDATA_PATH, decoded_data);
+    h5file.read_3D_float(RTI_DECODEDDATA_PATH, decoded_data);
 
     // Get dataset shape
     const Muir3DArrayF::size_type *array_dims = decoded_data.shape();
@@ -281,8 +282,8 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
     }
 
     // allocate buffer
-    width = 500;
-    height = 1100;
+    width = 2048;
+    height = 2048;
     //width  = 512;
     //height = 512;
     data = reinterpret_cast<GLbyte*>(malloc( width * height ));

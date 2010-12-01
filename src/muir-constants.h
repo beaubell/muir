@@ -14,18 +14,20 @@
 
 #include <string>
 
-extern const std::string PULSEWIDTH_PATH;
-extern const std::string BAUDLENGTH_PATH;
-extern const std::string EXPERIMENTFILE_PATH;
-extern const std::string RADACTIME_PATH;
-extern const std::string SAMPLEDATA_PATH;
-extern const std::string SAMPLERANGE_PATH;
-extern const std::string FRAMECOUNT_PATH;
+// Location Constants
+extern const std::string RTI_RAWPULSEWIDTH_PATH;
+extern const std::string RTI_RAWTXBAUD_PATH;
+extern const std::string RTI_RAWSAMPLEDATA_PATH;
+extern const std::string RTI_RAWSAMPLERANGE_PATH;
+extern const std::string RTI_RAWFRAMECOUNT_PATH;
+extern const std::string RTI_EXPERIMENTFILE_PATH;
+extern const std::string RTI_RADACTIME_PATH;
 
-extern const std::string DECODEDDATA_PATH;
-extern const std::string DECODEDRANGE_PATH;
-extern const std::string DECODEDRADAC_PATH;
-extern const std::string DECODEDFRAME_PATH;
 
+extern const std::string RTI_DECODEDDIR_PATH;
+extern const std::string RTI_DECODEDDATA_PATH;
+extern const std::string RTI_DECODEDRANGE_PATH;
+extern const std::string RTI_DECODEDRADAC_PATH;
+extern const std::string RTI_DECODEDFRAME_PATH;
 
 #endif // MUIR_CONSTANTS

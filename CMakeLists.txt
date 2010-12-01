@@ -1,6 +1,6 @@
 
 cmake_minimum_required (VERSION 2.6)
-project (MUIR)
+project (MUIRRTI)
 
 SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake.local)
 

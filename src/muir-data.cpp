@@ -48,21 +48,21 @@ MuirData::MuirData(const std::string &filename_in, int option)
     if (option == 0)
     {
         MuirHD5 file_in(_filename, H5F_ACC_RDONLY);
-    // Read Pulsewidth
-    _pulsewidth = file_in.read_scalar_float(PULSEWIDTH_PATH);
+        // Read Pulsewidth
+        _pulsewidth = file_in.read_scalar_float(RTI_RAWPULSEWIDTH_PATH);
 
-    // Read TXBuad
-    _txbaud = file_in.read_scalar_float(BAUDLENGTH_PATH);
+        // Read TXBuad
+        _txbaud = file_in.read_scalar_float(RTI_RAWTXBAUD_PATH);
 
-    // Read Phasecode
-    if (!read_phasecode(file_in, _phasecode))
-        std::cout << "File: " << _filename << ", doesn't contain a phase code!" << std::endl;
+        // Read Phasecode
+        if (!read_phasecode(file_in, _phasecode))
+            std::cout << "File: " << _filename << ", doesn't contain a phase code!" << std::endl;
 
-    // Read in experiment data
-    file_in.read_4D_float(SAMPLEDATA_PATH, _sample_data);
-    file_in.read_2D_double(RADACTIME_PATH, _time);
-    file_in.read_2D_float(SAMPLERANGE_PATH, _sample_range);
-    file_in.read_2D_uint(FRAMECOUNT_PATH, _framecount);
+        // Read in experiment data
+        file_in.read_4D_float (RTI_RAWSAMPLEDATA_PATH , _sample_data);
+        file_in.read_2D_double(RTI_RADACTIME_PATH     , _time);
+        file_in.read_2D_float (RTI_RAWSAMPLERANGE_PATH, _sample_range);
+        file_in.read_2D_uint  (RTI_RAWFRAMECOUNT_PATH , _framecount);
 
     }
 
@@ -711,25 +711,23 @@ void MuirData::process_fftw()
 
 void MuirData::save_decoded_data(const std::string &output_file)
 {
-    const H5std_string GROUP_PATH("/Decoded");
-
     // Open File for Writing
     MuirHD5 h5file( output_file.c_str(), H5F_ACC_TRUNC );
 
     // Create group
-    h5file.createGroup(GROUP_PATH);
+    h5file.createGroup(RTI_DECODEDDIR_PATH);
 
     // Prepare and write decoded sample data
-    h5file.write_3D_float(DECODEDDATA_PATH, _decoded_data);
+    h5file.write_3D_float(RTI_DECODEDDATA_PATH, _decoded_data);
 
     // Prepare and write range data
-    h5file.write_2D_float(DECODEDRANGE_PATH, _sample_range);
+    h5file.write_2D_float(RTI_DECODEDRANGE_PATH, _sample_range);
 
     // Prepare and write radac data
-    h5file.write_2D_double(DECODEDRADAC_PATH, _time);
+    h5file.write_2D_double(RTI_DECODEDRADAC_PATH, _time);
 
     // Prepare and write framecount data
-    h5file.write_2D_uint(DECODEDFRAME_PATH, _framecount);
+    h5file.write_2D_uint(RTI_DECODEDFRAME_PATH, _framecount);
 
     h5file.close();
     return;
@@ -743,7 +741,16 @@ void MuirData::read_decoded_data(const std::string &input_file)
     MuirHD5 h5file( input_file.c_str(), H5F_ACC_RDONLY );
 
     // Get data
-    h5file.read_3D_float(DECODEDDATA_PATH, _decoded_data);
+    h5file.read_3D_float(RTI_DECODEDDATA_PATH, _decoded_data);
+
+    // Get range data
+    h5file.read_2D_float(RTI_DECODEDRANGE_PATH, _sample_range);
+
+    // Get radac data
+    h5file.read_2D_double(RTI_DECODEDRADAC_PATH, _time);
+
+    // Get framecount data
+    h5file.read_2D_uint(RTI_DECODEDFRAME_PATH, _framecount);
 
     // close file
     h5file.close();

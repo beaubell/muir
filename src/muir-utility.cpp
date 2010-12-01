@@ -23,7 +23,7 @@ bool have_range(const MuirHD5 &file, boost::posix_time::time_period range)
 {
     // Read times from HDF5 File.
     Muir2DArrayD time;
-    file.read_2D_double(RADACTIME_PATH, time);
+    file.read_2D_double(RTI_RADACTIME_PATH, time);
 
     // Get shape of time array
     const Muir2DArrayUI::size_type *shape = time.shape();
@@ -44,7 +44,7 @@ bool have_range(const MuirHD5 &file, boost::posix_time::time_period range)
 // Return false if the the file doesn't contain a phasecode.
 bool read_phasecode(const MuirHD5 &file_in, std::vector<int> &phasecode)
 {
-    std::string experimentfile = file_in.read_string(EXPERIMENTFILE_PATH);
+    std::string experimentfile = file_in.read_string(RTI_EXPERIMENTFILE_PATH);
 
     // Parse experimentfile...
     std::size_t index_min = experimentfile.find(";Code=");
