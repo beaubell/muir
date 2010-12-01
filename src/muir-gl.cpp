@@ -23,9 +23,12 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set );
 // all variables initialized to 1.0, meaning 
 // the triangle will initially be white
 float red=1.0, blue=1.0, green=1.0;
-float angle=0.0;
+//float angle=0.0;
+float x_loc = 0.0;
+float y_loc = 0.0;
 float scale=1.0;
 int mouse_x = 0;
+int mouse_y = 0;
 GLuint muirtex;
 
 int main(int argc, char **argv)
@@ -65,7 +68,8 @@ int main(int argc, char **argv)
 void renderScene(void) {
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
     glPushMatrix();
-    glRotatef(angle,0.0,1.0,0.0);
+    //glRotatef(angle,0.0,1.0,0.0);
+    glTranslatef(x_loc/100,y_loc/100,0);
 
     // this is where we set the actual color
     // glColor specifies the color of all further drawings
@@ -78,8 +82,6 @@ void renderScene(void) {
 //    glVertex3f(0.0,0.5,0.0);
 //    glEnd();
 
-
-    //angle++;
     glBindTexture( GL_TEXTURE_2D, muirtex );
     glBegin( GL_QUADS );
     glTexCoord2d(0.0,0.0); glVertex2d(0.0,0.0);
@@ -87,9 +89,9 @@ void renderScene(void) {
     glTexCoord2d(1.0,1.0); glVertex2d(scale,scale);
     glTexCoord2d(0.0,1.0); glVertex2d(0.0,scale);
     glEnd();
-    
+
     glPopMatrix();
-    
+
     glutSwapBuffers();
 
 }
@@ -162,7 +164,15 @@ void processMouse(int button, int state, int x, int y) {
 
 //    specialKey = glutGetModifiers();
 	// if both a mouse button, and the ALT key, are pressed  then
-   // ((state == GLUT_DOWN) && 
+    if (state == GLUT_DOWN)
+    {
+        //std::cout << "Button:" << button << std::endl;
+        if (button == 3) // scroll up
+            scale *= 1.5f;
+        
+        if (button == 4) // scroll down
+            scale /= 1.5f;
+    }
   //       (specialKey == GLUT_ACTIVE_ALT)) {
 
 		// set the color to pure red for the left button
@@ -207,11 +217,18 @@ void processMouseActiveMotion(int x, int y) {
     }
 #endif
     if (x < mouse_x)
-       angle -= mouse_x-x;
+       x_loc -= mouse_x-x;
     else
-        angle += x-mouse_x;
-    
+       x_loc += x-mouse_x;
+
     mouse_x = x;
+
+    if (y < mouse_y)
+        y_loc += mouse_y-y;
+    else
+        y_loc -= y-mouse_y;
+
+    mouse_y = y;
 }
 
 
@@ -231,6 +248,7 @@ void processMousePassiveMotion(int x, int y) {
             //angle = 180.0 * ((float) x)/height;
     //}
    mouse_x = x;
+   mouse_y = y;
 }
 
 
@@ -260,7 +278,7 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
     assert(decoded_data.num_dimensions() == 3);
 
     Muir3DArrayF::size_type dataset_count = array_dims[0];  // # sets
-    Muir3DArrayF::size_type dataset_width = array_dims[1];  // Rows per set
+    Muir3DArrayF::size_type dataset_width = array_dims[1];  // frames per set
     Muir3DArrayF::size_type dataset_height = array_dims[2]; // Range bins
 
     // Finding maxes and mins
