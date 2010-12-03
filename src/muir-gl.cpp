@@ -1,6 +1,7 @@
 
 #include "muir-hd5.h"
 #include "muir-constants.h"
+#include "muir-gl-shader.h"
 
 #include <iostream>
 #include <cmath>
@@ -34,7 +35,7 @@ GLuint muirtex;
 int main(int argc, char **argv)
 {
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
     glutInitWindowPosition(10,10);
     glutInitWindowSize(1000,800);
     glutCreateWindow("Muir Data Viewer");
@@ -59,6 +60,14 @@ int main(int argc, char **argv)
     glEnable(GL_DEPTH_TEST);
     glEnable( GL_TEXTURE_2D );
 
+    // Check texture size
+    GLint texSize;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &texSize);
+    std::cout << "Maximum texture size: " << texSize << std::endl;
+
+    // Fragment shader
+    muir_opengl_shader();
+    
     glutMainLoop();
 
     return 0;
@@ -69,27 +78,36 @@ void renderScene(void) {
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
     glPushMatrix();
     //glRotatef(angle,0.0,1.0,0.0);
-    glTranslatef(x_loc/100,y_loc/100,0);
 
+    glScalef(scale,scale,1);
+    glTranslatef(x_loc/100,y_loc/100,0);
     // this is where we set the actual color
     // glColor specifies the color of all further drawings
-    glColor3f(red,green,blue);
+    //glColor3f(red,green,blue);
 
+    const float texboundx = 500.0/512.0;
+    const float texboundy = 1100.0/2048.0;
 
-//    glBegin(GL_TRIANGLES);
-//   glVertex3f(-0.5,-0.5,0.0);
-//    glVertex3f(0.5,0.0,0.0);
-//    glVertex3f(0.0,0.5,0.0);
-//    glEnd();
+    for (float i = 0; i < 100; i += 0.50)
+    {
+        glEnable( GL_TEXTURE_2D );
+        glBindTexture( GL_TEXTURE_2D, muirtex );
+        glBegin( GL_QUADS );
+        glTexCoord2d(0.0,0.0); glVertex2d(i,0.0);
+        glTexCoord2d(texboundx,0.0); glVertex2d(i+ 0.25,0.0);
+        glTexCoord2d(texboundx,texboundy); glVertex2d(i+ 0.25,1.0);
+        glTexCoord2d(0.0,texboundy); glVertex2d(i,1.0);
+        glEnd();
+    }
 
-    glBindTexture( GL_TEXTURE_2D, muirtex );
+    glDisable( GL_TEXTURE_2D );
+    glColor3f(1.0f,1.0f,1.0f);
     glBegin( GL_QUADS );
-    glTexCoord2d(0.0,0.0); glVertex2d(0.0,0.0);
-    glTexCoord2d(1.0,0.0); glVertex2d(scale,0.0);
-    glTexCoord2d(1.0,1.0); glVertex2d(scale,scale);
-    glTexCoord2d(0.0,1.0); glVertex2d(0.0,scale);
+    glVertex2d(0.5,0.5);
+    glVertex2d(1.0,0.5);
+    glVertex2d(1.0,1.0);
+    glVertex2d(0.5,1.0);
     glEnd();
-
     glPopMatrix();
 
     glutSwapBuffers();
@@ -217,16 +235,16 @@ void processMouseActiveMotion(int x, int y) {
     }
 #endif
     if (x < mouse_x)
-       x_loc -= mouse_x-x;
+       x_loc -= (mouse_x-x)/scale;
     else
-       x_loc += x-mouse_x;
+       x_loc += (x-mouse_x)/scale;
 
     mouse_x = x;
 
     if (y < mouse_y)
-        y_loc += mouse_y-y;
+        y_loc += (mouse_y-y)/scale;
     else
-        y_loc -= y-mouse_y;
+        y_loc -= (y-mouse_y)/scale;
 
     mouse_y = y;
 }
@@ -302,7 +320,7 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
     // allocate buffer
     //width = 500;
     //height = 1100;
-    width = 2048;
+    width = 512;
     height = 2048;
     //width  = 512;
     //height = 512;
@@ -333,22 +351,23 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
     glBindTexture( GL_TEXTURE_2D, texture );
 
     // select modulate to mix texture with color for shading
-    glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+    //glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
     // when texture area is small, bilinear filter the closest mipmap
-    glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                     GL_LINEAR_MIPMAP_NEAREST );
+    //glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+    //                 GL_LINEAR_MIPMAP_NEAREST );
     // when texture area is large, bilinear filter the first mipmap
-    glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+    glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 
     // if wrap is true, the texture wraps over at the edges (repeat)
     //       ... false, the texture ends at the edges (clamp)
-    glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP );
-    glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP );
+    //glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP );
+    //glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP );
 
     // build our texture
-    //glTexImage2D( GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
-    gluBuild2DMipmaps( GL_TEXTURE_2D, 2, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, data );
+    //glTexImage2D( GL_TEXTURE_2D, 0, GL_LUMINANCE16, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
+    gluBuild2DMipmaps( GL_TEXTURE_2D, GL_LUMINANCE16, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, data );
+    //gluBuild2DMipmaps( GL_TEXTURE_2D, GL_LUMINANCE16F_ARB, width, height, GL_LUMINANCE32F_ARB, GL_FLOAT, data );
 
     // free buffer
     free( data );

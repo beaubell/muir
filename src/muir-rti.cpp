@@ -11,6 +11,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/local_time_adjustor.hpp>
 #include <boost/date_time/c_local_time_adjustor.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "muir-data.h"
 #include "muir-hd5.h"
@@ -20,6 +21,7 @@ namespace fs = boost::filesystem;
 namespace BST_PT = boost::posix_time;
 namespace BST_DT = boost::date_time;
 using namespace boost::gregorian;
+using boost::lexical_cast;
 
 struct Flags
 {
@@ -71,12 +73,12 @@ int main (const int argc, const char * argv[])
        if (!strcmp(argv[argi],"--plot-powermin"))
        {
            argi++;
-           float power = strtof(argv[argi], argv[argi+1]);
+           float power = lexical_cast<float>(argv[argi]);
        }
        if (!strcmp(argv[argi],"--plot-powermax"))
        {
            argi++;
-           float power = strtof(argv[argi], argv[argi+1]);
+           float power = lexical_cast<float>(argv[argi]);
        }
        if (!strcmp(argv[argi],"--decode"))
        {

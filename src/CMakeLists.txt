@@ -7,7 +7,7 @@ include_directories (${MUIRRTI_SOURCE_DIR} ${HDF5_INCLUDE_DIR} ${GD_SOURCE_DIR} 
 link_directories (${MUIRRTI_BINARY_DIR} ${GD_BINARY_DIR} ${Boost_LIBRARY_DIRS})
 
 add_executable (muir-rti muir-rti.cpp muir-data.cpp muir-hd5.cpp muir-constants.cpp muir-utility.cpp)
-add_executable (muir-gl  muir-gl.cpp  muir-data.cpp muir-hd5.cpp muir-constants.cpp muir-utility.cpp)
+add_executable (muir-gl  muir-gl.cpp  muir-data.cpp muir-hd5.cpp muir-constants.cpp muir-utility.cpp muir-gl-shader.cpp)
 
 # Link the executable to the Hello library.
 target_link_libraries (muir-rti ${HDF5_LIBRARIES_CXX} ${HDF5_LIBRARIES} ${GD_LIBRARY} ${FFTW_LIBRARY} ${FFTW_THREAD_LIBRARY} -lboost_filesystem -lboost_date_time gd)
