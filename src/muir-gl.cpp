@@ -282,7 +282,7 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
 {
     GLuint texture;
     int width, height;
-    GLbyte * data;
+    GLfloat * data;
 
     // Open file
     MuirHD5 h5file( filename.c_str(), H5F_ACC_RDONLY );
@@ -324,13 +324,13 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
     height = 2048;
     //width  = 512;
     //height = 512;
-    data = reinterpret_cast<GLbyte*>(malloc( width * height ));
+    data = reinterpret_cast<GLfloat*>(malloc( width * height*sizeof(GLfloat) ));
 
     for (Muir3DArrayF::size_type col = 0; col < width ;col++)
     {
         for (Muir3DArrayF::size_type row = 0; row < height; row++)
         {
-            data[row*width + col] = 50;
+            data[row*width + col] = .50;
         }
     }
     
@@ -338,8 +338,8 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
     {
         for (Muir3DArrayF::size_type row = 0; row < dataset_height; row++)
         {
-                float sample = log10(decoded_data[set][col][row]+1)*10;
-                unsigned char pixel = static_cast<unsigned char>((sample-data_min)/(data_max-data_min)*255);
+                float pixel = log10(decoded_data[set][col][row]+1)*10;
+                //unsigned char pixel = static_cast<unsigned char>((sample-data_min)/(data_max-data_min)*255);
                 data[row*width + col] = pixel;
         }
     }
@@ -359,6 +359,14 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
     // when texture area is large, bilinear filter the first mipmap
     glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+ //In this case, the driver will convert your 32 bit float to 16 bit float
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE16F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, data);
+
+    
     // if wrap is true, the texture wraps over at the edges (repeat)
     //       ... false, the texture ends at the edges (clamp)
     //glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP );
@@ -366,7 +374,7 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
 
     // build our texture
     //glTexImage2D( GL_TEXTURE_2D, 0, GL_LUMINANCE16, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
-    gluBuild2DMipmaps( GL_TEXTURE_2D, GL_LUMINANCE16, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, data );
+    //gluBuild2DMipmaps( GL_TEXTURE_2D, GL_LUMINANCE16, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, data );
     //gluBuild2DMipmaps( GL_TEXTURE_2D, GL_LUMINANCE16F_ARB, width, height, GL_LUMINANCE32F_ARB, GL_FLOAT, data );
 
     // free buffer

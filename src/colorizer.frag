@@ -16,6 +16,6 @@ void main() {
    else if (i < 0.75 )
        color = vec4((i-0.50)* 4.0,1.0,1.0-(i-0.50)* 4.0,0.0);
    else
-       color = max(vec4(1.0,1.0-(i-0.75)* 4.0,0.0,0.0),0.0);
+       color = clamp(vec4(1.0,1.0-(i-0.75)* 4.0,0.0,0.0),0.0,1.0);
    gl_FragColor = color;
 }
