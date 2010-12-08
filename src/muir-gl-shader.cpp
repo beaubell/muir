@@ -19,6 +19,10 @@
 #include <iostream>
 
 GLhandleARB shader_num;
+int shader_data_min_loc;
+int shader_data_max_loc;
+float shader_data_min = 0.0f;
+float shader_data_max = 100.0f;
 
 void printInfoLog(GLhandleARB obj);
 char *textFileRead(const char *fn);
@@ -92,8 +96,16 @@ void muir_opengl_shader()
     }
 
     glUseProgramObjectARB(shaderProgram);
+    shader_data_min_loc = glGetUniformLocationARB(shaderProgram, "data_min");
+    shader_data_max_loc = glGetUniformLocationARB(shaderProgram, "data_max");
+    GPU_send_variables();
 
+}
 
+void GPU_send_variables()
+{
+    glUniform1fARB(shader_data_min_loc, shader_data_min);
+    glUniform1fARB(shader_data_max_loc, shader_data_max);
 }
 
 void printInfoLog(GLhandleARB obj)

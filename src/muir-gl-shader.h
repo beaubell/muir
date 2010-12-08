@@ -13,5 +13,8 @@
 //
 
 void muir_opengl_shader();
+void GPU_send_variables();
 
+extern float shader_data_min;
+extern float shader_data_max;
 #endif //MUIR_GL_SHADER_H

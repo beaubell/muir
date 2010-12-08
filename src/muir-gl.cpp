@@ -54,7 +54,7 @@ int main(int argc, char **argv)
     glutPassiveMotionFunc(processMousePassiveMotion);
     glutEntryFunc(processMouseEntry);
 
-    muirtex = LoadTextureHD5("/scratch/bellamy/d0000598-decoded.h5", 1 );
+    muirtex = LoadTextureHD5("/scratch/bellamy/d0000648-decoded.h5", 1 );
 
     // Enable Depth Test
     glEnable(GL_DEPTH_TEST);
@@ -153,6 +153,27 @@ void processNormalKeys(unsigned char key, int x, int y) {
         else
             red = 1.0;
     }
+    if (key == 'q')
+    {
+        shader_data_min += 0.5f;
+        GPU_send_variables();
+    }
+    if (key == 'a')
+    {
+        shader_data_min -= 0.5f;
+        GPU_send_variables();
+    }
+    if (key == 'w')
+    {
+        shader_data_max += 0.5f;
+        GPU_send_variables();
+    }
+    if (key == 's')
+    {
+        shader_data_max -= 0.5f;
+        GPU_send_variables();
+    }
+    std::cout << "Min: " << shader_data_min << ", Max: " << shader_data_max << std::endl;
 }
 
 void processSpecialKeys(int key, int x, int y) {
@@ -173,6 +194,7 @@ void processSpecialKeys(int key, int x, int y) {
             red = 0.0; 
             green = 0.0; 
             blue = 1.0; break;
+
     }
 }
 
@@ -299,24 +321,6 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
     Muir3DArrayF::size_type dataset_width = array_dims[1];  // frames per set
     Muir3DArrayF::size_type dataset_height = array_dims[2]; // Range bins
 
-    // Finding maxes and mins
-    std::cerr << "Determining data mins and maxes for color pallete" << std::endl;
-    float data_min = log10(decoded_data[0][0][0]+1)*10;
-    float data_max = log10(decoded_data[0][0][0]+1)*10;
-
-    for (Muir3DArrayF::size_type seti = 0; seti < dataset_count; seti++)
-    {
-        for (Muir3DArrayF::size_type col = 0; col < dataset_width; col++)
-        {
-            for (Muir3DArrayF::size_type row = 0; row < dataset_height; row++)
-            {
-                float sample = log10(decoded_data[seti][col][row]+1)*10;
-                data_min = std::min(data_min,sample);
-                data_max = std::max(data_max,sample);
-            }
-        }
-    }
-
     // allocate buffer
     //width = 500;
     //height = 1100;
@@ -333,13 +337,12 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
             data[row*width + col] = .50;
         }
     }
-    
+
     for (Muir3DArrayF::size_type col = 0; col < dataset_width ;col++)
     {
         for (Muir3DArrayF::size_type row = 0; row < dataset_height; row++)
         {
                 float pixel = log10(decoded_data[set][col][row]+1)*10;
-                //unsigned char pixel = static_cast<unsigned char>((sample-data_min)/(data_max-data_min)*255);
                 data[row*width + col] = pixel;
         }
     }
