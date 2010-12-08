@@ -1,7 +1,7 @@
 //
-// C++ Implementation: muir OpenGL Shader initialization
+// C++ Implementation: muir-gl-shader
 //
-// Description: Constants for MUIR experiment data.
+// Description: OpenGL Shader initialization.
 //
 //
 // Author: Beau V.C. Bellamy <bvbellamy@arsc.edu>

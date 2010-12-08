@@ -1,9 +1,9 @@
 #ifndef MUIR_GL_SHADER_H
 #define MUIR_GL_SHADER_H
 //
-// C++ Declaration: muir OpenGL Shader initialization
+// C++ Declaration: muir-gl-shader
 //
-// Description: Constants for MUIR experiment data.
+// Description:  OpenGL Shader initialization.
 //
 //
 // Author: Beau V.C. Bellamy <bvbellamy@arsc.edu>

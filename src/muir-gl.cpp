@@ -2,12 +2,14 @@
 #include "muir-hd5.h"
 #include "muir-constants.h"
 #include "muir-gl-shader.h"
+#include "muir-gl-data.h"
 
 #include <iostream>
 #include <cmath>
 #include <complex>
 #include <stdlib.h>
 #include <GL/glut.h>
+#include <vector>
 
 void renderScene(void);
 void changeSize(int w, int h);
@@ -19,7 +21,7 @@ void processMouseActiveMotion(int x, int y);
 void processMousePassiveMotion(int x, int y);
 void processMouseEntry(int state);
 
-GLuint LoadTextureHD5(const std::string &filename, const unsigned int set );
+void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &data );
 
 // all variables initialized to 1.0, meaning 
 // the triangle will initially be white
@@ -30,7 +32,10 @@ float y_loc = 0.0;
 float scale=1.0;
 int mouse_x = 0;
 int mouse_y = 0;
-GLuint muirtex;
+int frame_max = 0;
+int frame_min = 0;
+
+std::vector<Muirgl_Data> data;
 
 int main(int argc, char **argv)
 {
@@ -54,7 +59,35 @@ int main(int argc, char **argv)
     glutPassiveMotionFunc(processMousePassiveMotion);
     glutEntryFunc(processMouseEntry);
 
-    muirtex = LoadTextureHD5("/scratch/bellamy/d0000648-decoded.h5", 1 );
+    /// FIXME, load data from file
+    //LoadTextureHD5("/scratch/bellamy/d0000648-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000601-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000602-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000603-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000604-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000605-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000606-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000607-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000608-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000609-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000610-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000611-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000612-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000613-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000614-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000615-decoded.h5", data);
+    LoadTextureHD5("/scratch/bellamy/d0000616-decoded.h5", data);
+
+    // Find framecounts min/max
+    frame_max = data[0].frameend;
+    frame_min = data[0].framestart;
+    for(std::vector<Muirgl_Data>::iterator iter = data.begin(); iter != data.end(); iter++)
+    {
+        if(iter->frameend > frame_max)
+            frame_max = iter->frameend;
+        if(iter->framestart > frame_min)
+            frame_min = iter->framestart;
+    }
 
     // Enable Depth Test
     glEnable(GL_DEPTH_TEST);
@@ -85,18 +118,20 @@ void renderScene(void) {
     // glColor specifies the color of all further drawings
     //glColor3f(red,green,blue);
 
+    // FIXME, use more parameters from the data.
     const float texboundx = 500.0/512.0;
     const float texboundy = 1100.0/2048.0;
 
-    for (float i = 0; i < 100; i += 0.50)
+    for(std::vector<Muirgl_Data>::iterator iter = data.begin(); iter != data.end(); iter++)
     {
+        float x = static_cast<float>((frame_min - iter->framestart))/2000.0;
         glEnable( GL_TEXTURE_2D );
-        glBindTexture( GL_TEXTURE_2D, muirtex );
+        glBindTexture( GL_TEXTURE_2D, iter->texnum );
         glBegin( GL_QUADS );
-        glTexCoord2d(0.0,0.0); glVertex2d(i,0.0);
-        glTexCoord2d(texboundx,0.0); glVertex2d(i+ 0.25,0.0);
-        glTexCoord2d(texboundx,texboundy); glVertex2d(i+ 0.25,1.0);
-        glTexCoord2d(0.0,texboundy); glVertex2d(i,1.0);
+        glTexCoord2d(0.0,0.0); glVertex2d(x,0.0);
+        glTexCoord2d(texboundx,0.0); glVertex2d(x+ 0.25,0.0);
+        glTexCoord2d(texboundx,texboundy); glVertex2d(x+ 0.25,1.0);
+        glTexCoord2d(0.0,texboundy); glVertex2d(x,1.0);
         glEnd();
     }
 
@@ -300,9 +335,8 @@ void processMouseEntry(int state) {
 }
 
 
-GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
+void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datavec )
 {
-    GLuint texture;
     int width, height;
     GLfloat * data;
 
@@ -321,67 +355,82 @@ GLuint LoadTextureHD5(const std::string &filename, const unsigned int set )
     Muir3DArrayF::size_type dataset_width = array_dims[1];  // frames per set
     Muir3DArrayF::size_type dataset_height = array_dims[2]; // Range bins
 
-    // allocate buffer
-    //width = 500;
-    //height = 1100;
+    // Get framecount data
+    Muir2DArrayUI framecount;
+    h5file.read_2D_uint(RTI_DECODEDFRAME_PATH, framecount);
+
+    // texture width
     width = 512;
     height = 2048;
-    //width  = 512;
-    //height = 512;
-    data = reinterpret_cast<GLfloat*>(malloc( width * height*sizeof(GLfloat) ));
 
-    for (Muir3DArrayF::size_type col = 0; col < width ;col++)
+    for (unsigned int set = 0; set < dataset_count; set++)
     {
-        for (Muir3DArrayF::size_type row = 0; row < height; row++)
+        Muirgl_Data dataptr;
+        dataptr.texwidth = width;
+        dataptr.texheight = height;
+        dataptr.datawoffset = 0;
+        dataptr.datahoffset = 0;
+        dataptr.dataw = dataset_width;
+        dataptr.datah = dataset_height;
+        dataptr.framestart = framecount[set][0];
+        dataptr.frameend = framecount[set][dataset_width-1];
+
+        data = reinterpret_cast<GLfloat*>(malloc( width * height*sizeof(GLfloat) ));
+
+        for (Muir3DArrayF::size_type col = 0; col < width ;col++)
         {
-            data[row*width + col] = .50;
+            for (Muir3DArrayF::size_type row = 0; row < height; row++)
+            {
+                data[row*width + col] = .50;
+            }
         }
-    }
-
-    for (Muir3DArrayF::size_type col = 0; col < dataset_width ;col++)
-    {
-        for (Muir3DArrayF::size_type row = 0; row < dataset_height; row++)
-        {
-                float pixel = log10(decoded_data[set][col][row]+1)*10;
-                data[row*width + col] = pixel;
-        }
-    }
-
-    // allocate a texture name
-    glGenTextures( 1, &texture );
-
-    // select our current texture
-    glBindTexture( GL_TEXTURE_2D, texture );
-
-    // select modulate to mix texture with color for shading
-    //glTexEnvf( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
-
-    // when texture area is small, bilinear filter the closest mipmap
-    //glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-    //                 GL_LINEAR_MIPMAP_NEAREST );
-    // when texture area is large, bilinear filter the first mipmap
-    glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
- //In this case, the driver will convert your 32 bit float to 16 bit float
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE16F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, data);
-
     
-    // if wrap is true, the texture wraps over at the edges (repeat)
-    //       ... false, the texture ends at the edges (clamp)
-    //glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP );
-    //glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP );
+        for (Muir3DArrayF::size_type col = 0; col < dataset_width ;col++)
+        {
+            for (Muir3DArrayF::size_type row = 0; row < dataset_height; row++)
+            {
+                    float pixel = log10(decoded_data[set][col][row]+1)*10;
+                    data[row*width + col] = pixel;
+            }
+        }
 
-    // build our texture
-    //glTexImage2D( GL_TEXTURE_2D, 0, GL_LUMINANCE16, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
-    //gluBuild2DMipmaps( GL_TEXTURE_2D, GL_LUMINANCE16, width, height, GL_LUMINANCE, GL_UNSIGNED_BYTE, data );
-    //gluBuild2DMipmaps( GL_TEXTURE_2D, GL_LUMINANCE16F_ARB, width, height, GL_LUMINANCE32F_ARB, GL_FLOAT, data );
+        // allocate a texture name
+        glGenTextures( 1, &dataptr.texnum );
 
-    // free buffer
-    free( data );
+        // select our current texture
+        glBindTexture( GL_TEXTURE_2D, dataptr.texnum );
 
-    return texture;
+        // when texture area is large, bilinear filter the first mipmap
+        glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        //In this case, the driver will convert your 32 bit float to 16 bit float
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE16F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, data);
+
+        // free buffer
+        free( data );
+
+        // Add GPU texture data to vector
+        datavec.push_back(dataptr);
+
+        // Geewhiz stuff
+#if 0
+        #define GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX 0x9048
+        #define GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX 0x9049
+
+        GLint total_mem_kb = 0;
+                glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX,
+                            &total_mem_kb);
+        
+        GLint cur_avail_mem_kb = 0;
+                glGetIntegerv(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX,
+                            &cur_avail_mem_kb);
+#endif
+        std::cout << "Loaded set: " << filename << ":" << set << "   texnum:" << dataptr.texnum << 
+                 " Glerror?: " << glGetError() << std::endl;
+    }
+    //return texture;
 }
