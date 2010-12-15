@@ -11,9 +11,13 @@ void main() {
    //float g = texel.g;
    //float b = texel.b;
 
-   // Normalize sample
+   // Convert to decibels, I do it here in the shader so that data smoothing performed by texture2D can be done on the linear data.
+   float db = log10(sample)*10;
+
+   // Normalize sample to be between min and max values
    float i = (sample-data_min)/(data_max-data_min);
 
+   // Assign colors
    if (i < 0.25 )
       color = max(vec4(0.0,0.0,i * 4.0,0.0),0.0);
    else if (i < 0.5 )

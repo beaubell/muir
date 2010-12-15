@@ -11,7 +11,14 @@
 #include <GL/glut.h>
 #include <vector>
 
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/convenience.hpp>
+#include <boost/timer.hpp>
+namespace FS = boost::filesystem;
+namespace T = boost::filesystem;
+
 void renderScene(void);
+void idleFunc(void);
 void changeSize(int w, int h);
 void processNormalKeys(unsigned char key, int x, int y);
 void processSpecialKeys(int key, int x, int y);
@@ -22,30 +29,43 @@ void processMousePassiveMotion(int x, int y);
 void processMouseEntry(int state);
 
 void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &data );
+void loadfiles(const std::string &dir);
 
-// all variables initialized to 1.0, meaning 
-// the triangle will initially be white
-float red=1.0, blue=1.0, green=1.0;
-//float angle=0.0;
+// Global state
 float x_loc = 0.0;
 float y_loc = 0.0;
 float scale=1.0;
 int mouse_x = 0;
 int mouse_y = 0;
+float mouse_x_vel = 0.0;
+float mouse_y_vel = 0.0;
 int frame_max = 0;
 int frame_min = 0;
+float scroll_vel = 10.0;
+float scroll_acc = -2.0;
+bool texture_smooth = true;
+// Initialize timer state
+//boost::timers::portable::microsec_timer timer;
+//double elapsed_time = timer.elapsed();
+timespec walltime;
 
+// Data Handler
 std::vector<Muirgl_Data> data;
+
+
 
 int main(int argc, char **argv)
 {
+    // Initialize timer state
+    clock_gettime(CLOCK_REALTIME, &walltime);
+    
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
     glutInitWindowPosition(10,10);
     glutInitWindowSize(1000,800);
     glutCreateWindow("Muir Data Viewer");
     glutDisplayFunc(renderScene);
-    glutIdleFunc(renderScene);
+    glutIdleFunc(idleFunc);
 
     glutReshapeFunc(changeSize);
 
@@ -59,24 +79,8 @@ int main(int argc, char **argv)
     glutPassiveMotionFunc(processMousePassiveMotion);
     glutEntryFunc(processMouseEntry);
 
-    /// FIXME, load data from file
-    //LoadTextureHD5("/scratch/bellamy/d0000648-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000601-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000602-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000603-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000604-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000605-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000606-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000607-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000608-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000609-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000610-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000611-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000612-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000613-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000614-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000615-decoded.h5", data);
-    LoadTextureHD5("/scratch/bellamy/d0000616-decoded.h5", data);
+    /// FIXME, load initialization data from file
+    loadfiles(argv[1]);
 
     // Find framecounts min/max
     frame_max = data[0].frameend;
@@ -85,7 +89,7 @@ int main(int argc, char **argv)
     {
         if(iter->frameend > frame_max)
             frame_max = iter->frameend;
-        if(iter->framestart > frame_min)
+        if(iter->framestart < frame_min)
             frame_min = iter->framestart;
     }
 
@@ -100,7 +104,7 @@ int main(int argc, char **argv)
 
     // Fragment shader
     muir_opengl_shader();
-    
+
     glutMainLoop();
 
     return 0;
@@ -108,15 +112,12 @@ int main(int argc, char **argv)
 
 
 void renderScene(void) {
+
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
     glPushMatrix();
-    //glRotatef(angle,0.0,1.0,0.0);
 
     glScalef(scale,scale,1);
     glTranslatef(x_loc/100,y_loc/100,0);
-    // this is where we set the actual color
-    // glColor specifies the color of all further drawings
-    //glColor3f(red,green,blue);
 
     // FIXME, use more parameters from the data.
     const float texboundx = 500.0/512.0;
@@ -124,9 +125,12 @@ void renderScene(void) {
 
     for(std::vector<Muirgl_Data>::iterator iter = data.begin(); iter != data.end(); iter++)
     {
-        float x = static_cast<float>((frame_min - iter->framestart))/2000.0;
+        float x = static_cast<float>(iter->framestart-frame_min)/2000.0;
         glEnable( GL_TEXTURE_2D );
         glBindTexture( GL_TEXTURE_2D, iter->texnum );
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
+        
         glBegin( GL_QUADS );
         glTexCoord2d(0.0,0.0); glVertex2d(x,0.0);
         glTexCoord2d(texboundx,0.0); glVertex2d(x+ 0.25,0.0);
@@ -135,6 +139,7 @@ void renderScene(void) {
         glEnd();
     }
 
+#if 0
     glDisable( GL_TEXTURE_2D );
     glColor3f(1.0f,1.0f,1.0f);
     glBegin( GL_QUADS );
@@ -143,10 +148,51 @@ void renderScene(void) {
     glVertex2d(1.0,1.0);
     glVertex2d(0.5,1.0);
     glEnd();
+#endif
+
     glPopMatrix();
 
     glutSwapBuffers();
 
+}
+
+
+void idleFunc(void)
+{
+    //Figure out time passage
+    //double delta_t = timer.elapsed() - elapsed_time;
+    timespec newtime;
+    clock_gettime(CLOCK_REALTIME, &newtime);
+
+    // Calculate differences
+    timespec delta_timespec;
+
+    if ((newtime.tv_nsec-walltime.tv_nsec) < 0) {
+        delta_timespec.tv_sec = newtime.tv_sec - walltime.tv_sec-1;
+        delta_timespec.tv_nsec = 1000000000+newtime.tv_nsec - walltime.tv_nsec;
+    } else {
+        delta_timespec.tv_sec = newtime.tv_sec - walltime.tv_sec;
+        delta_timespec.tv_nsec = newtime.tv_nsec - walltime.tv_nsec;
+    }
+
+    walltime.tv_sec = newtime.tv_sec;
+    walltime.tv_nsec = newtime.tv_nsec;
+
+    double delta_t = delta_timespec.tv_sec + static_cast<double>(delta_timespec.tv_nsec)/1000000000.0;
+
+    //std::cout << "Delta Time: " << delta_t << std::endl
+    //        << "Time: " << newtime.tv_sec << "." << newtime.tv_nsec << std::endl;
+    
+    //Process scoll velocity decay
+    scroll_vel += scroll_acc * delta_t;
+    if (scroll_vel < 0.0)
+        scroll_vel = 0;
+
+    //Process scroll velocity
+    x_loc += scroll_vel * delta_t;
+
+    // Render Scene
+    glutPostRedisplay();
 }
 
 
@@ -183,10 +229,8 @@ void processNormalKeys(unsigned char key, int x, int y) {
         exit(0);
     else if (key=='r') {
         int mod = glutGetModifiers();
-        if (mod == GLUT_ACTIVE_ALT)
-            red = 0.0;
-        else
-            red = 1.0;
+        //if (mod == GLUT_ACTIVE_ALT)
+
     }
     if (key == 'q')
     {
@@ -218,17 +262,15 @@ void processSpecialKeys(int key, int x, int y) {
         case GLUT_KEY_F1 : 
             mod = glutGetModifiers();
             if (mod == (GLUT_ACTIVE_CTRL|GLUT_ACTIVE_ALT)) {
-                red = 1.0; green = 0.0; blue = 0.0;
+
             }
             break;
         case GLUT_KEY_F2 : 
-            red = 0.0; 
-            green = 1.0; 
-            blue = 0.0; break;
+            texture_smooth = !texture_smooth;
+            //std::cout << "Texture smooth: " << texture_smooth
+             break;
         case GLUT_KEY_F3 : 
-            red = 0.0; 
-            green = 0.0; 
-            blue = 1.0; break;
+             break;
 
     }
 }
@@ -244,9 +286,16 @@ void processMouse(int button, int state, int x, int y) {
         //std::cout << "Button:" << button << std::endl;
         if (button == 3) // scroll up
             scale *= 1.5f;
-        
+
         if (button == 4) // scroll down
             scale /= 1.5f;
+    }
+
+    if (state == GLUT_UP)
+    {
+        //if (button == 0) // right click
+            //scroll_vel = mouse_vel;
+
     }
   //       (specialKey == GLUT_ACTIVE_ALT)) {
 
@@ -389,7 +438,8 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
         {
             for (Muir3DArrayF::size_type row = 0; row < dataset_height; row++)
             {
-                    float pixel = log10(decoded_data[set][col][row]+1)*10;
+                    //float pixel = log10(decoded_data[set][col][row]+1)*10;
+                    float pixel = decoded_data[set][col][row]/1100; // Normalization FIXME
                     data[row*width + col] = pixel;
             }
         }
@@ -400,15 +450,15 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
         // select our current texture
         glBindTexture( GL_TEXTURE_2D, dataptr.texnum );
 
-        // when texture area is large, bilinear filter the first mipmap
-        glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         //In this case, the driver will convert your 32 bit float to 16 bit float
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE16F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE32F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, data);
 
         // free buffer
         free( data );
@@ -433,4 +483,38 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
                  " Glerror?: " << glGetError() << std::endl;
     }
     //return texture;
+}
+
+void loadfiles(const std::string &dir)
+{
+    FS::path path1(dir);
+
+       // If not a command, must be a file
+    if (FS::is_directory(path1))
+    {
+
+        for (FS::directory_iterator dirI(path1); dirI!=FS::directory_iterator(); ++dirI)
+        {
+            std::cout << dirI->string() << std::endl;
+
+            if (!FS::is_directory(*dirI))
+            {
+                try
+                {
+                    LoadTextureHD5(dirI->string(), data);
+                }
+                catch(...)
+                {
+                    std::cout << "Error loading file: " << dirI->string() << std::endl;
+                }
+               /// FIXME Doesn't scan higher directories
+            }
+        }
+    }
+    else
+    {
+        LoadTextureHD5(dir, data);
+    }
+
+    return;
 }
