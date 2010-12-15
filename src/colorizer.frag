@@ -15,7 +15,7 @@ void main() {
    float db = log10(sample)*10;
 
    // Normalize sample to be between min and max values
-   float i = (sample-data_min)/(data_max-data_min);
+   float i = (db-data_min)/(data_max-data_min);
 
    // Assign colors
    if (i < 0.25 )
