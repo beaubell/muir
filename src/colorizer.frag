@@ -12,7 +12,7 @@ void main() {
    //float b = texel.b;
 
    // Convert to decibels, I do it here in the shader so that data smoothing performed by texture2D can be done on the linear data.
-   float db = log10(sample)*10;
+   float db = log10(sample)*10.0;
 
    // Normalize sample to be between min and max values
    float i = (db-data_min)/(data_max-data_min);

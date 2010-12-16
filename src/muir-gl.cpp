@@ -14,6 +14,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/convenience.hpp>
 #include <boost/timer.hpp>
+#include <boost/lexical_cast.hpp>
 namespace FS = boost::filesystem;
 namespace T = boost::filesystem;
 
@@ -32,22 +33,21 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &data 
 void loadfiles(const std::string &dir);
 
 // Global state
-float x_loc = 0.0;
-float y_loc = 0.0;
-float scale=1.0;
+int window_w = 0;
+int window_h = 0;
+float x_loc = 0.0f;
+float y_loc = 0.0f;
+float scale = 1.0f;
 int mouse_x = 0;
 int mouse_y = 0;
-float mouse_x_vel = 0.0;
-float mouse_y_vel = 0.0;
+float mouse_x_vel = 0.0f;
+float mouse_y_vel = 0.0f;
 int frame_max = 0;
 int frame_min = 0;
-float scroll_vel = 10.0;
-float scroll_acc = -2.0;
+float scroll_vel = 0.0f;
+float scroll_acc = -2.0f;
 bool texture_smooth = true;
-// Initialize timer state
-//boost::timers::portable::microsec_timer timer;
-//double elapsed_time = timer.elapsed();
-timespec walltime;
+double walltime = 0.0;
 
 // Data Handler
 std::vector<Muirgl_Data> data;
@@ -57,8 +57,8 @@ std::vector<Muirgl_Data> data;
 int main(int argc, char **argv)
 {
     // Initialize timer state
-    clock_gettime(CLOCK_REALTIME, &walltime);
-    
+    walltime = static_cast<double>(glutGet(GLUT_ELAPSED_TIME))/1000.0;
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
     glutInitWindowPosition(10,10);
@@ -93,9 +93,8 @@ int main(int argc, char **argv)
             frame_min = iter->framestart;
     }
 
-    // Enable Depth Test
-    glEnable(GL_DEPTH_TEST);
-    glEnable( GL_TEXTURE_2D );
+    glDisable(GL_DEPTH_TEST); // Don't need depth testing
+    glDisable(GL_LIGHTING);   // Dont need lighting
 
     // Check texture size
     GLint texSize;
@@ -103,7 +102,7 @@ int main(int argc, char **argv)
     std::cout << "Maximum texture size: " << texSize << std::endl;
 
     // Fragment shader
-    muir_opengl_shader();
+    muir_opengl_shader_init();
 
     glutMainLoop();
 
@@ -116,21 +115,27 @@ void renderScene(void) {
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
     glPushMatrix();
 
-    glScalef(scale,scale,1);
-    glTranslatef(x_loc/100,y_loc/100,0);
+    glScalef(scale, scale, 1.0);
+    glTranslatef(x_loc/100.0, y_loc/100.0, 0.0);
 
     // FIXME, use more parameters from the data.
     const float texboundx = 500.0/512.0;
     const float texboundy = 1100.0/2048.0;
 
+    // Turn Shader on
+    muir_opengl_shader_switch(shaderProgram);
+    muir_GPU_send_variables();
+
+    // Texture On!
+    glEnable( GL_TEXTURE_2D );
+
     for(std::vector<Muirgl_Data>::iterator iter = data.begin(); iter != data.end(); iter++)
     {
         float x = static_cast<float>(iter->framestart-frame_min)/2000.0;
-        glEnable( GL_TEXTURE_2D );
         glBindTexture( GL_TEXTURE_2D, iter->texnum );
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
-        
+
         glBegin( GL_QUADS );
         glTexCoord2d(0.0,0.0); glVertex2d(x,0.0);
         glTexCoord2d(texboundx,0.0); glVertex2d(x+ 0.25,0.0);
@@ -138,6 +143,9 @@ void renderScene(void) {
         glTexCoord2d(0.0,texboundy); glVertex2d(x,1.0);
         glEnd();
     }
+
+    // Texture off
+    glDisable( GL_TEXTURE_2D );
 
 #if 0
     glDisable( GL_TEXTURE_2D );
@@ -152,6 +160,36 @@ void renderScene(void) {
 
     glPopMatrix();
 
+    glPushMatrix();
+
+    // Turn shader off
+    muir_opengl_shader_switch(0);
+
+    glColor3f(1.0, 1.0, 1.0); // White
+
+    glRasterPos2f(-2.0, -2.0 + 10.0/window_h);
+    std::string s = "Respect mah authoritah!";
+    void * font = GLUT_BITMAP_9_BY_15;
+    for (std::string::iterator i = s.begin(); i != s.end(); ++i)
+    {
+        char c = *i;
+        glutBitmapCharacter(font, c);
+    }
+
+    // Find mouse coords relative to opengl coords
+    float mousepos_x = static_cast<float>(mouse_x - window_w/2)/static_cast<float>(window_w) * 3.0f;
+    float mousepos_y = static_cast<float>(-mouse_y + window_h/2)/static_cast<float>(window_h)* 3.0f;
+
+    glRasterPos2f(mousepos_x, mousepos_y);
+    s = "Mouse: " + boost::lexical_cast<std::string>(mouse_x) + "," + boost::lexical_cast<std::string>(mouse_y);
+    for (std::string::iterator i = s.begin(); i != s.end(); ++i)
+    {
+        char c = *i;
+        glutBitmapCharacter(font, c);
+    }
+
+    glPopMatrix();
+
     glutSwapBuffers();
 
 }
@@ -160,29 +198,13 @@ void renderScene(void) {
 void idleFunc(void)
 {
     //Figure out time passage
-    //double delta_t = timer.elapsed() - elapsed_time;
-    timespec newtime;
-    clock_gettime(CLOCK_REALTIME, &newtime);
-
-    // Calculate differences
-    timespec delta_timespec;
-
-    if ((newtime.tv_nsec-walltime.tv_nsec) < 0) {
-        delta_timespec.tv_sec = newtime.tv_sec - walltime.tv_sec-1;
-        delta_timespec.tv_nsec = 1000000000+newtime.tv_nsec - walltime.tv_nsec;
-    } else {
-        delta_timespec.tv_sec = newtime.tv_sec - walltime.tv_sec;
-        delta_timespec.tv_nsec = newtime.tv_nsec - walltime.tv_nsec;
-    }
-
-    walltime.tv_sec = newtime.tv_sec;
-    walltime.tv_nsec = newtime.tv_nsec;
-
-    double delta_t = delta_timespec.tv_sec + static_cast<double>(delta_timespec.tv_nsec)/1000000000.0;
+    double newtime = static_cast<double>(glutGet(GLUT_ELAPSED_TIME))/1000.0;
+    double delta_t = newtime - walltime;
+    walltime = newtime;
 
     //std::cout << "Delta Time: " << delta_t << std::endl
     //        << "Time: " << newtime.tv_sec << "." << newtime.tv_nsec << std::endl;
-    
+
     //Process scoll velocity decay
     scroll_vel += scroll_acc * delta_t;
     if (scroll_vel < 0.0)
@@ -220,7 +242,8 @@ void changeSize(int w, int h) {
               0.0,0.0,-1.0,
               0.0f,1.0f,0.0f);
 
-
+    window_w = w;
+    window_h = h;
 }
 
 void processNormalKeys(unsigned char key, int x, int y) {
@@ -235,22 +258,22 @@ void processNormalKeys(unsigned char key, int x, int y) {
     if (key == 'q')
     {
         shader_data_min += 0.5f;
-        GPU_send_variables();
+        muir_GPU_send_variables();
     }
     if (key == 'a')
     {
         shader_data_min -= 0.5f;
-        GPU_send_variables();
+        muir_GPU_send_variables();
     }
     if (key == 'w')
     {
         shader_data_max += 0.5f;
-        GPU_send_variables();
+        muir_GPU_send_variables();
     }
     if (key == 's')
     {
         shader_data_max -= 0.5f;
-        GPU_send_variables();
+        muir_GPU_send_variables();
     }
     std::cout << "Min: " << shader_data_min << ", Max: " << shader_data_max << std::endl;
 }
@@ -386,7 +409,7 @@ void processMouseEntry(int state) {
 
 void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datavec )
 {
-    int width, height;
+    unsigned int width, height;
     GLfloat * data;
 
     // Open file
@@ -430,10 +453,10 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
         {
             for (Muir3DArrayF::size_type row = 0; row < height; row++)
             {
-                data[row*width + col] = .50;
+                data[row*width + col] = 0.0;
             }
         }
-    
+
         for (Muir3DArrayF::size_type col = 0; col < dataset_width ;col++)
         {
             for (Muir3DArrayF::size_type row = 0; row < dataset_height; row++)
@@ -452,9 +475,7 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        
+
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         //In this case, the driver will convert your 32 bit float to 16 bit float
@@ -474,7 +495,7 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
         GLint total_mem_kb = 0;
                 glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX,
                             &total_mem_kb);
-        
+
         GLint cur_avail_mem_kb = 0;
                 glGetIntegerv(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX,
                             &cur_avail_mem_kb);
@@ -485,6 +506,7 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
     //return texture;
 }
 
+/// FIXME This is dumb, find a better way
 void loadfiles(const std::string &dir)
 {
     FS::path path1(dir);

@@ -18,7 +18,7 @@
 #include <string>
 #include <iostream>
 
-GLhandleARB shader_num;
+GLhandleARB shaderProgram;
 int shader_data_min_loc;
 int shader_data_max_loc;
 float shader_data_min = 0.0f;
@@ -29,9 +29,9 @@ char *textFileRead(const char *fn);
 
 // This function loads both a texture and fragment shader. (fragment parts commented out)
 // Ripped from my space sim (Beau V.C. Bellamy)
-void muir_opengl_shader()
+void muir_opengl_shader_init()
 {
-    GLhandleARB shaderProgram;
+
     //std::string   vpath = Global.dir_shaders + vname;
     //std::string   fpath = Global.dir_shaders + fname;
 
@@ -98,11 +98,16 @@ void muir_opengl_shader()
     glUseProgramObjectARB(shaderProgram);
     shader_data_min_loc = glGetUniformLocationARB(shaderProgram, "data_min");
     shader_data_max_loc = glGetUniformLocationARB(shaderProgram, "data_max");
-    GPU_send_variables();
+    muir_GPU_send_variables();
 
 }
 
-void GPU_send_variables()
+void muir_opengl_shader_switch(GLhandleARB num)
+{
+    glUseProgramObjectARB(num);
+}
+
+void muir_GPU_send_variables()
 {
     glUniform1fARB(shader_data_min_loc, shader_data_min);
     glUniform1fARB(shader_data_max_loc, shader_data_max);
