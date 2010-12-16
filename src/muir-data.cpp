@@ -619,8 +619,6 @@ void MuirData::process_fftw()
         fftw_plan_with_nthreads(2);
     }
 
-    int N[1] = {max_rows};
-
     // Calculate each row
     #pragma omp parallel for
     for(int phase_code_offset = 0; phase_code_offset < static_cast<int>(max_rows); phase_code_offset++)
@@ -629,17 +627,19 @@ void MuirData::process_fftw()
         // Setup for row
         fftw_complex *in, *out;
         fftw_plan p;
+        int fft_size = max_rows;  // Also used for normalization
+        int N[1] = {fft_size};
 
         #pragma omp critical (fftw)
         {
             std::cout << "FFTW Row:" << phase_code_offset << std::endl;
-            in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
-            out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * max_rows*max_sets*max_cols);
-            p = fftw_plan_many_dft(1, N, max_sets*max_cols, in, NULL, 1, max_rows, out, NULL, 1, max_rows, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
+            in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * fft_size*max_sets*max_cols);
+            out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * fft_size*max_sets*max_cols);
+            p = fftw_plan_many_dft(1, N, max_sets*max_cols, in, NULL, 1, fft_size, out, NULL, 1, fft_size, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
         }
 
         // Copy data into fftw vector, apply phasecode, and zero out the rest
-        for(SampleDataArray::size_type row = 0; row < max_rows; row++)
+        for(SampleDataArray::size_type row = 0; row < fft_size; row++)
         {
             if((row >= phase_code_offset) && (row < (phasecode_size + phase_code_offset)))
             {
@@ -648,7 +648,7 @@ void MuirData::process_fftw()
                 for(SampleDataArray::size_type set = 0; set < max_sets; set++)
                     for(SampleDataArray::size_type col = 0; col < max_cols; col++)
                     {
-                        SampleDataArray::size_type index = set*(max_rows*max_cols) + col*(max_rows) + row;
+                        SampleDataArray::size_type index = set*(fft_size*max_cols) + col*(fft_size) + row;
                         in[index][0] = _sample_data[set][col][row][0] * phase_multiplier;
                         in[index][1] = _sample_data[set][col][row][1] * phase_multiplier;
                     }
@@ -658,7 +658,7 @@ void MuirData::process_fftw()
                 for(std::size_t set = 0; set < max_sets; set++)
                     for(std::size_t col = 0; col < max_cols; col++)
                     {
-                        std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
+                        std::size_t index = set*(fft_size*max_cols) + col*(fft_size) + row;
                         in[index][0] = 0;
                         in[index][1] = 0;
                     }
@@ -677,9 +677,9 @@ void MuirData::process_fftw()
                 float        max_power = 0.0;
 
                 // Iterate through the column spectra and find the max value
-                for(std::size_t row = 0; row < max_rows; row++)
+                for(std::size_t row = 0; row < fft_size; row++)
                 {
-                    std::size_t index = set*(max_rows*max_cols) + col*(max_rows) + row;
+                    std::size_t index = set*(fft_size*max_cols) + col*(fft_size) + row;
 
                     float power = norm(std::complex<float>(out[index][0], out[index][1]));
                     if (power > max_power)
@@ -691,9 +691,8 @@ void MuirData::process_fftw()
 
                 }
 
-                //(*_fftw_data)[set][col][phase_code_offset][0] = max_value[0];
-                //(*_fftw_data)[set][col][phase_code_offset][1] = max_value[1];
-                _decoded_data[set][col][phase_code_offset] = max_power;
+                // Assign and normalize
+                _decoded_data[set][col][phase_code_offset] = max_power/fft_size; 
             }
         }
 
