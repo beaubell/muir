@@ -44,7 +44,7 @@ float mouse_x_vel = 0.0f;
 float mouse_y_vel = 0.0f;
 int frame_max = 0;
 int frame_min = 0;
-float scroll_vel = 0.0f;
+float scroll_vel = 10.0f;
 float scroll_acc = -2.0f;
 bool texture_smooth = true;
 double walltime = 0.0;
@@ -462,7 +462,7 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
             for (Muir3DArrayF::size_type row = 0; row < dataset_height; row++)
             {
                     //float pixel = log10(decoded_data[set][col][row]+1)*10;
-                    float pixel = decoded_data[set][col][row]/1100; // Normalization FIXME
+                    float pixel = decoded_data[set][col][row];
                     data[row*width + col] = pixel;
             }
         }
