@@ -10,6 +10,6 @@ add_executable (muir-rti muir-rti.cpp muir-data.cpp muir-hd5.cpp muir-constants.
 add_executable (muir-gl  muir-gl.cpp  muir-data.cpp muir-hd5.cpp muir-constants.cpp muir-utility.cpp muir-gl-shader.cpp muir-gl-data.cpp)
 
 # Link the executable to the Hello library.
-target_link_libraries (muir-rti ${HDF5_LIBRARIES_CXX} ${HDF5_LIBRARIES} ${GD_LIBRARY} ${FFTW_LIBRARY} ${FFTW_THREAD_LIBRARY} -lboost_filesystem -lboost_date_time gd)
-target_link_libraries (muir-gl ${HDF5_LIBRARIES_CXX} ${HDF5_LIBRARIES} ${GD_LIBRARY} ${FFTW_LIBRARY} ${FFTW_THREAD_LIBRARY} ${GLUT_glut_LIBRARY} -lboost_filesystem -lboost_date_time gd)
+target_link_libraries (muir-rti ${HDF5_LIBRARIES_CXX} ${HDF5_LIBRARIES} ${GD_LIBRARY} ${FFTW_LIBRARY} ${FFTW_THREAD_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_SYSTEM_LIBRARY} gd)
+target_link_libraries (muir-gl ${HDF5_LIBRARIES_CXX} ${HDF5_LIBRARIES} ${GD_LIBRARY} ${FFTW_LIBRARY} ${FFTW_THREAD_LIBRARY} ${GLUT_glut_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_DATA_TIME_LIBRARY} ${Boost_SYSTEM_LIBRARY} gd)
 

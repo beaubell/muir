@@ -17,6 +17,8 @@
 
 #include <string>
 #include <iostream>
+#include <cstdlib>
+#include <cstdio>
 
 GLhandleARB shaderProgram;
 int shader_data_min_loc;
