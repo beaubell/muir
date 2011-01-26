@@ -22,26 +22,12 @@
 
 #include "muir-hd5.h"
 
+typedef boost::multi_array<float , 4> SampleDataArray;
+typedef boost::multi_array<float , 3> DecodedDataArray;
+
 class MuirData
 {
-   public:
-    MuirData(const std::string &filename_in, int option = 0);
-    virtual ~MuirData();
-
-    void print_onesamplecolumn(const std::size_t run, const std::size_t column);
-    void print_stats();
-    void save_2dplot(const std::string &output_file);
-    void save_fftw_2dplot(const std::string &output_file);
-
-    void process_fftw();
-    void save_decoded_data(const std::string &output_file);
-    void read_decoded_data(const std::string &input_file);
-
    private:
-    // No copying
-    MuirData(const MuirData &in);
-    MuirData& operator= (const MuirData &right);
-
     std::string _filename;
     float       _pulsewidth;
     float       _txbaud;
@@ -49,15 +35,42 @@ class MuirData
     void        print_onesamplecolumn(float (&sample)[1100][2], float (&range)[1100]);
     std::vector<int> _phasecode;
 
-    typedef boost::multi_array<float , 4> SampleDataArray;
-    SampleDataArray _sample_data;
-
-    typedef boost::multi_array<float , 3> DecodedDataArray;
-    DecodedDataArray _decoded_data;
+    Muir4DArrayF _sample_data;
+    Muir3DArrayF _decoded_data;
 
     Muir2DArrayF  _sample_range;
     Muir2DArrayUI _framecount;
     Muir2DArrayD  _time;
+
+   public:
+    MuirData(const std::string &filename_in, int option = 0);
+    virtual ~MuirData();
+
+    void print_onesamplecolumn(const std::size_t run, const std::size_t column);
+    void print_stats();
+
+    void process_fftw();
+    void save_decoded_data(const std::string &output_file);
+    void read_decoded_data(const std::string &input_file);
+
+    // read only accessors
+    const Muir4DArrayF&  get_sample_data() const
+        { return _sample_data; };
+    const Muir3DArrayF&  get_decoded_data() const
+        { return _decoded_data; };
+    const Muir2DArrayF&  get_sample_range() const
+        { return _sample_range; };
+    const Muir2DArrayUI& get_framecount() const
+        { return _framecount; };
+    const Muir2DArrayD&  get_time() const
+        { return _time; };
+    const std::string& get_filename() const
+        { return _filename; };
+
+   private:
+    // No copying
+    MuirData(const MuirData &in);
+    MuirData& operator= (const MuirData &right);
 
 };
 

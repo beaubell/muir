@@ -3,7 +3,7 @@ cmake_minimum_required (VERSION 2.6)
 project (MUIRRTI)
 
 SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake.local)
-SET(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -Llibgomp.a")
+SET(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
 #SET(CMAKE_EXE_LINKER_FLAGS "-static")
 
 FIND_PACKAGE(HDF5)

@@ -16,6 +16,7 @@
 #include "muir-data.h"
 #include "muir-hd5.h"
 #include "muir-utility.h"
+#include "muir-plot.h"
 
 namespace fs = boost::filesystem;
 namespace BST_PT = boost::posix_time;
@@ -192,7 +193,7 @@ void process_expfiles(std::vector<fs::path> files, const Flags& flags)
         {
             std::string plotfile = base + std::string(".png");
             std::cout << "Generating plot: " << plotfile << std::endl;
-            data.save_2dplot(plotfile);
+            save_2dplot(data, plotfile);
         }
 
         if (flags.option_decode)
@@ -209,7 +210,7 @@ void process_expfiles(std::vector<fs::path> files, const Flags& flags)
         {
             std::string plotfile = base + std::string("-decoded.png");
             std::cout << "Generating decoding plot: " << plotfile << std::endl;
-            data.save_fftw_2dplot(plotfile);
+            save_fftw_2dplot(data, plotfile);
         }
     }
 }
@@ -237,7 +238,7 @@ void process_decfiles(std::vector<fs::path> files, const Flags& flags)
         {
             std::string plotfile = base + std::string(".png");
             std::cout << "Generating decoding plot: " << plotfile << std::endl;
-            data.save_fftw_2dplot(plotfile);
+            save_fftw_2dplot(data, plotfile);
         }
     }
 }

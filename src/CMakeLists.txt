@@ -6,7 +6,7 @@ include_directories (${MUIRRTI_SOURCE_DIR} ${HDF5_INCLUDE_DIR} ${GD_SOURCE_DIR} 
 # Make sure the linker can find the Hello library once it is built.
 link_directories (${MUIRRTI_BINARY_DIR} ${GD_BINARY_DIR} ${Boost_LIBRARY_DIRS})
 
-add_executable (muir-rti muir-rti.cpp muir-data.cpp muir-hd5.cpp muir-constants.cpp muir-utility.cpp)
+add_executable (muir-rti muir-rti.cpp muir-data.cpp muir-hd5.cpp muir-constants.cpp muir-utility.cpp muir-plot.cpp)
 add_executable (muir-gl  muir-gl.cpp  muir-data.cpp muir-hd5.cpp muir-constants.cpp muir-utility.cpp muir-gl-shader.cpp muir-gl-data.cpp)
 
 # Link the executable to the Hello library.
