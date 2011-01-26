@@ -6,10 +6,16 @@ include_directories (${MUIRRTI_SOURCE_DIR} ${HDF5_INCLUDE_DIR} ${GD_SOURCE_DIR} 
 # Make sure the linker can find the Hello library once it is built.
 link_directories (${MUIRRTI_BINARY_DIR} ${GD_BINARY_DIR} ${Boost_LIBRARY_DIRS})
 
-add_executable (muir-rti muir-rti.cpp muir-data.cpp muir-hd5.cpp muir-constants.cpp muir-utility.cpp muir-plot.cpp)
-add_executable (muir-gl  muir-gl.cpp  muir-data.cpp muir-hd5.cpp muir-constants.cpp muir-utility.cpp muir-gl-shader.cpp muir-gl-data.cpp)
+add_library(muir STATIC muir-data.cpp muir-hd5.cpp muir-constants.cpp muir-utility.cpp)
 
-# Link the executable to the Hello library.
-target_link_libraries (muir-rti ${HDF5_LIBRARIES_CXX} ${HDF5_LIBRARIES} ${GD_LIBRARY} ${FFTW_LIBRARY} ${FFTW_THREAD_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_SYSTEM_LIBRARY} gd)
-target_link_libraries (muir-gl ${HDF5_LIBRARIES_CXX} ${HDF5_LIBRARIES} ${GD_LIBRARY} ${FFTW_LIBRARY} ${FFTW_THREAD_LIBRARY} ${GLUT_glut_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_DATA_TIME_LIBRARY} ${Boost_SYSTEM_LIBRARY} gd)
+add_executable (muir-decode muir-decode.cpp)
+add_executable (muir-rti muir-rti.cpp muir-plot.cpp)
+add_executable (muir-gl  muir-gl.cpp  muir-gl-shader.cpp muir-gl-data.cpp)
+
+# Link the executables
+target_link_libraries (muir-rti muir ${HDF5_LIBRARIES_CXX} ${HDF5_LIBRARIES} ${GD_LIBRARY} ${FFTW_LIBRARY} ${FFTW_THREAD_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_SYSTEM_LIBRARY} gd)
+
+target_link_libraries (muir-decode -static muir ${HDF5_LIBRARIES_CXX} ${HDF5_LIBRARIES} ${FFTW_LIBRARY} ${FFTW_THREAD_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${ZLIB_LIBRARY})
+
+target_link_libraries (muir-gl muir ${HDF5_LIBRARIES_CXX} ${HDF5_LIBRARIES} ${GD_LIBRARY} ${FFTW_LIBRARY} ${FFTW_THREAD_LIBRARY} ${GLUT_glut_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_DATA_TIME_LIBRARY} ${Boost_SYSTEM_LIBRARY} gd)
 
