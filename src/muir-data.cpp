@@ -24,6 +24,21 @@
 #include <fftw3.h>
 
 #include <cassert>
+#include <omp.h>
+
+// Boost::Accumulators
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+#include <boost/accumulators/statistics/mean.hpp>
+#include <boost/accumulators/statistics/min.hpp>
+#include <boost/accumulators/statistics/max.hpp>
+#include <boost/accumulators/statistics/count.hpp>
+using namespace boost::accumulators;
+
+// Boost::Timers
+#include <boost/timer.hpp>
+using boost::timer;
+
 
 
 // Constructor
@@ -150,6 +165,15 @@ void MuirData::print_stats()
 
 void MuirData::process_fftw()
 {
+    // Setup Accumulators For Statistics
+    boost::timer main_time;
+    accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_setup;
+    accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyto;
+    accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_fftw;
+    accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyfrom;
+    accumulator_set< double, features< tag::count, tag::min, tag::mean, tag::max > > acc_row;
+    
+    // Get Data Dimensions
     const SampleDataArray::size_type *array_dims = _sample_data.shape();
     assert(_sample_data.num_dimensions() == 4);
 
@@ -172,6 +196,9 @@ void MuirData::process_fftw()
     #pragma omp parallel for
     for(int phase_code_offset = 0; phase_code_offset < static_cast<int>(max_rows); phase_code_offset++)
     {
+        // Row Timing
+        boost::timer row_time;
+        boost::timer stage_time;
 
         // Setup for row
         fftw_complex *in, *out;
@@ -179,13 +206,29 @@ void MuirData::process_fftw()
         int fft_size = max_rows;  // Also used for normalization
         int N[1] = {fft_size};
 
+        // Display stats from first thread
+        int th_id = omp_get_thread_num();
+        if ( th_id == 0)
+            std::cout << "Progress:" << static_cast<float>(count(acc_row))/static_cast<float>(max_rows)*100.0 << "%"
+                      << "  (Mean Timings [s]) Row TTL: " << mean(acc_row)
+                      << ", Setup: " << mean(acc_setup)
+                      << ", Copy/Phase/Zero: " << mean(acc_copyto)
+                      << ", FFTW: " << mean(acc_fftw)
+                      << ", FindPeak: " << mean(acc_copyfrom)
+                      << ", Rows/Sec: " << static_cast<float>(count(acc_row))/main_time.elapsed()
+                      << ", Threads: " << omp_get_num_threads()
+                      << std::endl;
+
         #pragma omp critical (fftw)
         {
-            std::cout << "FFTW Row:" << phase_code_offset << std::endl;
             in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * fft_size*max_sets*max_cols);
             out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * fft_size*max_sets*max_cols);
             p = fftw_plan_many_dft(1, N, max_sets*max_cols, in, NULL, 1, fft_size, out, NULL, 1, fft_size, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
         }
+
+        // Timing
+        acc_setup(stage_time.elapsed());
+	stage_time.restart();
 
         // Copy data into fftw vector, apply phasecode, and zero out the rest
         for(SampleDataArray::size_type row = 0; row < fft_size; row++)
@@ -214,8 +257,16 @@ void MuirData::process_fftw()
             }
         }
 
+        // Timing
+        acc_copyto(stage_time.elapsed());
+	stage_time.restart();
+
         // Execute FFTW
         fftw_execute(p);
+	
+	// Timing
+        acc_fftw(stage_time.elapsed());
+	stage_time.restart();
 
         // Output FFTW data
         for(std::size_t set = 0; set < max_sets; set++)
@@ -244,6 +295,10 @@ void MuirData::process_fftw()
                 _decoded_data[set][col][phase_code_offset] = max_power/fft_size; 
             }
         }
+
+        // Timing
+        acc_copyfrom(stage_time.elapsed());
+        acc_row(row_time.elapsed());
 
         #pragma omp critical (fftw)
         {
