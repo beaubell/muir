@@ -43,7 +43,7 @@ GLIBC_URL=http://ftp.gnu.org/gnu/glibc/$GLIBC_FILE
 
 BOOST_VER=1_45_0
 BOOST_FILE=boost_$BOOST_VER.tar.bz2
-BOOST_URL=ihttp://sourceforge.net/projects/boost/files/boost/$BOOST_VER/$BOOST_FILE/download
+BOOST_URL=http://sourceforge.net/projects/boost/files/boost/1.45.0/$BOOST_FILE/download
 
 HDF5_VER=1.8.5-patch1
 HDF5_FILE=hdf5-$HDF5_VER.tar.bz2

@@ -3,8 +3,13 @@ cmake_minimum_required (VERSION 2.6)
 project (MUIRRTI)
 
 SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake.local)
-SET(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
-#SET(CMAKE_EXE_LINKER_FLAGS "-static")
+
+IF(APPLE)
+   SET(LINK_STATIC "")
+ELSE()
+   SET(LINK_STATIC "-static")
+   SET(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
+ENDIF()
 
 FIND_PACKAGE(HDF5)
 SET(Boost_ADDITIONAL_VERSIONS "1.45.0 1.45")

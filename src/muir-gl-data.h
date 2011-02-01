@@ -12,8 +12,13 @@
 //
 //
 
-#include <GL/glut.h>
-#include <GL/glext.h>
+#ifdef __APPLE__
+ #include <glut.h>
+ #include <OpenGL/glext.h>
+#else
+ #include <GL/glut.h>
+ #include <GL/glext.h>
+#endif
 
 class Muirgl_Data {
     public:

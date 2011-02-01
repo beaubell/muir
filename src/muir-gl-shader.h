@@ -12,7 +12,11 @@
 //
 //
 
-#include <GL/glut.h>
+#ifdef __APPLE__
+ #include <glut.h>
+#else
+ #include <GL/glut.h>
+#endif
 
 void muir_opengl_shader_init();
 void muir_opengl_shader_switch(GLhandleARB num);

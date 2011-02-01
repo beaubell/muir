@@ -12,8 +12,14 @@
 #define GL_GLEXT_PROTOTYPES 1
 
 #include "muir-gl-shader.h"
-#include <GL/glut.h>
-#include <GL/glext.h>
+
+#ifdef __APPLE__
+ #include <glut.h>
+ #include <OpenGL/glext.h>
+#else
+ #include <GL/glut.h>
+ #include <GL/glext.h>
+#endif
 
 #include <string>
 #include <iostream>

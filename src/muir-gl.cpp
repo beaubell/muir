@@ -8,7 +8,13 @@
 #include <cmath>
 #include <complex>
 #include <stdlib.h>
-#include <GL/glut.h>
+
+#ifdef __APPLE__
+ #include <glut.h>
+#else
+ #include <GL/glut.h>
+#endif
+
 #include <vector>
 
 #include <boost/filesystem/path.hpp>
