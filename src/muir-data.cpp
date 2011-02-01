@@ -228,7 +228,7 @@ void MuirData::process_fftw()
 
         // Timing
         acc_setup(stage_time.elapsed());
-	stage_time.restart();
+        stage_time.restart();
 
         // Copy data into fftw vector, apply phasecode, and zero out the rest
         for(SampleDataArray::size_type row = 0; row < fft_size; row++)
@@ -259,14 +259,14 @@ void MuirData::process_fftw()
 
         // Timing
         acc_copyto(stage_time.elapsed());
-	stage_time.restart();
+        stage_time.restart();
 
         // Execute FFTW
         fftw_execute(p);
-	
-	// Timing
+
+        // Timing
         acc_fftw(stage_time.elapsed());
-	stage_time.restart();
+        stage_time.restart();
 
         // Output FFTW data
         for(std::size_t set = 0; set < max_sets; set++)
@@ -310,6 +310,25 @@ void MuirData::process_fftw()
 
     #pragma omp critical (fftw)
     fftw_cleanup_threads();
+    
+    std::cout << "Done!" << std::endl;
+    std::cout << "Rows completed: " << count(acc_row) << std::endl;
+    std::cout << " Row Min  : " << min(acc_row) << std::endl;
+    std::cout << " Row Mean : " << mean(acc_row) << std::endl;
+    std::cout << " Row Max  : " << max(acc_row) << std::endl;
+    std::cout << "Phase Timings... " << std::endl;
+    std::cout << " Phase 1 (Setup) Min  : " << min(acc_setup) << std::endl;
+    std::cout << " Phase 1 (Setup) Mean : " << mean(acc_setup) << std::endl;
+    std::cout << " Phase 1 (Setup) Max  : " << max(acc_setup) << std::endl;
+    std::cout << " Phase 2 (Copy/Phase/Zero) Min  : " << min(acc_copyto) << std::endl;
+    std::cout << " Phase 2 (Copy/Phase/Zero) Mean : " << mean(acc_copyto) << std::endl;
+    std::cout << " Phase 2 (Copy/Phase/Zero) Max  : " << max(acc_copyto) << std::endl;
+    std::cout << " Phase 3 (FFTW) Min  : " << min(acc_fftw) << std::endl;
+    std::cout << " Phase 3 (FFTW) Mean : " << mean(acc_fftw) << std::endl;
+    std::cout << " Phase 3 (FFTW) Max  : " << max(acc_fftw) << std::endl;
+    std::cout << " Phase 4 (FindPeak) Min  : " << min(acc_copyfrom) << std::endl;
+    std::cout << " Phase 4 (FindPeak) Mean : " << mean(acc_copyfrom) << std::endl;
+    std::cout << " Phase 4 (FindPeak) Max  : " << max(acc_copyfrom) << std::endl;
 }
 
 void MuirData::save_decoded_data(const std::string &output_file)
