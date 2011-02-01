@@ -1,6 +1,6 @@
 uniform sampler2D tex;
 uniform float data_min;
-uniform float data_max = 100.0;
+uniform float data_max;
 
 void main() {
    vec4 texel = texture2D(tex,gl_TexCoord[0].st);
@@ -12,7 +12,7 @@ void main() {
    //float b = texel.b;
 
    // Convert to decibels, I do it here in the shader so that data smoothing performed by texture2D can be done on the linear data.
-   float db = log10(sample)*10.0;
+   float db = log(sample)/log(10.0)*10.0;
 
    // Normalize sample to be between min and max values
    float i = (db-data_min)/(data_max-data_min);
@@ -28,3 +28,4 @@ void main() {
        color = min(vec4(1.0,1.0-(i-0.75)* 4.0,0.0,0.0),1.0);
    gl_FragColor = color;
 }
+

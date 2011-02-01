@@ -261,6 +261,7 @@ void processNormalKeys(unsigned char key, int x, int y) {
         //if (mod == GLUT_ACTIVE_ALT)
 
     }
+
     if (key == 'q')
     {
         shader_data_min += 0.5f;
@@ -300,7 +301,12 @@ void processSpecialKeys(int key, int x, int y) {
              break;
         case GLUT_KEY_F3 : 
              break;
-
+	case GLUT_KEY_UP :
+             scale *= 1.5f;
+             break;
+	case GLUT_KEY_DOWN :
+             scale /= 1.5f;
+             break;
     }
 }
 
@@ -319,6 +325,8 @@ void processMouse(int button, int state, int x, int y) {
         if (button == 4) // scroll down
             scale /= 1.5f;
     }
+
+std::cout << "Mouse (" << button << ")" << std::endl;
 
     if (state == GLUT_UP)
     {
