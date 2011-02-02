@@ -19,12 +19,13 @@ FIND_PACKAGE(PkgConfig)
 FIND_PACKAGE(OpenGL)
 FIND_PACKAGE(GLUT)
 FIND_PACKAGE(ZLIB)
+FIND_PACKAGE(OpenMP)
 
 SET(FFTW_HOME $ENV{FFTW_HOME})
 FIND_PACKAGE(FFTW)
 
 SUBDIRS(src gd-2.0.35)
 
-#SET( CMAKE_CXX_FLAGS "-ggdb -Wall -Wextra -Weffc++ -fopenmp")
-SET( CMAKE_CXX_FLAGS "-O3 -ggdb -Wall -Wextra -fopenmp")
+#SET( CMAKE_CXX_FLAGS "-ggdb -Wall -Wextra -Weffc++ ${OpenMP_CXX_FLAGS}")
+SET( CMAKE_CXX_FLAGS "-O3 -ggdb -Wall -Wextra ${OpenMP_CXX_FLAGS}")
 
