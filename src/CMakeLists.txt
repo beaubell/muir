@@ -1,6 +1,6 @@
 
 # Include file locations
-include_directories (${MUIRRTI_SOURCE_DIR} ${HDF5_INCLUDE_DIR} ${GD_SOURCE_DIR} ${FFTW_INCLUDE_DIR} ${Boost_INCLUDE_DIR} ${GLUT_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR})
+include_directories (${MUIRRTI_SOURCE_DIR} ${MUIRRTI_SOURCE_DIR}/opencl10 ${HDF5_INCLUDE_DIR} ${GD_SOURCE_DIR} ${FFTW_INCLUDE_DIR} ${Boost_INCLUDE_DIR} ${GLUT_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR})
 
 # Library locations
 link_directories (${MUIRRTI_BINARY_DIR} ${GD_BINARY_DIR} ${Boost_LIBRARY_DIRS})
@@ -20,3 +20,5 @@ target_link_libraries (muir-rti muir ${CORE_MUIR_LIBRARIES} ${GD_LIBRARY} gd)
 add_executable (muir-gl  muir-gl.cpp  muir-gl-shader.cpp muir-gl-data.cpp)
 target_link_libraries (muir-gl muir ${CORE_MUIR_LIBRARIES} ${GD_LIBRARY} ${GLUT_glut_LIBRARY} ${OPENGL_LIBRARY} gd)
 
+add_executable (muir-cl  muir-cl.cpp)
+target_link_libraries (muir-cl muir ${CORE_MUIR_LIBRARIES} ${GD_LIBRARY} ${OPENCL_LIBRARIES} gd)
