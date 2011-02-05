@@ -433,10 +433,32 @@ void MuirHD5::write_3D_float(const H5std_string &dataset_name, const Muir3DArray
 }
 
 
-/// NOT IMPLEMENTED
-//void MuirHD5::write_4D_float(const H5std_string &dataset_name, const Muir4DArrayF &out)
-//{
-//}
+// Write a 4D Float Array to a dataset path.
+void MuirHD5::write_4D_float(const H5std_string &dataset_name, const Muir4DArrayF &out)
+{
+    const hsize_t rank = out.num_dimensions();
+    const Muir4DArrayF::size_type *shape = out.shape();
+
+    hsize_t dimsf[rank];
+    dimsf[0] = shape[0];
+    dimsf[1] = shape[1];
+    dimsf[2] = shape[2];
+    dimsf[3] = shape[3];
+
+    // Create dataspace
+    H5::DataSpace dataspace( rank, dimsf );
+
+    // Define Datatype
+    H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
+    datatype.setOrder( H5T_ORDER_LE);
+
+    // Create a new dataset within the file...
+    H5::DataSet dataset = createDataSet( dataset_name, datatype, dataspace);
+
+    // Write data
+    dataset.write(out.data(), H5::PredType::NATIVE_FLOAT);
+
+}
 
 
 // Read a 2D Double-Precision Float Array from a dataset path.
