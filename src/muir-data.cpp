@@ -200,7 +200,7 @@ void MuirData::process_fftw()
 
     // Calculate each row
     #pragma omp parallel for
-    for(int phase_code_offset = 0; phase_code_offset < static_cast<int>(max_rows); phase_code_offset++)
+    for(unsigned int phase_code_offset = 0; phase_code_offset < max_rows; phase_code_offset++)
     {
         // Row Timing
         boost::timer row_time;
@@ -209,7 +209,7 @@ void MuirData::process_fftw()
         // Setup for row
         fftw_complex *in, *out;
         fftw_plan p;
-        int fft_size = max_rows;  // Also used for normalization
+        unsigned int fft_size = max_rows;  // Also used for normalization
         int N[1] = {fft_size};
 
         // Display stats from first thread
@@ -280,7 +280,7 @@ void MuirData::process_fftw()
             for(std::size_t col = 0; col < max_cols; col++)
             {
                 //fftw_complex max_value = {0.0,0.0};
-                float        max_power = 0.0;
+                double        max_power = 0.0;
 
                 // Iterate through the column spectra and find the max value
                 for(std::size_t row = 0; row < fft_size; row++)
@@ -288,7 +288,7 @@ void MuirData::process_fftw()
                     std::size_t index = set*(fft_size*max_cols) + col*(fft_size) + row;
 
                     // Skip sqrt when taking magnitude, but save it for later.
-                    float power = pow(out[index][0],2) + pow(out[index][1],2);
+                    double power = pow(out[index][0],2) + pow(out[index][1],2);
                     if (power > max_power)
                     {
                         //max_value[0] = out[index][0];
