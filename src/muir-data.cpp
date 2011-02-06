@@ -279,7 +279,7 @@ void MuirData::process_fftw()
         {
             for(std::size_t col = 0; col < max_cols; col++)
             {
-                fftw_complex max_value = {0.0,0.0};
+                //fftw_complex max_value = {0.0,0.0};
                 float        max_power = 0.0;
 
                 // Iterate through the column spectra and find the max value
@@ -287,18 +287,19 @@ void MuirData::process_fftw()
                 {
                     std::size_t index = set*(fft_size*max_cols) + col*(fft_size) + row;
 
-                    float power = norm(std::complex<float>(out[index][0], out[index][1]));
+                    // Skip sqrt when taking magnitude, but save it for later.
+                    float power = pow(out[index][0],2) + pow(out[index][1],2);
                     if (power > max_power)
                     {
-                        max_value[0] = out[index][0];
-                        max_value[1] = out[index][1];
+                        //max_value[0] = out[index][0];
+                        //max_value[1] = out[index][1];
                         max_power = power;
                     }
 
                 }
 
                 // Assign and normalize
-                _decoded_data[set][col][phase_code_offset] = max_power/fft_size; 
+                _decoded_data[set][col][phase_code_offset] = sqrt(max_power)/fft_size; 
             }
         }
 
