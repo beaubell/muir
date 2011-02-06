@@ -299,7 +299,8 @@ void MuirData::process_fftw()
                 }
 
                 // Assign and normalize
-                _decoded_data[set][col][phase_code_offset] = sqrt(max_power)/fft_size; 
+                //_decoded_data[set][col][phase_code_offset] = sqrt(max_power)/fft_size;
+                _decoded_data[set][col][phase_code_offset] = max_power/fft_size; 
             }
         }
 
