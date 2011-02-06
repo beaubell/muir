@@ -33,7 +33,7 @@ class MuirData
     float       _txbaud;
 
     void        print_onesamplecolumn(float (&sample)[1100][2], float (&range)[1100]);
-    std::vector<int> _phasecode;
+    std::vector<float> _phasecode;
 
     Muir4DArrayF _sample_data;
     Muir3DArrayF _decoded_data;

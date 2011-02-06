@@ -59,7 +59,7 @@ main(void)
 
       Muir4DArrayF sample_data;
       Muir4DArrayF prefft_data; 
-      std::vector<int> phasecode;
+      std::vector<float> phasecode;
 
       // Read Phasecode
       if (!read_phasecode(file_in, phasecode))
@@ -76,9 +76,14 @@ main(void)
       std::cout << "Sample data - # elements:" << sample_data.num_elements() << std::endl;
       std::cout << "PreFFT data - # elements:" << prefft_data.num_elements() << std::endl;
       size_t sample_size = sample_data.num_elements()*sizeof(float);
-      size_t phasecode_size = 4;
-      float *b = new float(9);
+      size_t phasecode_size = phasecode.size() * sizeof(int);
+
       std::cout << "Sample data - Size      :" << sample_size << std::endl;
+      std::cout << "Phasecode   - Size      :" << phasecode_size << std::endl;
+      for (unsigned int i = 0; i < phasecode.size(); i++)
+        std::cout << phasecode[i];
+
+      std::cout << std::endl;
 
       printf("Creating OpenCL arrays\n");
  
@@ -93,15 +98,15 @@ main(void)
 
       printf("Pushing data to the GPU\n");
       //push our CPU arrays to the GPU
-      err = queue.enqueueWriteBuffer(cl_buf_sample,    CL_TRUE, 0, sample_size, sample_data.data(), NULL, &event);
-      err = queue.enqueueWriteBuffer(cl_buf_phasecode, CL_TRUE, 0, phasecode_size,  b, NULL, &event);
-      err = queue.enqueueWriteBuffer(cl_buf_prefft,    CL_TRUE, 0, sample_size, prefft_data.data(), NULL, &event);
+      err = queue.enqueueWriteBuffer(cl_buf_sample,    CL_TRUE, 0, sample_size,     sample_data.data(), NULL, &event);
+      err = queue.enqueueWriteBuffer(cl_buf_phasecode, CL_TRUE, 0, phasecode_size,  &phasecode[0],       NULL, &event);
+      err = queue.enqueueWriteBuffer(cl_buf_prefft,    CL_TRUE, 0, sample_size,     prefft_data.data(), NULL, &event);
 
       err = kernel.setArg(0, cl_buf_sample);
       err = kernel.setArg(1, cl_buf_phasecode);
       err = kernel.setArg(2, cl_buf_prefft);
       err = kernel.setArg(3, 1);
-      err = kernel.setArg(4, 10);
+      err = kernel.setArg(4, (unsigned int)phasecode_size);
       err = kernel.setArg(5, 1100);
       //Wait for the command queue to finish these commands before proceeding
       queue.finish();
@@ -153,10 +158,9 @@ void load_file (const std::string &path, std::string &file_contents)
     if (file.is_open())
     {
         std::ifstream::pos_type size;
-        char * memblock;
 
         size = file.tellg();
-        //memblock = new char [size];
+
         file_contents.resize(size);
 
         file.seekg (0, std::ios::beg);

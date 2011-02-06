@@ -42,7 +42,7 @@ bool have_range(const MuirHD5 &file, boost::posix_time::time_period range)
 
 // Reads and parses the phasecode
 // Return false if the the file doesn't contain a phasecode.
-bool read_phasecode(const MuirHD5 &file_in, std::vector<int> &phasecode)
+bool read_phasecode(const MuirHD5 &file_in, std::vector<float> &phasecode)
 {
     std::string experimentfile = file_in.read_string(RTI_EXPERIMENTFILE_PATH);
 
@@ -69,13 +69,13 @@ bool read_phasecode(const MuirHD5 &file_in, std::vector<int> &phasecode)
     {
         if (phasecode_bulk[i] == '+')
         {
-            phasecode.push_back(1);
+            phasecode.push_back(1.0f);
             continue;
         }
 
         if (phasecode_bulk[i] == '-')
         {
-            phasecode.push_back(-1);
+            phasecode.push_back(-1.0f);
             continue;
         }
     }
