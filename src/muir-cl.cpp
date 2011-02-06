@@ -36,22 +36,22 @@ main(void)
  
       std::vector<cl::Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
 
-      std::string stage1;
-      load_file ("stage1-phasecode.cl", stage1); 
-      cl::Program::Sources source(1,
-          std::make_pair(stage1.c_str(),stage1.size()));
-      cl::Program program_ = cl::Program(context, source);
+      std::string stage1_str;
+      load_file ("stage1-phasecode.cl", stage1_str); 
+      cl::Program::Sources stage1_source(1,
+          std::make_pair(stage1_str.c_str(),stage1_str.size()));
+      cl::Program stage1_program = cl::Program(context, stage1_source);
       try{
-        program_.build(devices);
+        stage1_program.build(devices);
       }
       catch(...)
       {
-         std::cout << "Build Status: " << program_.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(devices[0]) << std::endl;
-        std::cout << "Build Options:\t" << program_.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(devices[0]) << std::endl;
-        std::cout << "Build Log:\t " << program_.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]) << std::endl;
+         std::cout << "Build Status: "  << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(devices[0]) << std::endl;
+        std::cout <<  "Build Options: " << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(devices[0]) << std::endl;
+        std::cout <<  "Build Log: "     << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]) << std::endl;
          throw;        
       }  
-      cl::Kernel kernel(program_, "phasecode", &err);
+      cl::Kernel stage1_kernel(stage1_program, "phasecode", &err);
 
       // Load Data and Initialize memory
       std::string filename("/scratch/bellamy/20081024.001/d0000648.dt0.h5");
@@ -102,12 +102,12 @@ main(void)
       err = queue.enqueueWriteBuffer(cl_buf_phasecode, CL_TRUE, 0, phasecode_size,  &phasecode[0],       NULL, &event);
       err = queue.enqueueWriteBuffer(cl_buf_prefft,    CL_TRUE, 0, sample_size,     prefft_data.data(), NULL, &event);
 
-      err = kernel.setArg(0, cl_buf_sample);
-      err = kernel.setArg(1, cl_buf_phasecode);
-      err = kernel.setArg(2, cl_buf_prefft);
-      err = kernel.setArg(3, 1);
-      err = kernel.setArg(4, (unsigned int)phasecode_size);
-      err = kernel.setArg(5, 1100);
+      err = stage1_kernel.setArg(0, cl_buf_sample);
+      err = stage1_kernel.setArg(1, cl_buf_phasecode);
+      err = stage1_kernel.setArg(2, cl_buf_prefft);
+      err = stage1_kernel.setArg(3, 1);
+      err = stage1_kernel.setArg(4, (unsigned int)phasecode_size);
+      err = stage1_kernel.setArg(5, 1100);
       //Wait for the command queue to finish these commands before proceeding
       queue.finish();
 
@@ -116,7 +116,7 @@ main(void)
 
       printf("in runKernel\n");
       //execute the kernel
-      err = queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(1100,5000), cl::NullRange, NULL, &event);
+      err = queue.enqueueNDRangeKernel(stage1_kernel, cl::NullRange, cl::NDRange(1100,5000), cl::NullRange, NULL, &event);
       //printf("clEnqueueNDRangeKernel: %s\n", oclErrorString(err));
       queue.finish();
 
