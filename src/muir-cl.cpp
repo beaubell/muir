@@ -36,6 +36,7 @@ main(void)
  
       std::vector<cl::Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
 
+      /// Load and compile stage1 kernel
       std::string stage1_str;
       load_file ("stage1-phasecode.cl", stage1_str); 
       cl::Program::Sources stage1_source(1,
@@ -53,12 +54,33 @@ main(void)
       }  
       cl::Kernel stage1_kernel(stage1_program, "phasecode", &err);
 
+      /// Load and compile stage2 kernel
+      std::string stage2_str;
+      load_file ("stage2-fft.cl", stage2_str);
+      cl::Program::Sources stage2_source(1,
+          std::make_pair(stage2_str.c_str(),stage2_str.size()));
+      cl::Program stage2_program = cl::Program(context, stage2_source);
+      try{
+        stage2_program.build(devices);
+      }
+      catch(...)
+      {
+         std::cout << "Build Status: "  << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(devices[0]) << std::endl;
+         std::cout << "Build Options: " << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(devices[0]) << std::endl;
+         std::cout << "Build Log: "     << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]) << std::endl;
+         throw;
+      } 
+      cl::Kernel stage2_kernel(stage2_program, "fft0", &err);
+
+
       // Load Data and Initialize memory
       std::string filename("/scratch/bellamy/20081024.001/d0000648.dt0.h5");
       MuirHD5 file_in(filename, H5F_ACC_RDONLY);
 
       Muir4DArrayF sample_data;
-      Muir4DArrayF prefft_data; 
+      Muir4DArrayF prefft_data;
+      Muir4DArrayF postfft_data;
+      Muir4DArrayF output_data; 
       std::vector<float> phasecode;
 
       // Read Phasecode
@@ -72,9 +94,11 @@ main(void)
       const size_t* shape = sample_data.shape();
       ex.assign( shape, shape+sample_data.num_dimensions() );
       prefft_data.resize(ex);
+      postfft_data.resize(ex);
+      output_data.resize(ex);
 
       std::cout << "Sample data - # elements:" << sample_data.num_elements() << std::endl;
-      std::cout << "PreFFT data - # elements:" << prefft_data.num_elements() << std::endl;
+      std::cout << "Output data - # elements:" << prefft_data.num_elements() << std::endl;
       size_t sample_size = sample_data.num_elements()*sizeof(float);
       size_t phasecode_size = phasecode.size() * sizeof(int);
 
@@ -90,7 +114,8 @@ main(void)
       //our arrays
       cl::Buffer cl_buf_sample    = cl::Buffer(context, CL_MEM_READ_ONLY,  sample_size, NULL, &err);
       cl::Buffer cl_buf_phasecode = cl::Buffer(context, CL_MEM_READ_ONLY,  phasecode_size,  NULL, &err);
-      cl::Buffer cl_buf_prefft    = cl::Buffer(context, CL_MEM_WRITE_ONLY, sample_size, NULL, &err);
+      cl::Buffer cl_buf_prefft    = cl::Buffer(context, CL_MEM_READ_WRITE, sample_size, NULL, &err);
+      cl::Buffer cl_buf_postfft   = cl::Buffer(context, CL_MEM_READ_WRITE, sample_size, NULL, &err);
 
       cl::Event event;
       cl::CommandQueue queue(context, devices[0], 0, &err);
@@ -101,12 +126,13 @@ main(void)
       err = queue.enqueueWriteBuffer(cl_buf_sample,    CL_TRUE, 0, sample_size,     sample_data.data(), NULL, &event);
       err = queue.enqueueWriteBuffer(cl_buf_phasecode, CL_TRUE, 0, phasecode_size,  &phasecode[0],       NULL, &event);
       err = queue.enqueueWriteBuffer(cl_buf_prefft,    CL_TRUE, 0, sample_size,     prefft_data.data(), NULL, &event);
+      err = queue.enqueueWriteBuffer(cl_buf_postfft,   CL_TRUE, 0, sample_size,     postfft_data.data(), NULL, &event);
 
       err = stage1_kernel.setArg(0, cl_buf_sample);
       err = stage1_kernel.setArg(1, cl_buf_phasecode);
       err = stage1_kernel.setArg(2, cl_buf_prefft);
       err = stage1_kernel.setArg(3, 1);
-      err = stage1_kernel.setArg(4, (unsigned int)phasecode_size);
+      err = stage1_kernel.setArg(4, (unsigned int)phasecode.size());
       err = stage1_kernel.setArg(5, 1100);
       //Wait for the command queue to finish these commands before proceeding
       queue.finish();
@@ -120,9 +146,19 @@ main(void)
       //printf("clEnqueueNDRangeKernel: %s\n", oclErrorString(err));
       queue.finish();
 
+      // __kernel void fft0(__global float2 *in, __global float2 *out, int dir, int S)
+      err = stage2_kernel.setArg(0, cl_buf_prefft);
+      err = stage2_kernel.setArg(1, cl_buf_postfft);
+      err = stage2_kernel.setArg(2, -1);
+      err = stage2_kernel.setArg(3, 5000);
+
+      err = queue.enqueueNDRangeKernel(stage2_kernel, cl::NullRange, cl::NDRange(320000), cl::NDRange(64), NULL, &event);
+      queue.finish();
+
       //lets check our calculations by reading from the device memory and printing out the results
-      err = queue.enqueueReadBuffer(cl_buf_prefft, CL_TRUE, 0, sample_size, prefft_data.data(), NULL, &event);
+      err = queue.enqueueReadBuffer(cl_buf_postfft, CL_TRUE, 0, sample_size, prefft_data.data(), NULL, &event);
       //printf("clEnqueueReadBuffer: %s\n", oclErrorString(err));
+      queue.finish();
 
       for(int i=0; i < 20; i++)
       {
