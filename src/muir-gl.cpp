@@ -112,6 +112,10 @@ int main(int argc, char **argv)
 
     glutMainLoop();
 
+    GLenum err = glGetError();
+    if(err)
+      std::cout << "OpenGL ERROR: " << err << std::endl;
+
     return 0;
 }
 
@@ -125,22 +129,22 @@ void renderScene(void) {
     glTranslatef(x_loc/100.0, y_loc/100.0, 0.0);
 
     // FIXME, use more parameters from the data.
-    const float texboundx = 500.0/512.0;
-    const float texboundy = 1100.0/2048.0;
+    const float texboundx = 500.0f; // 500.0/512.0;
+    const float texboundy = 1100.0f; // 1100.0/2048.0;
 
     // Turn Shader on
     muir_opengl_shader_switch(shaderProgram);
     muir_GPU_send_variables();
 
     // Texture On!
-    glEnable( GL_TEXTURE_2D );
+    glEnable( GL_TEXTURE_RECTANGLE_ARB );
 
     for(std::vector<Muirgl_Data>::iterator iter = data.begin(); iter != data.end(); iter++)
     {
         float x = static_cast<float>(iter->framestart-frame_min)/2000.0;
-        glBindTexture( GL_TEXTURE_2D, iter->texnum );
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
+        glBindTexture( GL_TEXTURE_RECTANGLE_ARB, iter->texnum );
+        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
 
         glBegin( GL_QUADS );
         glTexCoord2d(0.0,0.0); glVertex2d(x,0.0);
@@ -151,7 +155,7 @@ void renderScene(void) {
     }
 
     // Texture off
-    glDisable( GL_TEXTURE_2D );
+    glDisable( GL_TEXTURE_RECTANGLE_ARB );
 
 #if 0
     glDisable( GL_TEXTURE_2D );
@@ -446,8 +450,10 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
     h5file.read_2D_uint(RTI_DECODEDFRAME_PATH, framecount);
 
     // texture width
-    width = 512;
-    height = 2048;
+    //width = 512;
+    //height = 2048;
+    width = dataset_width;
+    height = dataset_height;
 
     for (unsigned int set = 0; set < dataset_count; set++)
     {
@@ -495,15 +501,15 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
         glGenTextures( 1, &dataptr.texnum );
 
         // select our current texture
-        glBindTexture( GL_TEXTURE_2D, dataptr.texnum );
+        glBindTexture(GL_TEXTURE_RECTANGLE_ARB, dataptr.texnum );
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         //In this case, the driver will convert your 32 bit float to 16 bit float
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE32F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, data);
+        glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_LUMINANCE32F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, data);
 
         // free buffer
         free( data );

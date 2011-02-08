@@ -1,9 +1,9 @@
-uniform sampler2D tex;
+uniform sampler2DRect tex;
 uniform float data_min;
 uniform float data_max;
 
 void main() {
-   vec4 texel = texture2D(tex,gl_TexCoord[0].st);
+   vec4 texel = texture2DRect(tex,gl_TexCoord[0].st);
    vec4 color;
 
    // Just take the red for intensity since they are all the same for grayscale.
