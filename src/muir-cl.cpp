@@ -149,7 +149,7 @@ main(int argc, const char* argv[])
       Muir4DArrayF::size_type max_range = array_dims[2];
 
       // Initialize decoded data boost multi_array;
-      output_data.resize(boost::extents[10][500][1100]);
+      output_data.resize(boost::extents[max_sets][max_cols][max_range]);
  
 
       std::cout << "Sample data - # elements:" << sample_data.num_elements() << std::endl;
@@ -191,9 +191,13 @@ main(int argc, const char* argv[])
 
       std::cout << "Load Experiment Data Time: " << stage_time.elapsed() << std::endl;
       stage_time.restart();
+      
+      float FFT_NSize = 1024.0f;
+      float normalize = 1/FFT_NSize;
+      int  total_frames = max_sets*max_cols;
 
       std::cout << "Processing..." << std::endl;
-      for(unsigned int i = 0; i < 1100; i++)
+      for(unsigned int i = 0; i < max_range; i++)
       {
           //Setup Stage 1 (Phasecode) Kernel
           err = stage1_kernel.setArg(0, cl_buf_sample);
@@ -201,23 +205,24 @@ main(int argc, const char* argv[])
           err = stage1_kernel.setArg(2, cl_buf_prefft);
           err = stage1_kernel.setArg(3, i);
           err = stage1_kernel.setArg(4, (unsigned int)phasecode.size());
-          err = stage1_kernel.setArg(5, 1100);
+          err = stage1_kernel.setArg(5, (unsigned int)max_range);
           //Wait for the command queue to finish these commands before proceeding
           //queue.finish();
 
           //Execute Stage 1 (Phasecode) Kernel
-          err = queue.enqueueNDRangeKernel(stage1_kernel, cl::NullRange, cl::NDRange(phasecode.size(),5000), cl::NullRange, NULL, &event);
+          err = queue.enqueueNDRangeKernel(stage1_kernel, cl::NullRange, cl::NDRange(phasecode.size(),total_frames), cl::NullRange, NULL, &event);
           //queue.finish();
 
           //Setup Stage 2 (FFT) Kernel
-          // __kernel void fft0(__global float2 *in, __global float2 *out, int dir, int S)
+          // __kernel void fft0(__global float2 *in, __global float2 *out, int dir, int S, uint)
           err = stage2_kernel.setArg(0, cl_buf_prefft);
           err = stage2_kernel.setArg(1, cl_buf_postfft);
           err = stage2_kernel.setArg(2, -1);
-          err = stage2_kernel.setArg(3, 5000);
+          err = stage2_kernel.setArg(3, (int)total_frames);
+          err = stage2_kernel.setArg(4, (int)max_range);
 
           //Execute Stage 2 (FFT) Kernel
-          err = queue.enqueueNDRangeKernel(stage2_kernel, cl::NullRange, cl::NDRange(320000), cl::NDRange(64), NULL, &event);
+          err = queue.enqueueNDRangeKernel(stage2_kernel, cl::NullRange, cl::NDRange(64*total_frames), cl::NDRange(64), NULL, &event);
           //queue.finish();
 
           //Setup Stage 3 (FindPeak) Kernel
@@ -225,11 +230,11 @@ main(int argc, const char* argv[])
           err = stage3_kernel.setArg(0, cl_buf_postfft);
           err = stage3_kernel.setArg(1, cl_buf_output);
           err = stage3_kernel.setArg(2, i);
-          err = stage3_kernel.setArg(3, 1100);
-          err = stage3_kernel.setArg(4, 1.0f/1024.0f);
+          err = stage3_kernel.setArg(3, (int)max_range);
+          err = stage3_kernel.setArg(4, (float)normalize);
 
           //Execute Stage 3 (FindPeak) Kernel
-          err = queue.enqueueNDRangeKernel(stage3_kernel, cl::NullRange, cl::NDRange(5000), cl::NullRange, NULL, &event);
+          err = queue.enqueueNDRangeKernel(stage3_kernel, cl::NullRange, cl::NDRange(total_frames), cl::NullRange, NULL, &event);
           //queue.finish();
          
      }

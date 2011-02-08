@@ -186,7 +186,7 @@ clFFT_1DTwistInterleaved(__global float2 *in, unsigned int startRow, unsigned in
 	    } \
 	}	 \
 } \
-__kernel void fft0(__global float2 *in, __global float2 *out, int dir, int S)
+__kernel void fft0(__global float2 *in, __global float2 *out, int dir, int S, int row_size)
 {
     __local float sMem[1040];
     int i, j, r, indexIn, indexOut, index, tid, bNum, xNum, k, l;
@@ -200,7 +200,7 @@ __kernel void fft0(__global float2 *in, __global float2 *out, int dir, int S)
     ii = lId;
     jj = 0;
     //offset = mad24(groupId, 1024, ii);
-    offset =  mad24(groupId, 1100, ii);
+    offset =  mad24(groupId, row_size, ii);
         in += offset;
         out += offset;
         a[0] = in[0];
