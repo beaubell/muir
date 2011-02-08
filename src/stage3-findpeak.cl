@@ -19,7 +19,7 @@ findpeak(__global float2* postfft_data,
   }
 
   // Output data
-  output_data[frameidx + range] = max_sample/normalize;
+  output_data[frameidx + range] = max_sample*normalize;
 
 } 
 
