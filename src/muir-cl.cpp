@@ -149,14 +149,14 @@ main(int argc, const char* argv[])
       Muir4DArrayF::size_type max_range = array_dims[2];
 
       // Initialize decoded data boost multi_array;
-      output_data.resize(boost::extents[max_sets][max_cols][max_range]);
+      output_data.resize(boost::extents[10][500][1100]);
  
 
       std::cout << "Sample data - # elements:" << sample_data.num_elements() << std::endl;
       std::cout << "Output data - # elements:" << prefft_data.num_elements() << std::endl;
-      size_t sample_size = sample_data.num_elements()*sizeof(float);
+      size_t sample_size    = sample_data.num_elements()*sizeof(float);
       size_t phasecode_size = phasecode.size() * sizeof(int);
-      size_t output_size = output_data.size() * sizeof(float);
+      size_t output_size    = output_data.num_elements()*sizeof(float);
 
       std::cout << "Sample data - Size      :" << sample_size << std::endl;
       std::cout << "Phasecode   - Size      :" << phasecode_size << std::endl;
@@ -193,7 +193,7 @@ main(int argc, const char* argv[])
       stage_time.restart();
 
       std::cout << "Processing..." << std::endl;
-      for(unsigned int i = 0; i > 1100; i++)
+      for(unsigned int i = 0; i < 1100; i++)
       {
           //Setup for Stage 1
           err = stage1_kernel.setArg(0, cl_buf_sample);
@@ -221,11 +221,12 @@ main(int argc, const char* argv[])
           queue.finish();
 
           //Execute Stage 3
-          // __kernel void fft0(__global float2 *in, __global float2 *out, int dir, int S)
+          //
           err = stage3_kernel.setArg(0, cl_buf_postfft);
           err = stage3_kernel.setArg(1, cl_buf_output);
           err = stage3_kernel.setArg(2, i);
-          err = stage3_kernel.setArg(3, 5000);
+          err = stage3_kernel.setArg(3, 1100);
+          err = stage3_kernel.setArg(4, (float)1024);
 
           //Execute Stage 3 (FindPeak) Kernel
           err = queue.enqueueNDRangeKernel(stage3_kernel, cl::NullRange, cl::NDRange(5000), cl::NullRange, NULL, &event);
@@ -239,20 +240,49 @@ main(int argc, const char* argv[])
 
       //lets check our calculations by reading from the device memory and printing out the results
       err = queue.enqueueReadBuffer(cl_buf_output, CL_TRUE, 0, output_size, output_data.data(), NULL, &event);
+      err = queue.enqueueReadBuffer(cl_buf_postfft, CL_TRUE, 0, sample_size, postfft_data.data(), NULL, &event);
+
       //printf("clEnqueueReadBuffer: %s\n", oclErrorString(err));
       queue.finish();
 
 //      std::cout << "OpenCL Stage 1+2 Time: " << stage_time.elapsed() << std::endl;
 //     stage_time.restart();
 
-      for(int i=0; i < 20; i++)
-      {
-          printf(" input[%d] = %10.8f,%0.8f\n", i, sample_data[0][0][i][0], sample_data[0][0][i][1]);
-          printf("output[%d] = %10.8f,%0.8f\n", i, prefft_data[0][0][i][0], prefft_data[0][0][i][1]);
-      }
+      //for(int i=0; i < 20; i++)
+      //{
+      //    printf(" input[%d] = %10.8f,%0.8f\n", i, sample_data[0][0][i][0], sample_data[0][0][i][1]);
+      //    printf("output[%d] = %10.8f,%0.8f\n", i, prefft_data[0][0][i][0], prefft_data[0][0][i][1]);
+      //}
 
       MuirHD5 file_out("out.hd5", H5F_ACC_TRUNC);
-      file_out.write_4D_float ("prefft" , prefft_data);
+      
+      // Create group
+      file_out.createGroup(RTI_DECODEDDIR_PATH);
+
+      // Prepare and write decoded sample data
+      file_out.write_3D_float(RTI_DECODEDDATA_PATH, output_data);
+      //file_out.write_4D_float(RTI_DECODEDDATA_PATH, postfft_data);
+
+      Muir2DArrayF  _sample_range;
+      Muir2DArrayUI _framecount;
+      Muir2DArrayD  _time;
+
+      // Copy range data
+      file_in.read_2D_float (RTI_RAWSAMPLERANGE_PATH, _sample_range);
+      file_out.write_2D_float(RTI_DECODEDRANGE_PATH, _sample_range);
+
+      // Prepare and write radac data
+      file_in.read_2D_double(RTI_RADACTIME_PATH     , _time);
+      file_out.write_2D_double(RTI_DECODEDRADAC_PATH, _time);
+
+      // Prepare and write framecount data
+      file_in.read_2D_uint  (RTI_RAWFRAMECOUNT_PATH , _framecount);
+      file_out.write_2D_uint(RTI_DECODEDFRAME_PATH, _framecount);
+
+      file_in.close();
+      file_out.close();
+
+
 
       event.wait();
     }
