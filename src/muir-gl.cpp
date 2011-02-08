@@ -487,8 +487,8 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
             }
         }
 
-        shader_data_max = max;
-        shader_data_min = min;
+        shader_data_max = std::log10(max)*10.0f;
+        shader_data_min = std::log10(min+0.01f)*10.0f;
         muir_GPU_send_variables();
 
         // allocate a texture name
