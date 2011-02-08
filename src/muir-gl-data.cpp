@@ -20,7 +20,7 @@ Muirgl_Data::Muirgl_Data()
     datahoffset(0),
     dataw(0),
     datah(0),
-    framestart(0),
-    frameend(0)
+    radacstart(0.0),
+    radacend(0.0)
 {
 }

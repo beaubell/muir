@@ -48,8 +48,9 @@ int mouse_x = 0;
 int mouse_y = 0;
 float mouse_x_vel = 0.0f;
 float mouse_y_vel = 0.0f;
-int frame_max = 0;
-int frame_min = 0;
+double radac_max = 0.0;
+double radac_min = 0.0;
+double radac_position = 0.0;
 float scroll_vel = 10.0f;
 float scroll_acc = -2.0f;
 bool texture_smooth = true;
@@ -91,16 +92,16 @@ int main(int argc, char **argv)
     /// FIXME, load initialization data from file
     loadfiles(argv[1]);
 
-    // Find framecounts min/max
-    frame_max = data[0].frameend;
-    frame_min = data[0].framestart;
+    // Find radactime min/max
+    radac_max = data[0].radacend;
+    radac_min = data[0].radacstart;
     for(std::vector<Muirgl_Data>::iterator iter = data.begin(); iter != data.end(); iter++)
     {
-        if(iter->frameend > frame_max)
-            frame_max = iter->frameend;
-        if(iter->framestart < frame_min)
-            frame_min = iter->framestart;
+            radac_max = std::max(iter->radacend, radac_max);
+            radac_min = std::min(iter->radacstart, radac_min);
     }
+    radac_position = radac_min;
+
 
     glDisable(GL_DEPTH_TEST); // Don't need depth testing
     glDisable(GL_LIGHTING);   // Dont need lighting
@@ -141,7 +142,7 @@ void renderScene(void) {
 
     for(std::vector<Muirgl_Data>::iterator iter = data.begin(); iter != data.end(); iter++)
     {
-        float x = static_cast<float>(iter->framestart-frame_min)/2000.0;
+        float x = static_cast<float>(iter->radacstart-radac_min)/2000.0;
         glBindTexture( GL_TEXTURE_RECTANGLE_ARB, iter->texnum );
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
@@ -445,9 +446,9 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
     Muir3DArrayF::size_type dataset_width = array_dims[1];  // frames per set
     Muir3DArrayF::size_type dataset_height = array_dims[2]; // Range bins
 
-    // Get framecount data
-    Muir2DArrayUI framecount;
-    h5file.read_2D_uint(RTI_DECODEDFRAME_PATH, framecount);
+    // Get radactime data
+    Muir2DArrayD radactime;
+    h5file.read_2D_double(RTI_DECODEDRADAC_PATH, radactime);
 
     // texture width
     //width = 512;
@@ -464,8 +465,8 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
         dataptr.datahoffset = 0;
         dataptr.dataw = dataset_width;
         dataptr.datah = dataset_height;
-        dataptr.framestart = framecount[set][0];
-        dataptr.frameend = framecount[set][dataset_width-1];
+        dataptr.radacstart = radactime[set][0];
+        dataptr.radacend = radactime[set][1];
 
         data = reinterpret_cast<GLfloat*>(malloc( width * height*sizeof(GLfloat) ));
 

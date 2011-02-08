@@ -29,8 +29,8 @@ class Muirgl_Data {
         GLuint datahoffset;
         GLuint dataw;
         GLuint datah;
-        int framestart;
-        int frameend;
+        double radacstart;
+        double radacend;
 
         Muirgl_Data();
 };
