@@ -10,6 +10,20 @@
 #include <iostream>
 #include <fstream>
 
+// Boost::Accumulators
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+#include <boost/accumulators/statistics/mean.hpp>
+#include <boost/accumulators/statistics/min.hpp>
+#include <boost/accumulators/statistics/max.hpp>
+#include <boost/accumulators/statistics/count.hpp>
+using namespace boost::accumulators;
+
+// Boost::Timers
+#include <boost/timer.hpp>
+using boost::timer;
+
+
 #include "muir-hd5.h"
 #include "muir-utility.h"
 #include "muir-constants.h"
@@ -17,8 +31,15 @@
 void load_file (const std::string &path, std::string &file_contents);
 
 int
-main(void)
+main(int argc, const char* argv[])
 {
+    boost::timer main_time;
+    accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_setup;
+    accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyto;
+    accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_fftw;
+    accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyfrom;
+    accumulator_set< double, features< tag::count, tag::min, tag::mean, tag::max > > acc_row;
+
     
     cl_int err = CL_SUCCESS;
     try 
@@ -37,6 +58,9 @@ main(void)
       std::vector<cl::Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
 
       /// Load and compile stage1 kernel
+      //boost::timer row_time;
+      boost::timer stage_time;
+
       std::string stage1_str;
       load_file ("stage1-phasecode.cl", stage1_str); 
       cl::Program::Sources stage1_source(1,
@@ -72,15 +96,36 @@ main(void)
       } 
       cl::Kernel stage2_kernel(stage2_program, "fft0", &err);
 
+      /// Load and compile stage 3 kernel
+      std::string stage3_str;
+      load_file ("stage3-findpeak.cl", stage3_str);
+      cl::Program::Sources stage3_source(1,
+          std::make_pair(stage3_str.c_str(),stage3_str.size()));
+      cl::Program stage3_program = cl::Program(context, stage3_source);
+      try{
+        stage3_program.build(devices);
+      }
+      catch(...)
+      {
+         std::cout << "Build Status: "  << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(devices[0]) << std::endl;
+         std::cout << "Build Options: " << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(devices[0]) << std::endl;
+         std::cout << "Build Log: "     << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]) << std::endl;
+         throw;
+      } 
+      cl::Kernel stage3_kernel(stage3_program, "findpeak", &err);
+
+
+      std::cout << "Load and Compile Kernel Time: " << stage_time.elapsed() << std::endl;
+      stage_time.restart(); 
 
       // Load Data and Initialize memory
-      std::string filename("/scratch/bellamy/20081024.001/d0000648.dt0.h5");
+      std::string filename(argv[1]);
       MuirHD5 file_in(filename, H5F_ACC_RDONLY);
 
       Muir4DArrayF sample_data;
       Muir4DArrayF prefft_data;
       Muir4DArrayF postfft_data;
-      Muir4DArrayF output_data; 
+      Muir3DArrayF output_data;
       std::vector<float> phasecode;
 
       // Read Phasecode
@@ -90,20 +135,33 @@ main(void)
       // Read in experiment data
       std::cout << "Reading file: " << filename << std::endl;     
       file_in.read_4D_float (RTI_RAWSAMPLEDATA_PATH , sample_data);
+
+      // Get Data Dimensions
+      const Muir4DArrayF::size_type *array_dims = sample_data.shape();
+      
       std::vector<size_t> ex;
-      const size_t* shape = sample_data.shape();
-      ex.assign( shape, shape+sample_data.num_dimensions() );
+      ex.assign( array_dims, array_dims+sample_data.num_dimensions() );
       prefft_data.resize(ex);
       postfft_data.resize(ex);
-      output_data.resize(ex);
+
+      Muir4DArrayF::size_type max_sets = array_dims[0];
+      Muir4DArrayF::size_type max_cols = array_dims[1];
+      Muir4DArrayF::size_type max_range = array_dims[2];
+
+      // Initialize decoded data boost multi_array;
+      output_data.resize(boost::extents[max_sets][max_cols][max_range]);
+ 
 
       std::cout << "Sample data - # elements:" << sample_data.num_elements() << std::endl;
       std::cout << "Output data - # elements:" << prefft_data.num_elements() << std::endl;
       size_t sample_size = sample_data.num_elements()*sizeof(float);
       size_t phasecode_size = phasecode.size() * sizeof(int);
+      size_t output_size = output_data.size() * sizeof(float);
 
       std::cout << "Sample data - Size      :" << sample_size << std::endl;
       std::cout << "Phasecode   - Size      :" << phasecode_size << std::endl;
+      std::cout << "Output      - Size      :" << output_size << std::endl;
+
       for (unsigned int i = 0; i < phasecode.size(); i++)
         std::cout << phasecode[i];
 
@@ -116,10 +174,11 @@ main(void)
       cl::Buffer cl_buf_phasecode = cl::Buffer(context, CL_MEM_READ_ONLY,  phasecode_size,  NULL, &err);
       cl::Buffer cl_buf_prefft    = cl::Buffer(context, CL_MEM_READ_WRITE, sample_size, NULL, &err);
       cl::Buffer cl_buf_postfft   = cl::Buffer(context, CL_MEM_READ_WRITE, sample_size, NULL, &err);
+      cl::Buffer cl_buf_output    = cl::Buffer(context, CL_MEM_WRITE_ONLY, output_size, NULL, &err);
+
 
       cl::Event event;
       cl::CommandQueue queue(context, devices[0], 0, &err);
-
 
       printf("Pushing data to the GPU\n");
       //push our CPU arrays to the GPU
@@ -127,38 +186,64 @@ main(void)
       err = queue.enqueueWriteBuffer(cl_buf_phasecode, CL_TRUE, 0, phasecode_size,  &phasecode[0],       NULL, &event);
       err = queue.enqueueWriteBuffer(cl_buf_prefft,    CL_TRUE, 0, sample_size,     prefft_data.data(), NULL, &event);
       err = queue.enqueueWriteBuffer(cl_buf_postfft,   CL_TRUE, 0, sample_size,     postfft_data.data(), NULL, &event);
+      err = queue.enqueueWriteBuffer(cl_buf_output,    CL_TRUE, 0, output_size,     output_data.data(), NULL, &event);
 
-      err = stage1_kernel.setArg(0, cl_buf_sample);
-      err = stage1_kernel.setArg(1, cl_buf_phasecode);
-      err = stage1_kernel.setArg(2, cl_buf_prefft);
-      err = stage1_kernel.setArg(3, 1);
-      err = stage1_kernel.setArg(4, (unsigned int)phasecode.size());
-      err = stage1_kernel.setArg(5, 1100);
-      //Wait for the command queue to finish these commands before proceeding
-      queue.finish();
 
-      //for now we make the workgroup size the same as the number of elements in our arrays
-      //workGroupSize[0] = num;
+      std::cout << "Load Experiment Data Time: " << stage_time.elapsed() << std::endl;
+      stage_time.restart();
 
-      printf("in runKernel\n");
-      //execute the kernel
-      err = queue.enqueueNDRangeKernel(stage1_kernel, cl::NullRange, cl::NDRange(1100,5000), cl::NullRange, NULL, &event);
-      //printf("clEnqueueNDRangeKernel: %s\n", oclErrorString(err));
-      queue.finish();
+      std::cout << "Processing..." << std::endl;
+      for(unsigned int i = 0; i > 1100; i++)
+      {
+          //Setup for Stage 1
+          err = stage1_kernel.setArg(0, cl_buf_sample);
+          err = stage1_kernel.setArg(1, cl_buf_phasecode);
+          err = stage1_kernel.setArg(2, cl_buf_prefft);
+          err = stage1_kernel.setArg(3, i);
+          err = stage1_kernel.setArg(4, (unsigned int)phasecode.size());
+          err = stage1_kernel.setArg(5, 1100);
+          //Wait for the command queue to finish these commands before proceeding
+          queue.finish();
 
-      // __kernel void fft0(__global float2 *in, __global float2 *out, int dir, int S)
-      err = stage2_kernel.setArg(0, cl_buf_prefft);
-      err = stage2_kernel.setArg(1, cl_buf_postfft);
-      err = stage2_kernel.setArg(2, -1);
-      err = stage2_kernel.setArg(3, 5000);
+          //Execute Stage 1 (FFT) Kernel
+          err = queue.enqueueNDRangeKernel(stage1_kernel, cl::NullRange, cl::NDRange(1100,5000), cl::NullRange, NULL, &event);
+          //printf("clEnqueueNDRangeKernel: %s\n", oclErrorString(err));
+          queue.finish();
 
-      err = queue.enqueueNDRangeKernel(stage2_kernel, cl::NullRange, cl::NDRange(320000), cl::NDRange(64), NULL, &event);
-      queue.finish();
+          // __kernel void fft0(__global float2 *in, __global float2 *out, int dir, int S)
+          err = stage2_kernel.setArg(0, cl_buf_prefft);
+          err = stage2_kernel.setArg(1, cl_buf_postfft);
+          err = stage2_kernel.setArg(2, -1);
+          err = stage2_kernel.setArg(3, 5000);
+
+          //Execute Stage 2 (FFT) Kernel
+          err = queue.enqueueNDRangeKernel(stage2_kernel, cl::NullRange, cl::NDRange(320000), cl::NDRange(64), NULL, &event);
+          queue.finish();
+
+          //Execute Stage 3
+          // __kernel void fft0(__global float2 *in, __global float2 *out, int dir, int S)
+          err = stage3_kernel.setArg(0, cl_buf_postfft);
+          err = stage3_kernel.setArg(1, cl_buf_output);
+          err = stage3_kernel.setArg(2, i);
+          err = stage3_kernel.setArg(3, 5000);
+
+          //Execute Stage 3 (FindPeak) Kernel
+          err = queue.enqueueNDRangeKernel(stage3_kernel, cl::NullRange, cl::NDRange(5000), cl::NullRange, NULL, &event);
+          queue.finish();
+         
+     }
+
+     std::cout.precision(10);
+     std::cout << "OpenCL Stage 1+2 Time: " << stage_time.elapsed() << std::endl;
+     stage_time.restart();
 
       //lets check our calculations by reading from the device memory and printing out the results
-      err = queue.enqueueReadBuffer(cl_buf_postfft, CL_TRUE, 0, sample_size, prefft_data.data(), NULL, &event);
+      err = queue.enqueueReadBuffer(cl_buf_output, CL_TRUE, 0, output_size, output_data.data(), NULL, &event);
       //printf("clEnqueueReadBuffer: %s\n", oclErrorString(err));
       queue.finish();
+
+//      std::cout << "OpenCL Stage 1+2 Time: " << stage_time.elapsed() << std::endl;
+//     stage_time.restart();
 
       for(int i=0; i < 20; i++)
       {

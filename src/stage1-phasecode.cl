@@ -17,7 +17,7 @@ phasecode(__global float2* sample_data,
   else
   {
       float phase = phasecode_data[range-phase_offset];
-      prefft_data[frame + range]   = phase * sample_data[frame + range];
+      prefft_data[frame + range - phase_offset]   = phase * sample_data[frame + range];
   }                  
 } 
 
