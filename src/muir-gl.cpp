@@ -85,6 +85,9 @@ int main(int argc, char **argv)
     glutPassiveMotionFunc(processMousePassiveMotion);
     glutEntryFunc(processMouseEntry);
 
+    // Fragment shader
+    muir_opengl_shader_init();
+
     /// FIXME, load initialization data from file
     loadfiles(argv[1]);
 
@@ -106,9 +109,6 @@ int main(int argc, char **argv)
     GLint texSize;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &texSize);
     std::cout << "Maximum texture size: " << texSize << std::endl;
-
-    // Fragment shader
-    muir_opengl_shader_init();
 
     glutMainLoop();
 
@@ -471,6 +471,9 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
             }
         }
 
+        float min = std::numeric_limits<float>::infinity();
+        float max = -std::numeric_limits<float>::infinity();
+
         for (Muir3DArrayF::size_type col = 0; col < dataset_width ;col++)
         {
             for (Muir3DArrayF::size_type row = 0; row < dataset_height; row++)
@@ -478,8 +481,15 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
                     //float pixel = log10(decoded_data[set][col][row]+1)*10;
                     float pixel = decoded_data[set][col][row];
                     data[row*width + col] = pixel;
+
+                    max = std::max(max, pixel);
+                    min = std::min(min, pixel);
             }
         }
+
+        shader_data_max = max;
+        shader_data_min = min;
+        muir_GPU_send_variables();
 
         // allocate a texture name
         glGenTextures( 1, &dataptr.texnum );

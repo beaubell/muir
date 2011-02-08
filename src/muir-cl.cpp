@@ -163,7 +163,7 @@ main(int argc, const char* argv[])
       std::cout << "Output      - Size      :" << output_size << std::endl;
 
       for (unsigned int i = 0; i < phasecode.size(); i++)
-        std::cout << phasecode[i];
+        std::cout << ((phasecode[i]>0.0f)?1:0);
 
       std::cout << std::endl;
 
@@ -193,9 +193,9 @@ main(int argc, const char* argv[])
       stage_time.restart();
 
       std::cout << "Processing..." << std::endl;
-      for(unsigned int i = 0; i < 1070; i++)
+      for(unsigned int i = 0; i < 1100; i++)
       {
-          //Setup for Stage 1
+          //Setup Stage 1 (Phasecode) Kernel
           err = stage1_kernel.setArg(0, cl_buf_sample);
           err = stage1_kernel.setArg(1, cl_buf_phasecode);
           err = stage1_kernel.setArg(2, cl_buf_prefft);
@@ -205,10 +205,11 @@ main(int argc, const char* argv[])
           //Wait for the command queue to finish these commands before proceeding
           //queue.finish();
 
-          //Execute Stage 1 (FFT) Kernel
+          //Execute Stage 1 (Phasecode) Kernel
           err = queue.enqueueNDRangeKernel(stage1_kernel, cl::NullRange, cl::NDRange(phasecode.size(),5000), cl::NullRange, NULL, &event);
           //queue.finish();
 
+          //Setup Stage 2 (FFT) Kernel
           // __kernel void fft0(__global float2 *in, __global float2 *out, int dir, int S)
           err = stage2_kernel.setArg(0, cl_buf_prefft);
           err = stage2_kernel.setArg(1, cl_buf_postfft);
@@ -219,7 +220,7 @@ main(int argc, const char* argv[])
           err = queue.enqueueNDRangeKernel(stage2_kernel, cl::NullRange, cl::NDRange(320000), cl::NDRange(64), NULL, &event);
           //queue.finish();
 
-          //Execute Stage 3
+          //Setup Stage 3 (FindPeak) Kernel
           //
           err = stage3_kernel.setArg(0, cl_buf_postfft);
           err = stage3_kernel.setArg(1, cl_buf_output);
@@ -243,16 +244,15 @@ main(int argc, const char* argv[])
       //lets check our calculations by reading from the device memory and printing out the results
       err = queue.enqueueReadBuffer(cl_buf_output, CL_TRUE, 0, output_size, output_data.data(), NULL, &event);
       //err = queue.enqueueReadBuffer(cl_buf_postfft, CL_TRUE, 0, sample_size, postfft_data.data(), NULL, &event);
-      err = queue.enqueueReadBuffer(cl_buf_prefft, CL_TRUE, 0, sample_size, prefft_data.data(), NULL, &event);
+      //err = queue.enqueueReadBuffer(cl_buf_prefft, CL_TRUE, 0, sample_size, prefft_data.data(), NULL, &event);
 
-      //printf("clEnqueueReadBuffer: %s\n", oclErrorString(err));
       queue.finish();
 
-      for(int i=0; i < 20; i++)
-      {
-          printf(" input[%d] = %10.8f,%0.8f\n", i, sample_data[0][0][i][0], sample_data[0][0][i][1]);
-          printf("output[%d] = %10.8f,%0.8f\n", i, prefft_data[0][0][i][0], prefft_data[0][0][i][1]);
-      }
+      //for(int i=0; i < 20; i++)
+      //{
+      //    printf(" input[%d] = %10.8f,%0.8f\n", i, sample_data[0][0][i][0], sample_data[0][0][i][1]);
+      //    printf("output[%d] = %10.8f,%0.8f\n", i, prefft_data[0][0][i][0], prefft_data[0][0][i][1]);
+      //}
 
       std::cout << "Writing out data to file..." << std::endl;
       MuirHD5 file_out("out.hd5", H5F_ACC_TRUNC);
