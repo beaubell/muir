@@ -126,8 +126,9 @@ void renderScene(void) {
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
     glPushMatrix();
 
+    
     glScalef(scale, scale, 1.0);
-    glTranslatef(x_loc/100.0, y_loc/100.0, 0.0);
+    glTranslatef(x_loc, y_loc, 0.0);
 
     // FIXME, use more parameters from the data.
     const float texboundx = 500.0f; // 500.0/512.0;
@@ -137,22 +138,34 @@ void renderScene(void) {
     muir_opengl_shader_switch(shaderProgram);
     muir_GPU_send_variables();
 
+    void * font = GLUT_BITMAP_9_BY_15;
+    
     // Texture On!
     glEnable( GL_TEXTURE_RECTANGLE_ARB );
 
     for(std::vector<Muirgl_Data>::iterator iter = data.begin(); iter != data.end(); iter++)
     {
-        float x = static_cast<float>(iter->radacstart-radac_min)/2000.0;
+        double x1 = (iter->radacstart-radac_min)/10000.0;
+        double x2 = (iter->radacend-radac_min)/10000.0;
         glBindTexture( GL_TEXTURE_RECTANGLE_ARB, iter->texnum );
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
 
         glBegin( GL_QUADS );
-        glTexCoord2d(0.0,0.0); glVertex2d(x,0.0);
-        glTexCoord2d(texboundx,0.0); glVertex2d(x+ 0.25,0.0);
-        glTexCoord2d(texboundx,texboundy); glVertex2d(x+ 0.25,1.0);
-        glTexCoord2d(0.0,texboundy); glVertex2d(x,1.0);
+        glTexCoord2d(0.0,0.0); glVertex2d(x1,0.0);
+        glTexCoord2d(texboundx,0.0); glVertex2d(x2,0.0);
+        glTexCoord2d(texboundx,texboundy); glVertex2d(x2,iter->datah);
+        glTexCoord2d(0.0,texboundy); glVertex2d(x1,iter->datah);
         glEnd();
+        
+        glPushMatrix();
+        glRasterPos2d(x1, 0.0);
+        for (std::string::iterator i = iter->filename.begin(); i != iter->filename.end(); ++i)
+        {
+          char c = *i;
+          glutBitmapCharacter(font, c);
+        }
+        glPopMatrix();
     }
 
     // Texture off
@@ -173,14 +186,24 @@ void renderScene(void) {
 
     glPushMatrix();
 
+    glViewport(0, 0, window_w, window_h);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, window_w, 0, window_h, -1, 1);
+    //glOrtho(0, window_w, -window_h/2, window_h/2, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    
+    
     // Turn shader off
     muir_opengl_shader_switch(0);
 
     glColor3f(1.0, 1.0, 1.0); // White
 
-    glRasterPos2f(-2.0, -2.0 + 10.0/window_h);
-    std::string s = "Respect mah authoritah!";
-    void * font = GLUT_BITMAP_9_BY_15;
+    glRasterPos2f(5, 5);
+    std::string s = "Color Scale: Min= " + boost::lexical_cast<std::string>(shader_data_min) + 
+                               ", Max= " + boost::lexical_cast<std::string>(shader_data_max);
+    
     for (std::string::iterator i = s.begin(); i != s.end(); ++i)
     {
         char c = *i;
@@ -191,7 +214,7 @@ void renderScene(void) {
     float mousepos_x = static_cast<float>(mouse_x - window_w/2)/static_cast<float>(window_w) * 3.0f;
     float mousepos_y = static_cast<float>(-mouse_y + window_h/2)/static_cast<float>(window_h)* 3.0f;
 
-    glRasterPos2f(mousepos_x, mousepos_y);
+    glRasterPos2f(mouse_x, mouse_y);
     s = "Mouse: " + boost::lexical_cast<std::string>(mouse_x) + "," + boost::lexical_cast<std::string>(mouse_y);
     for (std::string::iterator i = s.begin(); i != s.end(); ++i)
     {
@@ -199,6 +222,7 @@ void renderScene(void) {
         glutBitmapCharacter(font, c);
     }
 
+    glMatrixMode(GL_PROJECTION);
     glPopMatrix();
 
     glutSwapBuffers();
@@ -287,7 +311,7 @@ void processNormalKeys(unsigned char key, int x, int y) {
         shader_data_max -= 0.5f;
         muir_GPU_send_variables();
     }
-    std::cout << "Min: " << shader_data_min << ", Max: " << shader_data_max << std::endl;
+
 }
 
 void processSpecialKeys(int key, int x, int y) {
@@ -325,10 +349,18 @@ void processMouse(int button, int state, int x, int y) {
     {
         //std::cout << "Button:" << button << std::endl;
         if (button == 3) // scroll up
-            scale *= 1.5f;
+        {
+          scale *= 1.5f;
+          x_loc -= (mouse_x)/(scale*2);
+          y_loc -= (mouse_y)/(scale*2);
+        }
 
         if (button == 4) // scroll down
-            scale /= 1.5f;
+        {
+          x_loc += (mouse_x)/(scale*2);
+          y_loc += (mouse_y)/(scale*2);
+          scale /= 1.5f;
+        }
     }
 
 std::cout << "Mouse (" << button << ")" << std::endl;
@@ -382,6 +414,8 @@ void processMouseActiveMotion(int x, int y) {
         blue = 0.0;
     }
 #endif
+    y = window_h - y;
+
     if (x < mouse_x)
        x_loc -= (mouse_x-x)/scale;
     else
@@ -389,10 +423,10 @@ void processMouseActiveMotion(int x, int y) {
 
     mouse_x = x;
 
-    if (y < mouse_y)
-        y_loc += (mouse_y-y)/scale;
+    if (y > mouse_y)
+        y_loc -= (mouse_y-y)/scale;
     else
-        y_loc -= (y-mouse_y)/scale;
+        y_loc += (y-mouse_y)/scale;
 
     mouse_y = y;
 }
@@ -414,7 +448,7 @@ void processMousePassiveMotion(int x, int y) {
             //angle = 180.0 * ((float) x)/height;
     //}
    mouse_x = x;
-   mouse_y = y;
+   mouse_y = window_h-y;
 }
 
 
@@ -467,6 +501,7 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
         dataptr.datah = dataset_height;
         dataptr.radacstart = radactime[set][0];
         dataptr.radacend = radactime[set][1];
+        dataptr.filename = filename;
 
         data = reinterpret_cast<GLfloat*>(malloc( width * height*sizeof(GLfloat) ));
 

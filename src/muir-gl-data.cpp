@@ -21,6 +21,7 @@ Muirgl_Data::Muirgl_Data()
     dataw(0),
     datah(0),
     radacstart(0.0),
-    radacend(0.0)
+    radacend(0.0),
+    filename()
 {
 }

@@ -20,6 +20,8 @@
  #include <GL/glext.h>
 #endif
 
+#include <string>
+
 class Muirgl_Data {
     public:
         GLuint texnum;
@@ -31,6 +33,8 @@ class Muirgl_Data {
         GLuint datah;
         double radacstart;
         double radacend;
+        
+        std::string filename;
 
         Muirgl_Data();
 };
