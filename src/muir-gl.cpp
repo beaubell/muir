@@ -35,7 +35,7 @@ void processMouseActiveMotion(int x, int y);
 void processMousePassiveMotion(int x, int y);
 void processMouseEntry(int state);
 
-void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &data );
+void LoadHD5Meta(const std::string &filename, std::vector<Muirgl_Data> &data );
 void loadfiles(const std::string &dir);
 
 // Global state
@@ -90,7 +90,8 @@ int main(int argc, char **argv)
     muir_opengl_shader_init();
 
     /// FIXME, load initialization data from file
-    loadfiles(argv[1]);
+    for (unsigned int i = 1; i < argc; i++)
+        loadfiles(argv[i]);
 
     // Find radactime min/max
     radac_max = data[0].radacend;
@@ -161,7 +162,7 @@ void renderScene(void) {
         
         glPushMatrix();
         glRasterPos2d(x1, 0.0);
-        for (std::string::iterator i = iter->filename.begin(); i != iter->filename.end(); ++i)
+        for (std::string::iterator i = iter->filename_decoded.begin(); i != iter->filename_decoded.end(); ++i)
         {
           char c = *i;
           glutBitmapCharacter(font, c);
@@ -465,7 +466,7 @@ void processMouseEntry(int state) {
 }
 
 
-void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datavec )
+void LoadHD5Meta(const std::string &filename, std::vector<Muirgl_Data> &datavec )
 {
     unsigned int width, height;
     GLfloat * data;
@@ -506,7 +507,7 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
         dataptr.datah = dataset_height;
         dataptr.radacstart = radactime[set][0];
         dataptr.radacend = radactime[set][1];
-        dataptr.filename = filename;
+        dataptr.filename_decoded = filename;
 
         data = reinterpret_cast<GLfloat*>(malloc( width * height*sizeof(GLfloat) ));
 
@@ -550,7 +551,7 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         //In this case, the driver will convert your 32 bit float to 16 bit float
-        glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_LUMINANCE32F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, &decoded_data[set][0][0]);
+        glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_LUMINANCE32F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, data);
 
         // free buffer
         free( data );
@@ -594,7 +595,7 @@ void loadfiles(const std::string &dir)
             {
                 try
                 {
-                    LoadTextureHD5(dirI->string(), data);
+                    LoadHD5Meta(dirI->string(), data);
                 }
                 catch(...)
                 {
@@ -606,7 +607,7 @@ void loadfiles(const std::string &dir)
     }
     else
     {
-        LoadTextureHD5(dir, data);
+        LoadHD5Meta(dir, data);
     }
 
     return;

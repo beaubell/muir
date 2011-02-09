@@ -34,7 +34,8 @@ class Muirgl_Data {
         double radacstart;
         double radacend;
         
-        std::string filename;
+        std::string filename_raw;
+        std::string filename_decoded;
 
         Muirgl_Data();
 };
