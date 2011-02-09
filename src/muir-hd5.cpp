@@ -496,7 +496,9 @@ void MuirHD5::read_2D_double(const H5std_string &dataset_name, Muir2DArrayD &in)
     hsize_t dimsm[2];
     int ndims = dataspace.getSimpleExtentDims( dimsm, NULL);
 
+    #ifndef NDEBUG
     assert((rank == 2) && (ndims == 2));
+    #endif
 
 #if 0  //** NOT USED **
 

@@ -29,4 +29,3 @@ SUBDIRS(src gd-2.0.35)
 
 #SET( CMAKE_CXX_FLAGS "-ggdb -Wall -Wextra -Wconversion -Weffc++ ${OpenMP_CXX_FLAGS}")
 SET( CMAKE_CXX_FLAGS "-O3 -ggdb -Wall -Wextra ${OpenMP_CXX_FLAGS}")
-

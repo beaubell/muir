@@ -12,10 +12,6 @@
 //
 //
 
-#define BOOST_DISABLE_ASSERTS 1
-#define NDEBUG 1
-#include "boost/multi_array.hpp"
-
 #include "H5Cpp.h"
 #include <string>
 #include <vector>

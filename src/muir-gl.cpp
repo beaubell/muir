@@ -41,9 +41,9 @@ void loadfiles(const std::string &dir);
 // Global state
 int window_w = 0;
 int window_h = 0;
-float x_loc = 0.0f;
-float y_loc = 0.0f;
-float scale = 1.0f;
+double x_loc = 0.0;
+double y_loc = 0.0;
+double scale = 1.0;
 int mouse_x = 0;
 int mouse_y = 0;
 float mouse_x_vel = 0.0f;
@@ -127,12 +127,12 @@ void renderScene(void) {
     glPushMatrix();
 
     
-    glScalef(scale, scale, 1.0);
-    glTranslatef(x_loc, y_loc, 0.0);
+    glScaled(scale, scale, 1.0);
+    glTranslated(x_loc, y_loc, 0.0);
 
     // FIXME, use more parameters from the data.
-    const float texboundx = 500.0f; // 500.0/512.0;
-    const float texboundy = 1100.0f; // 1100.0/2048.0;
+    //const float texboundx = 500.0f; // 500.0/512.0;
+    //const float texboundy = 1100.0f; // 1100.0/2048.0;
 
     // Turn Shader on
     muir_opengl_shader_switch(shaderProgram);
@@ -147,15 +147,16 @@ void renderScene(void) {
     {
         double x1 = (iter->radacstart-radac_min)/10000.0;
         double x2 = (iter->radacend-radac_min)/10000.0;
+        
         glBindTexture( GL_TEXTURE_RECTANGLE_ARB, iter->texnum );
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
 
         glBegin( GL_QUADS );
-        glTexCoord2d(0.0,0.0); glVertex2d(x1,0.0);
-        glTexCoord2d(texboundx,0.0); glVertex2d(x2,0.0);
-        glTexCoord2d(texboundx,texboundy); glVertex2d(x2,iter->datah);
-        glTexCoord2d(0.0,texboundy); glVertex2d(x1,iter->datah);
+        glTexCoord2d(0.0        ,0.0        ); glVertex2d(x1,0.0);
+        glTexCoord2d(iter->dataw,0.0        ); glVertex2d(x2,0.0);
+        glTexCoord2d(iter->dataw,iter->datah); glVertex2d(x2,iter->datah);
+        glTexCoord2d(0.0        ,iter->datah); glVertex2d(x1,iter->datah);
         glEnd();
         
         glPushMatrix();
@@ -211,8 +212,8 @@ void renderScene(void) {
     }
 
     // Find mouse coords relative to opengl coords
-    float mousepos_x = static_cast<float>(mouse_x - window_w/2)/static_cast<float>(window_w) * 3.0f;
-    float mousepos_y = static_cast<float>(-mouse_y + window_h/2)/static_cast<float>(window_h)* 3.0f;
+    //float mousepos_x = static_cast<float>(mouse_x - window_w/2)/static_cast<float>(window_w) * 3.0f;
+    //float mousepos_y = static_cast<float>(-mouse_y + window_h/2)/static_cast<float>(window_h)* 3.0f;
 
     glRasterPos2f(mouse_x, mouse_y);
     s = "Mouse: " + boost::lexical_cast<std::string>(mouse_x) + "," + boost::lexical_cast<std::string>(mouse_y);
@@ -331,10 +332,14 @@ void processSpecialKeys(int key, int x, int y) {
         case GLUT_KEY_F3 : 
              break;
 	case GLUT_KEY_UP :
-             scale *= 1.5f;
+             scale *= 1.5;
+             x_loc -= (window_w)/(scale*4);
+             y_loc -= (window_h)/(scale*4);
              break;
 	case GLUT_KEY_DOWN :
-             scale /= 1.5f;
+             x_loc += (window_w)/(scale*4);
+             y_loc += (window_h)/(scale*4);
+             scale /= 1.5;
              break;
     }
 }
@@ -526,7 +531,7 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
 
                     max = std::max(max, pixel);
                     min = std::min(min, pixel);
-            }
+           }
         }
 
         shader_data_max = std::log10(max)*10.0f;
@@ -545,7 +550,7 @@ void LoadTextureHD5(const std::string &filename, std::vector<Muirgl_Data> &datav
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         //In this case, the driver will convert your 32 bit float to 16 bit float
-        glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_LUMINANCE32F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, data);
+        glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_LUMINANCE32F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, &decoded_data[set][0][0]);
 
         // free buffer
         free( data );

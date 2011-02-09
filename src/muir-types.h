@@ -1,6 +1,8 @@
 #ifndef MUIR_TYPES_H
 #define MUIR_TYPES_H
 
+#define NDEBUG 1
+#define BOOST_DISABLE_ASSERTS TRUE
 #include "boost/multi_array.hpp"
 
 typedef boost::multi_array<unsigned int , 2> Muir2DArrayUI;
