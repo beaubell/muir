@@ -46,7 +46,7 @@ void load_file (const std::string &path, std::string &file_contents);
 int decode_cl_load_kernels(void);
 
 
-int decode_init(void* opengl_ctx)
+int process_init_cl(void* opengl_ctx)
 {
     cl_int err = CL_SUCCESS;
     
@@ -160,8 +160,7 @@ int decode_cl_load_kernels(void)
 
 
 
-int
-main(int argc, const char* argv[])
+int process_data_cl(const Muir4DArrayF& sample_data, const std::vector<float>& phasecode, Muir3DArrayF& output_data)
 {
     boost::timer main_time;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_setup;
@@ -169,9 +168,6 @@ main(int argc, const char* argv[])
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_fftw;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyfrom;
     accumulator_set< double, features< tag::count, tag::min, tag::mean, tag::max > > acc_row;
-
-    // Test Initialization...
-    decode_init(NULL);
 
     cl_int err = CL_SUCCESS;
     try 
@@ -182,22 +178,22 @@ main(int argc, const char* argv[])
 
 
       // Load Data and Initialize memory
-      std::string filename(argv[1]);
-      MuirHD5 file_in(filename, H5F_ACC_RDONLY);
+      //std::string filename(argv[1]);
+      //MuirHD5 file_in(filename, H5F_ACC_RDONLY);
 
-      Muir4DArrayF sample_data;
+      //Muir4DArrayF sample_data;
       Muir4DArrayF prefft_data;
       Muir4DArrayF postfft_data;
-      Muir3DArrayF output_data;
-      std::vector<float> phasecode;
+      //Muir3DArrayF output_data;
+      //std::vector<float> phasecode;
 
       // Read Phasecode
-      if (!read_phasecode(file_in, phasecode))
-        std::cout << "File: " << filename << ", doesn't contain a phase code!" << std::endl;
+      //if (!read_phasecode(file_in, phasecode))
+      //  std::cout << "File: " << filename << ", doesn't contain a phase code!" << std::endl;
 
       // Read in experiment data
-      std::cout << "Reading file: " << filename << std::endl;     
-      file_in.read_4D_float (RTI_RAWSAMPLEDATA_PATH , sample_data);
+      //std::cout << "Reading file: " << filename << std::endl;     
+      //file_in.read_4D_float (RTI_RAWSAMPLEDATA_PATH , sample_data);
 
       // Get Data Dimensions
       const Muir4DArrayF::size_type *array_dims = sample_data.shape();
@@ -321,7 +317,7 @@ main(int argc, const char* argv[])
       //    printf(" input[%d] = %10.8f,%0.8f\n", i, sample_data[0][0][i][0], sample_data[0][0][i][1]);
       //    printf("output[%d] = %10.8f,%0.8f\n", i, prefft_data[0][0][i][0], prefft_data[0][0][i][1]);
       //}
-
+#if 0
       std::cout << "Writing out data to file..." << std::endl;
       MuirHD5 file_out("out.hd5", H5F_ACC_TRUNC);
       
@@ -337,7 +333,7 @@ main(int argc, const char* argv[])
       Muir2DArrayD  _time;
 
       // Copy range data
-      file_in.read_2D_float (RTI_RAWSAMPLERANGE_PATH, _sample_range);
+      //file_in.read_2D_float (RTI_RAWSAMPLERANGE_PATH, _sample_range);
       file_out.write_2D_float(RTI_DECODEDRANGE_PATH, _sample_range);
 
       // Prepare and write radac data
@@ -350,7 +346,7 @@ main(int argc, const char* argv[])
 
       file_in.close();
       file_out.close();
-
+#endif 
 
 
       event.wait();
