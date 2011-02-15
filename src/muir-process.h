@@ -17,4 +17,4 @@
 int process_init(void* opengl_ctx);
 int process_data(const Muir4DArrayF& sample_data, const std::vector<float>& phasecode, Muir3DArrayF& decoded_data);
 
-#endif \\MUIR_PROCESS_H
+#endif //MUIR_PROCESS_H

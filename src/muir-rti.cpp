@@ -17,6 +17,7 @@
 #include "muir-hd5.h"
 #include "muir-utility.h"
 #include "muir-plot.h"
+#include "muir-process.h"
 
 namespace fs = boost::filesystem;
 namespace BST_PT = boost::posix_time;
@@ -172,6 +173,9 @@ int main (const int argc, const char * argv[])
 
 void process_expfiles(std::vector<fs::path> files, const Flags& flags)
 {
+    // Initialize decoding context
+    process_init(NULL);
+    
     if (flags.option_range)
     {
         cull_files_range(files, flags);
@@ -199,7 +203,7 @@ void process_expfiles(std::vector<fs::path> files, const Flags& flags)
         if (flags.option_decode)
         {
             std::cout << "Decoding: " << expfile << std::endl;
-            data.process_fftw();;
+            data.decode();
 
             std::string datafile = base + std::string("-decoded.h5");
             std::cout << "Saving decoded data: " << datafile << std::endl;

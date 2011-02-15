@@ -1,14 +1,45 @@
 
 # Include file locations
-include_directories (${MUIRRTI_SOURCE_DIR} ${MUIRRTI_SOURCE_DIR}/include ${HDF5_INCLUDE_DIR} ${GD_SOURCE_DIR} ${FFTW_INCLUDE_DIR} ${Boost_INCLUDE_DIR} ${GLUT_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR})
+include_directories (
+ ${MUIRRTI_SOURCE_DIR}
+ ${MUIRRTI_SOURCE_DIR}/include
+ ${HDF5_INCLUDE_DIR}
+ ${GD_SOURCE_DIR}
+ ${FFTW_INCLUDE_DIR}
+ ${Boost_INCLUDE_DIR}
+ ${GLUT_INCLUDE_DIR}
+ ${OPENGL_INCLUDE_DIR}
+)
 
 # Library locations
-link_directories (${MUIRRTI_BINARY_DIR} ${GD_BINARY_DIR} ${Boost_LIBRARY_DIRS})
+link_directories (
+ ${MUIRRTI_BINARY_DIR}
+ ${GD_BINARY_DIR}
+ ${Boost_LIBRARY_DIRS}
+)
 
-SET(CORE_MUIR_LIBRARIES ${HDF5_LIBRARIES_CXX} ${HDF5_LIBRARIES} ${FFTW_LIBRARY} ${FFTW_THREAD_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} ${Boost_DATE_TIME_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${ZLIB_LIBRARY})
+SET(CORE_MUIR_LIBRARIES 
+ ${HDF5_LIBRARIES_CXX}
+ ${HDF5_LIBRARIES}
+ ${FFTW_LIBRARY}
+ ${FFTW_THREAD_LIBRARY}
+ ${Boost_FILESYSTEM_LIBRARY}
+ ${Boost_DATE_TIME_LIBRARY}
+ ${Boost_SYSTEM_LIBRARY}
+ ${ZLIB_LIBRARY}
+ ${OPENCL_LIBRARIES}
+)
 
 # MUIR Common Library
-add_library(muir STATIC muir-data.cpp muir-hd5.cpp muir-constants.cpp muir-utility.cpp muir-process.cpp muir-process-cl.cpp)
+add_library(muir STATIC
+ muir-data.cpp
+ muir-hd5.cpp
+ muir-constants.cpp
+ muir-utility.cpp
+ muir-process.cpp
+ muir-process-cl.cpp 
+ muir-process-cpu.cpp
+)
 
 # Create and link the executables
 add_executable (muir-decode muir-decode.cpp)
