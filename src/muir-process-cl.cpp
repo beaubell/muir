@@ -96,6 +96,7 @@ int process_init_cl(void* opengl_ctx)
     catch(...)
     {
         std::cout << "OpenCL: Initialization Failed!" << std::endl;
+        return 1;
     }
 
     return 0;
@@ -176,24 +177,9 @@ int process_data_cl(const Muir4DArrayF& sample_data, const std::vector<float>& p
 
       boost::timer stage_time;
 
-
       // Load Data and Initialize memory
-      //std::string filename(argv[1]);
-      //MuirHD5 file_in(filename, H5F_ACC_RDONLY);
-
-      //Muir4DArrayF sample_data;
       Muir4DArrayF prefft_data;
       Muir4DArrayF postfft_data;
-      //Muir3DArrayF output_data;
-      //std::vector<float> phasecode;
-
-      // Read Phasecode
-      //if (!read_phasecode(file_in, phasecode))
-      //  std::cout << "File: " << filename << ", doesn't contain a phase code!" << std::endl;
-
-      // Read in experiment data
-      //std::cout << "Reading file: " << filename << std::endl;     
-      //file_in.read_4D_float (RTI_RAWSAMPLEDATA_PATH , sample_data);
 
       // Get Data Dimensions
       const Muir4DArrayF::size_type *array_dims = sample_data.shape();
@@ -311,45 +297,8 @@ int process_data_cl(const Muir4DArrayF& sample_data, const std::vector<float>& p
       //err = queue.enqueueReadBuffer(cl_buf_prefft, CL_TRUE, 0, sample_size, prefft_data.data(), NULL, &event);
 
       queue.finish();
-
-      //for(int i=0; i < 20; i++)
-      //{
-      //    printf(" input[%d] = %10.8f,%0.8f\n", i, sample_data[0][0][i][0], sample_data[0][0][i][1]);
-      //    printf("output[%d] = %10.8f,%0.8f\n", i, prefft_data[0][0][i][0], prefft_data[0][0][i][1]);
-      //}
-#if 0
-      std::cout << "Writing out data to file..." << std::endl;
-      MuirHD5 file_out("out.hd5", H5F_ACC_TRUNC);
-      
-      // Create group
-      file_out.createGroup(RTI_DECODEDDIR_PATH);
-
-      // Prepare and write decoded sample data
-      file_out.write_3D_float(RTI_DECODEDDATA_PATH, output_data);
-      //file_out.write_4D_float(RTI_DECODEDDATA_PATH, postfft_data);
-
-      Muir2DArrayF  _sample_range;
-      Muir2DArrayUI _framecount;
-      Muir2DArrayD  _time;
-
-      // Copy range data
-      //file_in.read_2D_float (RTI_RAWSAMPLERANGE_PATH, _sample_range);
-      file_out.write_2D_float(RTI_DECODEDRANGE_PATH, _sample_range);
-
-      // Prepare and write radac data
-      file_in.read_2D_double(RTI_RADACTIME_PATH     , _time);
-      file_out.write_2D_double(RTI_DECODEDRADAC_PATH, _time);
-
-      // Prepare and write framecount data
-      file_in.read_2D_uint  (RTI_RAWFRAMECOUNT_PATH , _framecount);
-      file_out.write_2D_uint(RTI_DECODEDFRAME_PATH, _framecount);
-
-      file_in.close();
-      file_out.close();
-#endif 
-
-
       event.wait();
+
     }
     catch (cl::Error err) {
        std::cerr 
