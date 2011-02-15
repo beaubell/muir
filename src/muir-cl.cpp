@@ -19,6 +19,9 @@
 #include <boost/accumulators/statistics/count.hpp>
 using namespace boost::accumulators;
 
+#include <boost/bind.hpp>
+using boost::bind;
+
 // Boost::Timers
 #include <boost/timer.hpp>
 using boost::timer;
@@ -28,7 +31,134 @@ using boost::timer;
 #include "muir-utility.h"
 #include "muir-constants.h"
 
+/// OpenCL Global State
+std::vector<cl::Platform> muir_cl_platforms;
+std::vector<cl::Device> muir_cl_devices;
+cl::Context muir_cl_context;
+cl::Program stage1_program;
+cl::Program stage2_program;
+cl::Program stage3_program;
+cl::Kernel stage1_kernel;
+cl::Kernel stage2_kernel;
+cl::Kernel stage3_kernel;
+
 void load_file (const std::string &path, std::string &file_contents);
+int decode_cl_load_kernels(void);
+
+
+int decode_init(void* opengl_ctx)
+{
+    cl_int err = CL_SUCCESS;
+    
+    try
+    {
+        cl::Platform::get(&muir_cl_platforms);
+        if (muir_cl_platforms.size() == 0)
+        {
+            std::cout << "Platform size 0\n";
+            return -1;
+        }
+
+        std::cout << "# OpenCL of platforms detected: " << muir_cl_platforms.size() << std::endl;
+
+        for(unsigned int i = 0; i < muir_cl_platforms.size(); i++)
+        {
+            std::cout << "OpenCL: Platform[" << i << "] Vendor     : " << muir_cl_platforms[0].getInfo<CL_PLATFORM_VENDOR>() << std::endl;
+            std::cout << "OpenCL: Platform[" << i << "] Name       : " << muir_cl_platforms[0].getInfo<CL_PLATFORM_NAME>() << std::endl;
+            std::cout << "OpenCL: Platform[" << i << "] Version    : " << muir_cl_platforms[0].getInfo<CL_PLATFORM_VERSION>() << std::endl;
+            std::cout << "OpenCL: Platform[" << i << "] Extensions : " << muir_cl_platforms[0].getInfo<CL_PLATFORM_EXTENSIONS>() << std::endl;
+        }
+
+        cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(muir_cl_platforms[0])(), 0};
+
+        muir_cl_context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
+        muir_cl_devices = muir_cl_context.getInfo<CL_CONTEXT_DEVICES>();
+
+        std::cout << "OpenCL: Devices detected: " << muir_cl_devices.size() << std::endl;
+        
+        for(unsigned int i = 0; i < muir_cl_devices.size(); i++)
+        {
+            std::cout << "OpenCL: Device[" << i << "] Vendor        : " << muir_cl_devices[0].getInfo<CL_DEVICE_VENDOR>() << std::endl;
+            std::cout << "OpenCL: Device[" << i << "] Name          : " << muir_cl_devices[0].getInfo<CL_DEVICE_NAME>() << std::endl;
+            std::cout << "OpenCL: Device[" << i << "] Version       : " << muir_cl_devices[0].getInfo<CL_DEVICE_VERSION>() << std::endl;
+            std::cout << "OpenCL: Device[" << i << "] Extensions    : " << muir_cl_devices[0].getInfo<CL_DEVICE_EXTENSIONS>() << std::endl;
+            std::cout << "OpenCL: Device[" << i << "] Clock Freq    : " << muir_cl_devices[0].getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>() << std::endl;
+            std::cout << "OpenCL: Device[" << i << "] Compute Units : " << muir_cl_devices[0].getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << std::endl;
+        }
+
+        std::cout << "OpenCL: " << muir_cl_devices.size() << " device[s] initialized." << std::endl;
+
+        std::cout << "OpenCL: Loading Kernels..." << std::endl;
+        decode_cl_load_kernels();
+        std::cout << "OpenCL: Kernels loaded." << std::endl;
+
+    }
+    catch(...)
+    {
+        std::cout << "OpenCL: Initialization Failed!" << std::endl;
+    }
+
+    return 0;
+}
+
+int decode_cl_load_kernels(void)
+{
+    cl_int err = CL_SUCCESS;
+    
+    /// Load and compile stage1 kernel
+    std::string stage1_str;
+    load_file ("stage1-phasecode.cl", stage1_str);
+    cl::Program::Sources stage1_source(1, std::make_pair(stage1_str.c_str(),stage1_str.size()));
+    stage1_program = cl::Program(muir_cl_context, stage1_source);
+    try{
+        stage1_program.build(muir_cl_devices);
+    }
+    catch(...)
+    {
+        std::cout << "Build Status: "  << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(muir_cl_devices[0]) << std::endl;
+        std::cout <<  "Build Options: " << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(muir_cl_devices[0]) << std::endl;
+        std::cout <<  "Build Log: "     << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
+        throw;
+    }
+    stage1_kernel = cl::Kernel(stage1_program, "phasecode", &err);
+    
+    /// Load and compile stage2 kernel
+    std::string stage2_str;
+    load_file ("stage2-fft.cl", stage2_str);
+    cl::Program::Sources stage2_source(1, std::make_pair(stage2_str.c_str(),stage2_str.size()));
+    stage2_program = cl::Program(muir_cl_context, stage2_source);
+    try{
+        stage2_program.build(muir_cl_devices);
+    }
+    catch(...)
+    {
+        std::cout << "Build Status: "  << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(muir_cl_devices[0]) << std::endl;
+        std::cout << "Build Options: " << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(muir_cl_devices[0]) << std::endl;
+        std::cout << "Build Log: "     << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
+        throw;
+    }
+    stage2_kernel = cl::Kernel(stage2_program, "fft0", &err);
+    
+    /// Load and compile stage 3 kernel
+    std::string stage3_str;
+    load_file ("stage3-findpeak.cl", stage3_str);
+    cl::Program::Sources stage3_source(1, std::make_pair(stage3_str.c_str(),stage3_str.size()));
+    stage3_program = cl::Program(muir_cl_context, stage3_source);
+    try{
+        stage3_program.build(muir_cl_devices);
+    }
+    catch(...)
+    {
+        std::cout << "Build Status: "  << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(muir_cl_devices[0]) << std::endl;
+        std::cout << "Build Options: " << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(muir_cl_devices[0]) << std::endl;
+        std::cout << "Build Log: "     << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
+        throw;
+    }
+    stage3_kernel = cl::Kernel(stage3_program, "findpeak", &err);
+
+}
+
+
 
 int
 main(int argc, const char* argv[])
@@ -40,83 +170,16 @@ main(int argc, const char* argv[])
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyfrom;
     accumulator_set< double, features< tag::count, tag::min, tag::mean, tag::max > > acc_row;
 
-    
+    // Test Initialization...
+    decode_init(NULL);
+
     cl_int err = CL_SUCCESS;
     try 
     {
-      std::vector<cl::Platform> platforms;
-      cl::Platform::get(&platforms);
-      if (platforms.size() == 0) {
-          std::cout << "Platform size 0\n";
-          return -1;
-      }
 
-      cl_context_properties properties[] = 
-         { CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(), 0};
-      cl::Context context(CL_DEVICE_TYPE_GPU, properties); 
- 
-      std::vector<cl::Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
 
-      /// Load and compile stage1 kernel
-      //boost::timer row_time;
       boost::timer stage_time;
 
-      std::string stage1_str;
-      load_file ("stage1-phasecode.cl", stage1_str); 
-      cl::Program::Sources stage1_source(1,
-          std::make_pair(stage1_str.c_str(),stage1_str.size()));
-      cl::Program stage1_program = cl::Program(context, stage1_source);
-      try{
-        stage1_program.build(devices);
-      }
-      catch(...)
-      {
-         std::cout << "Build Status: "  << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(devices[0]) << std::endl;
-        std::cout <<  "Build Options: " << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(devices[0]) << std::endl;
-        std::cout <<  "Build Log: "     << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]) << std::endl;
-         throw;        
-      }  
-      cl::Kernel stage1_kernel(stage1_program, "phasecode", &err);
-
-      /// Load and compile stage2 kernel
-      std::string stage2_str;
-      load_file ("stage2-fft.cl", stage2_str);
-      cl::Program::Sources stage2_source(1,
-          std::make_pair(stage2_str.c_str(),stage2_str.size()));
-      cl::Program stage2_program = cl::Program(context, stage2_source);
-      try{
-        stage2_program.build(devices);
-      }
-      catch(...)
-      {
-         std::cout << "Build Status: "  << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(devices[0]) << std::endl;
-         std::cout << "Build Options: " << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(devices[0]) << std::endl;
-         std::cout << "Build Log: "     << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]) << std::endl;
-         throw;
-      } 
-      cl::Kernel stage2_kernel(stage2_program, "fft0", &err);
-
-      /// Load and compile stage 3 kernel
-      std::string stage3_str;
-      load_file ("stage3-findpeak.cl", stage3_str);
-      cl::Program::Sources stage3_source(1,
-          std::make_pair(stage3_str.c_str(),stage3_str.size()));
-      cl::Program stage3_program = cl::Program(context, stage3_source);
-      try{
-        stage3_program.build(devices);
-      }
-      catch(...)
-      {
-         std::cout << "Build Status: "  << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(devices[0]) << std::endl;
-         std::cout << "Build Options: " << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(devices[0]) << std::endl;
-         std::cout << "Build Log: "     << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]) << std::endl;
-         throw;
-      } 
-      cl::Kernel stage3_kernel(stage3_program, "findpeak", &err);
-
-
-      std::cout << "Load and Compile Kernel Time: " << stage_time.elapsed() << std::endl;
-      stage_time.restart(); 
 
       // Load Data and Initialize memory
       std::string filename(argv[1]);
@@ -170,15 +233,15 @@ main(int argc, const char* argv[])
       printf("Creating OpenCL arrays\n");
  
       //our arrays
-      cl::Buffer cl_buf_sample    = cl::Buffer(context, CL_MEM_READ_ONLY,  sample_size, NULL, &err);
-      cl::Buffer cl_buf_phasecode = cl::Buffer(context, CL_MEM_READ_ONLY,  phasecode_size,  NULL, &err);
-      cl::Buffer cl_buf_prefft    = cl::Buffer(context, CL_MEM_READ_WRITE, sample_size, NULL, &err);
-      cl::Buffer cl_buf_postfft   = cl::Buffer(context, CL_MEM_READ_WRITE, sample_size, NULL, &err);
-      cl::Buffer cl_buf_output    = cl::Buffer(context, CL_MEM_WRITE_ONLY, output_size, NULL, &err);
+      cl::Buffer cl_buf_sample    = cl::Buffer(muir_cl_context, CL_MEM_READ_ONLY,  sample_size, NULL, &err);
+      cl::Buffer cl_buf_phasecode = cl::Buffer(muir_cl_context, CL_MEM_READ_ONLY,  phasecode_size,  NULL, &err);
+      cl::Buffer cl_buf_prefft    = cl::Buffer(muir_cl_context, CL_MEM_READ_WRITE, sample_size, NULL, &err);
+      cl::Buffer cl_buf_postfft   = cl::Buffer(muir_cl_context, CL_MEM_READ_WRITE, sample_size, NULL, &err);
+      cl::Buffer cl_buf_output    = cl::Buffer(muir_cl_context, CL_MEM_WRITE_ONLY, output_size, NULL, &err);
 
 
       cl::Event event;
-      cl::CommandQueue queue(context, devices[0], 0, &err);
+      cl::CommandQueue queue(muir_cl_context, muir_cl_devices[0], 0, &err);
 
       printf("Pushing data to the GPU\n");
       //push our CPU arrays to the GPU
