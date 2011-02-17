@@ -45,7 +45,7 @@ class MuirData
     void print_onesamplecolumn(const std::size_t run, const std::size_t column);
     void print_stats();
 
-    int  decode();
+    int  decode(int id = 0);
     void save_decoded_data(const std::string &output_file);
     void read_decoded_data(const std::string &input_file);
 

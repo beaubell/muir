@@ -147,7 +147,7 @@ void MuirData::print_stats()
 
 }
 
-int MuirData::decode()
+int MuirData::decode(int id)
 {
     // Use OpenCL Decoding
     int err = process_data(_sample_data, _phasecode, _decoded_data);

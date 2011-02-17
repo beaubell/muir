@@ -24,6 +24,8 @@ namespace BST_DT = boost::date_time;
 using namespace boost::gregorian;
 using boost::lexical_cast;
 
+#include <boost/thread.hpp>
+#include <boost/thread/mutex.hpp>
 struct Flags
 {
     bool option_dec_cpu;
@@ -46,6 +48,7 @@ void print_help (void);
 void process_expfiles(std::vector<fs::path> files, const Flags& flags);  // No reference, want copies
 void process_decfiles(std::vector<fs::path> files, const Flags& flags);  // No reference, want copies
 void cull_files_range(std::vector<fs::path> &files, const Flags& flags);
+void process_thread(int id, std::vector<fs::path> files, int &position);
 
 int main (const int argc, const char * argv[])
 {
@@ -167,26 +170,20 @@ void process_expfiles(std::vector<fs::path> files, const Flags& flags)
         cull_files_range(files, flags);
     }
 
-    for (int i = 0; i < static_cast<int>(files.size()); i++)
-    {
-        std::string expfile =  files[i].string();
+    int position = 0;
 
-        // Strips two levels of .blah.h5
-        std::string base =  fs::basename(fs::basename(files[i]));
+    // Create threads
+    //for (int i = 0; i < 2)); i++)
+    //{
+        boost::thread thread1(boost::bind(process_thread, 0, files, position));
+        boost::thread thread2(boost::bind(process_thread, 1, files, position));
+    //}
 
-        // Loading file
-        std::cout << "Loading Experiment Data: " << expfile << std::endl;
-        MuirData data(expfile);
-
-        std::cout << "Decoding: " << expfile << std::endl;
-        data.decode();
-
-        std::string datafile = base + std::string("-decoded.h5");
-        std::cout << "Saving decoded data: " << datafile << std::endl;
-        data.save_decoded_data(datafile);
-
-    }
+    thread1.join();
+    thread2.join();
 }
+
+
 
 void cull_files_range(std::vector<fs::path> &files, const Flags& flags)
 {
@@ -214,6 +211,51 @@ void cull_files_range(std::vector<fs::path> &files, const Flags& flags)
     }
 
 }
+
+boost::mutex thread_mutex;
+//boost::shared_lock threadlock(m);
+
+void process_thread(int id, std::vector<fs::path> files, int &position)
+{
+    int i = 0;
+    {
+        boost::mutex::scoped_lock lock(thread_mutex);
+        if (id != 0)
+            i = ++(position);
+    }
+
+    while (i < static_cast<int>(files.size()))
+    {
+        
+        std::string expfile =  files[i].string();
+
+        // Strips .h5 from file
+        std::string base = fs::basename(files[i]);
+
+        // Loading file
+        MuirData *data;
+        {
+            boost::mutex::scoped_lock lock(thread_mutex);
+            std::cout << "Loading Experiment Data: " << expfile << std::endl;
+            data = new MuirData(expfile);
+        }
+
+        std::cout << "Decoding: " << expfile << std::endl;
+        data->decode(id);
+
+        std::string datafile = base + std::string(".decoded.h5");
+        {
+            boost::mutex::scoped_lock lock(thread_mutex);
+            std::cout << "Saving decoded data: " << datafile << std::endl;
+            data->save_decoded_data(datafile);
+            delete data;
+ 
+            i = ++(position);
+        }
+
+    }
+}
+
 
 
 void print_help ()
