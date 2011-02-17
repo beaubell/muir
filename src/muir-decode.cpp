@@ -48,7 +48,7 @@ void print_help (void);
 void process_expfiles(std::vector<fs::path> files, const Flags& flags);  // No reference, want copies
 void process_decfiles(std::vector<fs::path> files, const Flags& flags);  // No reference, want copies
 void cull_files_range(std::vector<fs::path> &files, const Flags& flags);
-void process_thread(int id, std::vector<fs::path> files, int &position);
+void process_thread(int id, std::vector<fs::path> files, int *position);
 
 int main (const int argc, const char * argv[])
 {
@@ -175,8 +175,8 @@ void process_expfiles(std::vector<fs::path> files, const Flags& flags)
     // Create threads
     //for (int i = 0; i < 2)); i++)
     //{
-        boost::thread thread1(boost::bind(process_thread, 0, files, position));
-        boost::thread thread2(boost::bind(process_thread, 1, files, position));
+        boost::thread thread1(boost::bind(process_thread, 0, files, &position));
+        boost::thread thread2(boost::bind(process_thread, 1, files, &position));
     //}
 
     thread1.join();
@@ -215,13 +215,13 @@ void cull_files_range(std::vector<fs::path> &files, const Flags& flags)
 boost::mutex thread_mutex;
 //boost::shared_lock threadlock(m);
 
-void process_thread(int id, std::vector<fs::path> files, int &position)
+void process_thread(int id, std::vector<fs::path> files, int *position)
 {
     int i = 0;
     {
         boost::mutex::scoped_lock lock(thread_mutex);
         if (id != 0)
-            i = ++(position);
+            i = ++(*position);
     }
 
     while (i < static_cast<int>(files.size()))
@@ -250,7 +250,7 @@ void process_thread(int id, std::vector<fs::path> files, int &position)
             data->save_decoded_data(datafile);
             delete data;
  
-            i = ++(position);
+            i = ++(*position);
         }
 
     }

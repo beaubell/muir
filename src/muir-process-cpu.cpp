@@ -35,7 +35,7 @@ int process_init_cpu()
     return 1;
 }
 
-int process_data_cpu(const Muir4DArrayF& sample_data, const std::vector<float>& phasecode, Muir3DArrayF& decoded_data)
+int process_data_cpu(int id, const Muir4DArrayF& sample_data, const std::vector<float>& phasecode, Muir3DArrayF& decoded_data)
 {
 
     // Setup Accumulators For Statistics

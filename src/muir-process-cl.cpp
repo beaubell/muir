@@ -122,7 +122,7 @@ int decode_cl_load_kernels(void)
         std::cout <<  "Build Log: "     << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
         throw;
     }
-    stage1_kernel = cl::Kernel(stage1_program, "phasecode", &err);
+    //stage1_kernel = cl::Kernel(stage1_program, "phasecode", &err);
     
     /// Load and compile stage2 kernel
     std::string stage2_str;
@@ -139,7 +139,7 @@ int decode_cl_load_kernels(void)
         std::cout << "Build Log: "     << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
         throw;
     }
-    stage2_kernel = cl::Kernel(stage2_program, "fft0", &err);
+    //stage2_kernel = cl::Kernel(stage2_program, "fft0", &err);
     
     /// Load and compile stage 3 kernel
     std::string stage3_str;
@@ -156,13 +156,13 @@ int decode_cl_load_kernels(void)
         std::cout << "Build Log: "     << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
         throw;
     }
-    stage3_kernel = cl::Kernel(stage3_program, "findpeak", &err);
+    //stage3_kernel = cl::Kernel(stage3_program, "findpeak", &err);
 
 }
 
 
 
-int process_data_cl(const Muir4DArrayF& sample_data, const std::vector<float>& phasecode, Muir3DArrayF& output_data)
+int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<float>& phasecode, Muir3DArrayF& output_data)
 {
     boost::timer main_time;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_setup;
@@ -174,9 +174,12 @@ int process_data_cl(const Muir4DArrayF& sample_data, const std::vector<float>& p
     cl_int err = CL_SUCCESS;
     try 
     {
-
-
       boost::timer stage_time;
+
+      // Initialize kernels here since setarg and enque are not threadsafe
+      cl::Kernel stage1_kernel(stage1_program, "phasecode", &err);
+      cl::Kernel stage2_kernel(stage2_program, "fft0", &err);
+      cl::Kernel stage3_kernel(stage3_program, "findpeak", &err);
 
       // Load Data and Initialize memory
       Muir4DArrayF prefft_data;
@@ -224,7 +227,7 @@ int process_data_cl(const Muir4DArrayF& sample_data, const std::vector<float>& p
 
 
       cl::Event event;
-      cl::CommandQueue queue(muir_cl_context, muir_cl_devices[0], 0, &err);
+      cl::CommandQueue queue(muir_cl_context, muir_cl_devices[id], 0, &err);
 
       printf("Pushing data to the GPU\n");
       //push our CPU arrays to the GPU

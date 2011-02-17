@@ -55,16 +55,16 @@ int process_init(unsigned int method, void* opengl_ctx)
     return num_devices;
 }
 
-int process_data(const Muir4DArrayF& sample_data, const std::vector<float>& phasecode, Muir3DArrayF& decoded_data)
+int process_data(int id, const Muir4DArrayF& sample_data, const std::vector<float>& phasecode, Muir3DArrayF& decoded_data)
 {
     int err = 0;
     
     if (opencl_initialized)
         // Use OpenCL Decoding
-        err = process_data_cl(sample_data, phasecode, decoded_data);
+        err = process_data_cl(id, sample_data, phasecode, decoded_data);
     else if (cpu_initialized)
         // Use CPU Decoding
-        err = process_data_cpu(sample_data, phasecode, decoded_data);
+        err = process_data_cpu(id, sample_data, phasecode, decoded_data);
     
     return err;
 }
