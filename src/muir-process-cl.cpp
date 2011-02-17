@@ -96,10 +96,11 @@ int process_init_cl(void* opengl_ctx)
     catch(...)
     {
         std::cout << "OpenCL: Initialization Failed!" << std::endl;
-        return 1;
+        return 0;
     }
 
-    return 0;
+    // Return the number of OpenCL devices discovered
+    return muir_cl_devices.size();
 }
 
 int decode_cl_load_kernels(void)

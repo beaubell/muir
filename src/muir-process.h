@@ -14,7 +14,11 @@
 
 #include "muir-types.h"
 
-int process_init(void* opengl_ctx);
+#define MUIR_DECODE_CPU 0x01
+#define MUIR_DECODE_GPU_OPENCL 0x02
+#define MUIR_DECODE_GPU_CUDA   0x04
+
+int process_init(unsigned int method, void* opengl_ctx = NULL);
 int process_data(const Muir4DArrayF& sample_data, const std::vector<float>& phasecode, Muir3DArrayF& decoded_data);
 
 #endif //MUIR_PROCESS_H

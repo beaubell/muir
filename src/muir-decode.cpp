@@ -26,11 +26,17 @@ using boost::lexical_cast;
 
 struct Flags
 {
+    bool option_dec_cpu;
+    bool option_dec_cuda;
+    bool option_dec_opencl;
     bool option_range;
     BST_PT::time_period range;
 
     Flags()
-    : option_range(false),
+    : option_dec_cpu(false),
+      option_dec_cuda(false),
+      option_dec_opencl(false),
+      option_range(false),
       range(BST_PT::ptime(BST_DT::neg_infin),BST_PT::ptime(BST_DT::pos_infin))
     {}
 };
@@ -92,6 +98,21 @@ int main (const int argc, const char * argv[])
 
             continue;
         }
+        if (!strcmp(argv[argi],"--cpu"))
+        {
+            flags.option_dec_cpu = true;
+            continue;
+        }
+        if (!strcmp(argv[argi],"--gpu-cuda"))
+        {
+            flags.option_dec_cuda = true;
+            continue;
+        }
+        if (!strcmp(argv[argi],"--gpu-opencl"))
+        {
+            flags.option_dec_opencl = true;
+            continue;
+        }
         if (!strcmp(argv[argi],"--help") || !strcmp(argv[argi],"-h"))
         {
             print_help();
@@ -129,8 +150,18 @@ int main (const int argc, const char * argv[])
 void process_expfiles(std::vector<fs::path> files, const Flags& flags)
 {
     // Initialize decoding context
-    process_init(NULL);
-
+    int methods = flags.option_dec_opencl*MUIR_DECODE_GPU_OPENCL | flags.option_dec_cuda*MUIR_DECODE_GPU_CUDA | flags.option_dec_cpu*MUIR_DECODE_CPU;
+    int devices = process_init(methods, NULL);
+    if(devices == 0)
+    {
+        std::cout << "NO DEVICES FOUND!" << std::endl;
+        return;
+    }
+    else
+    {
+        std::cout << "Processing devices initialized: " << devices << std::endl;
+    }
+ 
     if (flags.option_range)
     {
         cull_files_range(files, flags);
@@ -189,4 +220,7 @@ void print_help ()
 {
     std::cout << "usage: muir-decode [--range yyyymmddThhmmss yyyymmddThhmmss] hdf5files... " << std::endl;
     std::cout << "  --range          : Only process files that fall within a specified ISO date range in GMT." << std::endl;
+    std::cout << "  --gpu-cuda       : Force GPU CUDA decoding method." << std::endl;
+    std::cout << "  --gpu-opencl     : Froce GPU OpenCL decoding method." << std::endl;
+    std::cout << "  --cpu            : Force CPU decoding method. (May be combined with one other gpu method)" << std::endl; 
 }
