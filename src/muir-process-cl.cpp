@@ -30,6 +30,10 @@ using boost::timer;
 #include "muir-hd5.h"
 #include "muir-utility.h"
 #include "muir-constants.h"
+#include "muir-global.h"
+
+/// Constants
+static const std::string SectionName("OpenCL");
 
 /// OpenCL Global State
 std::vector<cl::Platform> muir_cl_platforms;
@@ -43,7 +47,7 @@ cl::Kernel stage2_kernel;
 cl::Kernel stage3_kernel;
 
 void load_file (const std::string &path, std::string &file_contents);
-int decode_cl_load_kernels(void);
+void decode_cl_load_kernels(void);
 
 
 int process_init_cl(void* opengl_ctx)
@@ -53,20 +57,18 @@ int process_init_cl(void* opengl_ctx)
     try
     {
         cl::Platform::get(&muir_cl_platforms);
-        if (muir_cl_platforms.size() == 0)
-        {
-            std::cout << "Platform size 0\n";
-            return -1;
-        }
 
-        std::cout << "# OpenCL of platforms detected: " << muir_cl_platforms.size() << std::endl;
+        std::cout << SectionName << ": # OpenCL of platforms detected: " << muir_cl_platforms.size() << std::endl;
 
         for(unsigned int i = 0; i < muir_cl_platforms.size(); i++)
         {
-            std::cout << "OpenCL: Platform[" << i << "] Vendor     : " << muir_cl_platforms[0].getInfo<CL_PLATFORM_VENDOR>() << std::endl;
-            std::cout << "OpenCL: Platform[" << i << "] Name       : " << muir_cl_platforms[0].getInfo<CL_PLATFORM_NAME>() << std::endl;
-            std::cout << "OpenCL: Platform[" << i << "] Version    : " << muir_cl_platforms[0].getInfo<CL_PLATFORM_VERSION>() << std::endl;
-            std::cout << "OpenCL: Platform[" << i << "] Extensions : " << muir_cl_platforms[0].getInfo<CL_PLATFORM_EXTENSIONS>() << std::endl;
+            if (MUIR_Verbose)
+            {
+                std::cout << SectionName << ": Platform[" << i << "] Vendor     : " << muir_cl_platforms[0].getInfo<CL_PLATFORM_VENDOR>() << std::endl;
+                std::cout << SectionName << ": Platform[" << i << "] Name       : " << muir_cl_platforms[0].getInfo<CL_PLATFORM_NAME>() << std::endl;
+                std::cout << SectionName << ": Platform[" << i << "] Version    : " << muir_cl_platforms[0].getInfo<CL_PLATFORM_VERSION>() << std::endl;
+                std::cout << SectionName << ": Platform[" << i << "] Extensions : " << muir_cl_platforms[0].getInfo<CL_PLATFORM_EXTENSIONS>() << std::endl;
+            }
         }
 
         cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(muir_cl_platforms[0])(), 0};
@@ -74,28 +76,31 @@ int process_init_cl(void* opengl_ctx)
         muir_cl_context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
         muir_cl_devices = muir_cl_context.getInfo<CL_CONTEXT_DEVICES>();
 
-        std::cout << "OpenCL: Devices detected: " << muir_cl_devices.size() << std::endl;
+        std::cout << SectionName << ": Devices detected in context[0]: " << muir_cl_devices.size() << std::endl;
         
         for(unsigned int i = 0; i < muir_cl_devices.size(); i++)
         {
-            std::cout << "OpenCL: Device[" << i << "] Vendor        : " << muir_cl_devices[0].getInfo<CL_DEVICE_VENDOR>() << std::endl;
-            std::cout << "OpenCL: Device[" << i << "] Name          : " << muir_cl_devices[0].getInfo<CL_DEVICE_NAME>() << std::endl;
-            std::cout << "OpenCL: Device[" << i << "] Version       : " << muir_cl_devices[0].getInfo<CL_DEVICE_VERSION>() << std::endl;
-            std::cout << "OpenCL: Device[" << i << "] Extensions    : " << muir_cl_devices[0].getInfo<CL_DEVICE_EXTENSIONS>() << std::endl;
-            std::cout << "OpenCL: Device[" << i << "] Clock Freq    : " << muir_cl_devices[0].getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>() << std::endl;
-            std::cout << "OpenCL: Device[" << i << "] Compute Units : " << muir_cl_devices[0].getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << std::endl;
+            if (MUIR_Verbose)
+            {
+                std::cout << SectionName << ": Device[" << i << "] Vendor        : " << muir_cl_devices[0].getInfo<CL_DEVICE_VENDOR>() << std::endl;
+                std::cout << SectionName << ": Device[" << i << "] Name          : " << muir_cl_devices[0].getInfo<CL_DEVICE_NAME>() << std::endl;
+                std::cout << SectionName << ": Device[" << i << "] Version       : " << muir_cl_devices[0].getInfo<CL_DEVICE_VERSION>() << std::endl;
+                std::cout << SectionName << ": Device[" << i << "] Extensions    : " << muir_cl_devices[0].getInfo<CL_DEVICE_EXTENSIONS>() << std::endl;
+                std::cout << SectionName << ": Device[" << i << "] Clock Freq    : " << muir_cl_devices[0].getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>() << std::endl;
+                std::cout << SectionName << ": Device[" << i << "] Compute Units : " << muir_cl_devices[0].getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << std::endl;
+            }
         }
 
-        std::cout << "OpenCL: " << muir_cl_devices.size() << " device[s] initialized." << std::endl;
+        std::cout << SectionName << ": " << muir_cl_devices.size() << " device[s] initialized." << std::endl;
 
-        std::cout << "OpenCL: Loading Kernels..." << std::endl;
+        std::cout << SectionName << ": Loading Kernels..." << std::endl;
         decode_cl_load_kernels();
-        std::cout << "OpenCL: Kernels loaded." << std::endl;
+        std::cout << SectionName << ": Kernels loaded." << std::endl;
 
     }
     catch(...)
     {
-        std::cout << "OpenCL: Initialization Failed!" << std::endl;
+        std::cout << SectionName << ": Initialization Failed!" << std::endl;
         return 0;
     }
 
@@ -103,13 +108,28 @@ int process_init_cl(void* opengl_ctx)
     return muir_cl_devices.size();
 }
 
-int decode_cl_load_kernels(void)
+void decode_cl_load_kernels(void)
 {
     cl_int err = CL_SUCCESS;
-    
-    /// Load and compile stage1 kernel
+
+    /// Load kernel sources
     std::string stage1_str;
-    load_file ("stage1-phasecode.cl", stage1_str);
+    std::string stage2_str;
+    std::string stage3_str;
+
+    try{
+        load_file ("stage1-phasecode.cl", stage1_str);
+        load_file ("stage2-fft.cl", stage2_str);
+        load_file ("stage3-findpeak.cl", stage3_str);
+    }
+    catch (std::runtime_error error)
+    {
+        std::cout << SectionName << ": ERROR! - " << error.what() << std::endl;
+        std::cout << SectionName << ": Loading kernel sources failed!" << std::endl;
+        throw error;
+    }
+
+    /// Load and compile stage1 kernel
     cl::Program::Sources stage1_source(1, std::make_pair(stage1_str.c_str(),stage1_str.size()));
     stage1_program = cl::Program(muir_cl_context, stage1_source);
     try{
@@ -123,10 +143,8 @@ int decode_cl_load_kernels(void)
         throw;
     }
     //stage1_kernel = cl::Kernel(stage1_program, "phasecode", &err);
-    
-    /// Load and compile stage2 kernel
-    std::string stage2_str;
-    load_file ("stage2-fft.cl", stage2_str);
+
+    /// compile stage2 kernel
     cl::Program::Sources stage2_source(1, std::make_pair(stage2_str.c_str(),stage2_str.size()));
     stage2_program = cl::Program(muir_cl_context, stage2_source);
     try{
@@ -140,10 +158,8 @@ int decode_cl_load_kernels(void)
         throw;
     }
     //stage2_kernel = cl::Kernel(stage2_program, "fft0", &err);
-    
-    /// Load and compile stage 3 kernel
-    std::string stage3_str;
-    load_file ("stage3-findpeak.cl", stage3_str);
+
+    /// compile stage 3 kernel
     cl::Program::Sources stage3_source(1, std::make_pair(stage3_str.c_str(),stage3_str.size()));
     stage3_program = cl::Program(muir_cl_context, stage3_source);
     try{
@@ -199,24 +215,26 @@ int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<f
 
       // Initialize decoded data boost multi_array;
       output_data.resize(boost::extents[max_sets][max_cols][max_range]);
- 
 
-      std::cout << "Sample data - # elements:" << sample_data.num_elements() << std::endl;
-      std::cout << "Output data - # elements:" << prefft_data.num_elements() << std::endl;
       size_t sample_size    = sample_data.num_elements()*sizeof(float);
       size_t phasecode_size = phasecode.size() * sizeof(float);
       size_t output_size    = output_data.num_elements()*sizeof(float);
+      
+      if (MUIR_Verbose)
+      {
+        std::cout << SectionName << ": GPU[" << id << "], Sample data - # elements:" << sample_data.num_elements() << std::endl;
+        std::cout << SectionName << ": GPU[" << id << "], Output data - # elements:" << prefft_data.num_elements() << std::endl;
+        std::cout << SectionName << ": GPU[" << id << "], Sample data - Size      :" << sample_size << std::endl;
+        std::cout << SectionName << ": GPU[" << id << "], Phasecode   - Size      :" << phasecode_size << std::endl;
+        std::cout << SectionName << ": GPU[" << id << "], Output      - Size      :" << output_size << std::endl;
 
-      std::cout << "Sample data - Size      :" << sample_size << std::endl;
-      std::cout << "Phasecode   - Size      :" << phasecode_size << std::endl;
-      std::cout << "Output      - Size      :" << output_size << std::endl;
+        for (unsigned int i = 0; i < phasecode.size(); i++)
+            std::cout << ((phasecode[i]>0.0f)?1:0);
 
-      for (unsigned int i = 0; i < phasecode.size(); i++)
-        std::cout << ((phasecode[i]>0.0f)?1:0);
+        std::cout << std::endl;
+      }
 
-      std::cout << std::endl;
-
-      printf("Creating OpenCL arrays\n");
+      std::cout << SectionName << ": GPU[" << id << "] Creating OpenCL arrays" << std::endl;
  
       //our arrays
       cl::Buffer cl_buf_sample    = cl::Buffer(muir_cl_context, CL_MEM_READ_ONLY,  sample_size, NULL, &err);
@@ -229,7 +247,8 @@ int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<f
       cl::Event event;
       cl::CommandQueue queue(muir_cl_context, muir_cl_devices[id], 0, &err);
 
-      printf("Pushing data to the GPU\n");
+      std::cout << SectionName << ": GPU[" << id << "] Pushing data to the GPU" << std::endl;
+
       //push our CPU arrays to the GPU
       err = queue.enqueueWriteBuffer(cl_buf_sample,    CL_TRUE, 0, sample_size,     sample_data.data(), NULL, &event);
       err = queue.enqueueWriteBuffer(cl_buf_phasecode, CL_TRUE, 0, phasecode_size,  &phasecode[0],       NULL, &event);
@@ -238,16 +257,22 @@ int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<f
       err = queue.enqueueWriteBuffer(cl_buf_output,    CL_TRUE, 0, output_size,     output_data.data(), NULL, &event);
 
 
-      std::cout << "Load Experiment Data Time: " << stage_time.elapsed() << std::endl;
+      std::cout << SectionName << ": GPU[" << id << "] Load Experiment Data Time: " << stage_time.elapsed() << std::endl;
       stage_time.restart();
       
       float FFT_NSize = 1024.0f;
       float normalize = 1/FFT_NSize;
       int  total_frames = max_sets*max_cols;
 
-      std::cout << "Processing..." << std::endl;
+      cl::Event stage1_event;
+      cl::Event stage2_event;
+      cl::Event stage3_event;
+      std::vector<cl::Event> waitevents;
+
+      std::cout << SectionName << ": GPU[" << id << "] Processing..." << std::endl;
       for(unsigned int i = 0; i < max_range; i++)
       {
+          
           //Setup Stage 1 (Phasecode) Kernel
           err = stage1_kernel.setArg(0, cl_buf_sample);
           err = stage1_kernel.setArg(1, cl_buf_phasecode);
@@ -258,8 +283,12 @@ int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<f
           //Wait for the command queue to finish these commands before proceeding
           //queue.finish();
 
-          //Execute Stage 1 (Phasecode) Kernel
-          err = queue.enqueueNDRangeKernel(stage1_kernel, cl::NullRange, cl::NDRange(phasecode.size(),total_frames), cl::NullRange, NULL, &event);
+          // Setup waiting for stage 3
+          waitevents.clear();
+          waitevents.push_back(stage3_event);
+          
+          //Execute Stage 1 (Phasecode) Kernel  (dont wait for events on the first run!)
+          err = queue.enqueueNDRangeKernel(stage1_kernel, cl::NullRange, cl::NDRange(phasecode.size(),total_frames), cl::NullRange, (i == 0)?NULL:&waitevents, &stage1_event);
           //queue.finish();
 
           //Setup Stage 2 (FFT) Kernel
@@ -270,8 +299,12 @@ int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<f
           err = stage2_kernel.setArg(3, (int)total_frames);
           err = stage2_kernel.setArg(4, (int)max_range);
 
+          // Setup waiting for stage 1
+          waitevents.clear();
+          waitevents.push_back(stage1_event);
+          
           //Execute Stage 2 (FFT) Kernel
-          err = queue.enqueueNDRangeKernel(stage2_kernel, cl::NullRange, cl::NDRange(64*total_frames), cl::NDRange(64), NULL, &event);
+          err = queue.enqueueNDRangeKernel(stage2_kernel, cl::NullRange, cl::NDRange(64*total_frames), cl::NDRange(64), &waitevents, &stage2_event);
           //queue.finish();
 
           //Setup Stage 3 (FindPeak) Kernel
@@ -282,8 +315,12 @@ int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<f
           err = stage3_kernel.setArg(3, (int)max_range);
           err = stage3_kernel.setArg(4, (float)normalize);
 
+          // Setup waiting for stage 2
+          waitevents.clear();
+          waitevents.push_back(stage2_event);
+          
           //Execute Stage 3 (FindPeak) Kernel
-          err = queue.enqueueNDRangeKernel(stage3_kernel, cl::NullRange, cl::NDRange(total_frames), cl::NullRange, NULL, &event);
+          err = queue.enqueueNDRangeKernel(stage3_kernel, cl::NullRange, cl::NDRange(total_frames), cl::NullRange, &waitevents, &stage3_event);
           //queue.finish();
          
      }
@@ -291,10 +328,10 @@ int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<f
      queue.finish();
 
      std::cout.precision(10);
-     std::cout << "OpenCL Stage 1+2+3 Time: " << stage_time.elapsed() << std::endl;
+     std::cout << SectionName << ": GPU[" << id << "] OpenCL Stage 1+2+3 Time: " << stage_time.elapsed() << std::endl;
      stage_time.restart();
 
-     std::cout << "Downloading data from GPU..." << std::endl;
+     std::cout << SectionName << ": GPU[" << id << "] Downloading data from GPU..." << std::endl;
       //lets check our calculations by reading from the device memory and printing out the results
       err = queue.enqueueReadBuffer(cl_buf_output, CL_TRUE, 0, output_size, output_data.data(), NULL, &event);
       //err = queue.enqueueReadBuffer(cl_buf_postfft, CL_TRUE, 0, sample_size, postfft_data.data(), NULL, &event);
@@ -306,7 +343,10 @@ int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<f
     }
     catch (cl::Error err) {
        std::cerr 
-          << "ERROR: "
+          << SectionName
+          << ": GPU["
+          << id
+          << "] ERROR: "
           << err.what()
           << "("
           << err.err()
@@ -335,6 +375,10 @@ void load_file (const std::string &path, std::string &file_contents)
         file.seekg (0, std::ios::beg);
         file.read (const_cast<char *>(file_contents.c_str()), size);
         file.close();
+    }
+    else
+    {
+        throw std::runtime_error("Unable to open file: " + path);
     }
 }
 

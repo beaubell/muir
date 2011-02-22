@@ -57,7 +57,7 @@ std::string MuirHD5::read_string(const H5std_string &dataset_name) const
 
     H5::DataType dtype = dataset.getDataType();
 
-   //hsize_t size = dataset.getStorageSize ();
+   buffer.reserve(dataset.getStorageSize());
    //std::cout << "Storage size required: " << size << std::endl;
 
    // Read string
