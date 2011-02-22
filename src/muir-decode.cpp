@@ -173,14 +173,18 @@ void process_expfiles(std::vector<fs::path> files, const Flags& flags)
     int position = 0;
 
     // Create threads
-    //for (int i = 0; i < 2)); i++)
-    //{
-        boost::thread thread1(boost::bind(process_thread, 0, files, &position));
-        boost::thread thread2(boost::bind(process_thread, 1, files, &position));
-    //}
+    boost::thread_group g;
+    
+    for (int i = 1; i < process_get_num_devices(); i++)
+    {
+        boost::thread *t = new boost::thread(boost::bind(process_thread, i, files, &position));
+        g.add_thread(t);
+    }
 
-    thread1.join();
-    thread2.join();
+    // Proces sin main thread as well.
+    process_thread(0, files, &position);
+    g.join_all();
+    
 }
 
 
@@ -236,17 +240,17 @@ void process_thread(int id, std::vector<fs::path> files, int *position)
         MuirData *data;
         {
             boost::mutex::scoped_lock lock(thread_mutex);
-            std::cout << "Loading Experiment Data: " << expfile << std::endl;
+            std::cout << "Thread[" << id << "] Loading Experiment Data: " << expfile << std::endl;
             data = new MuirData(expfile);
         }
 
-        std::cout << "Decoding: " << expfile << std::endl;
+        std::cout << "Thread[" << id << "] Decoding: " << expfile << std::endl;
         data->decode(id);
 
         std::string datafile = base + std::string(".decoded.h5");
         {
             boost::mutex::scoped_lock lock(thread_mutex);
-            std::cout << "Saving decoded data: " << datafile << std::endl;
+            std::cout << "Thread[" << id << "] Saving decoded data: " << datafile << std::endl;
             data->save_decoded_data(datafile);
             delete data;
  

@@ -3,9 +3,11 @@
 //#include "muir-process-cuda.h"
 #include "muir-process-cpu.h"
 
-bool opencl_initialized = false;
-bool cuda_initialized = false;
-bool cpu_initialized = true;
+int opencl_initialized = 0;
+int cuda_initialized = 0;
+int cpu_initialized = 1;
+
+int num_devices = 0;
 
 int process_init(unsigned int method, void* opengl_ctx)
 {
@@ -17,7 +19,7 @@ int process_init(unsigned int method, void* opengl_ctx)
     cpu_initialized = false;
 
     // Number of processing devices found.
-    int num_devices = 0;
+    num_devices = 0;
     
     // Attempt to initialize OpenCL context
     if(method & MUIR_DECODE_GPU_OPENCL)
@@ -25,7 +27,7 @@ int process_init(unsigned int method, void* opengl_ctx)
         int opencl_devices = process_init_cl(opengl_ctx);
         if (opencl_devices)
         {
-            opencl_initialized = true;
+            opencl_initialized = opencl_devices;
             num_devices += opencl_devices;
 
             // Add devices to list
@@ -48,7 +50,7 @@ int process_init(unsigned int method, void* opengl_ctx)
         int cpu_devices = process_init_cpu();
         if (cpu_devices)
         {
-            cpu_initialized = true;
+            cpu_initialized = cpu_devices;
             num_devices += cpu_devices;
         }
     }
@@ -58,13 +60,22 @@ int process_init(unsigned int method, void* opengl_ctx)
 int process_data(int id, const Muir4DArrayF& sample_data, const std::vector<float>& phasecode, Muir3DArrayF& decoded_data)
 {
     int err = 0;
-    
-    if (opencl_initialized)
+
+    if ((id - opencl_initialized) < 0)
         // Use OpenCL Decoding
         err = process_data_cl(id, sample_data, phasecode, decoded_data);
+    //if ((cuda_initialized- id) < 0)
+    //    // Use CUDA Decoding
+    //    err = process_data_cuda(id, sample_data, phasecode, decoded_data);
     else if (cpu_initialized)
         // Use CPU Decoding
-        err = process_data_cpu(id, sample_data, phasecode, decoded_data);
+        err = process_data_cpu(id - (opencl_initialized + cuda_initialized), sample_data, phasecode, decoded_data);
     
     return err;
 }
+
+int process_get_num_devices()
+{
+    return num_devices;
+}
+
