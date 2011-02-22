@@ -10,13 +10,6 @@
 
 #include <cassert>
 
-#ifdef _OPENMP
-#include <omp.h>
-#else
-#define omp_get_thread_num() 0
-#define omp_get_num_threads() 1
-#endif
-
 // Boost::Accumulators
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics/stats.hpp>
@@ -29,6 +22,17 @@ using namespace boost::accumulators;
 // Boost::Timers
 #include <boost/timer.hpp>
 using boost::timer;
+
+/// Macros
+#ifdef _OPENMP
+#include <omp.h>
+#else
+#define omp_get_thread_num() 0
+#define omp_get_num_threads() 1
+#endif
+
+#define FFTW_type float
+
 
 /// Constants
 static const std::string SectionName("CPU");
@@ -172,8 +176,8 @@ int process_data_cpu(int id, const Muir4DArrayF& sample_data, const std::vector<
                     }
                     
                     // Assign and normalize
-                    //_decoded_data[set][col][phase_code_offset] = sqrt(max_power)/fft_size;
-                    decoded_data[set][col][phase_code_offset] = max_power/fft_size;
+                    decoded_data[set][col][phase_code_offset] = sqrt(max_power)/fft_size;
+                    //decoded_data[set][col][phase_code_offset] = max_power/fft_size;
             }
         }
 
