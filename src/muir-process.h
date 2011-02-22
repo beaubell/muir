@@ -19,7 +19,12 @@
 #define MUIR_DECODE_GPU_CUDA   0x04
 
 int process_init(unsigned int method, void* opengl_ctx = NULL);
-int process_data(int id, const Muir4DArrayF& sample_data, const std::vector<float>& phasecode, Muir3DArrayF& decoded_data);
+int process_data(int id,
+                 const Muir4DArrayF& sample_data,
+                 const std::vector<float>& phasecode,
+                 Muir3DArrayF& decoded_data,
+                 std::vector<std::string>& timing_strings,
+                 Muir2DArrayD& timings);
 int process_get_num_devices();
 
 #endif //MUIR_PROCESS_H

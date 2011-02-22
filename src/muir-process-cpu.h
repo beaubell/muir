@@ -15,6 +15,11 @@
 #include "muir-types.h"
 
 int process_init_cpu(void);
-int process_data_cpu(int id, const Muir4DArrayF& sample_data, const std::vector<float>& phasecode, Muir3DArrayF& decoded_data);
+int process_data_cpu(int id,
+                     const Muir4DArrayF& sample_data,
+                     const std::vector<float>& phasecode,
+                     Muir3DArrayF& decoded_data,
+                     std::vector<std::string>& timing_strings,
+                     Muir2DArrayD& timings);
 
 #endif //MUIR_PROCESS_CPU_H

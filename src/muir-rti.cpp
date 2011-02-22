@@ -174,7 +174,7 @@ int main (const int argc, const char * argv[])
 void process_expfiles(std::vector<fs::path> files, const Flags& flags)
 {
     // Initialize decoding context
-    process_init(NULL);
+    process_init(0, NULL);
     
     if (flags.option_range)
     {

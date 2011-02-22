@@ -36,7 +36,9 @@ MuirData::MuirData(const std::string &filename_in, int option)
   _decoded_data(boost::extents[1][1][1]),
   _sample_range(boost::extents[1][1]),
   _framecount(boost::extents[1][1]),
-  _time(boost::extents[1][2])
+  _time(boost::extents[1][2]),
+  _decode_timing_strings(),
+  _decode_timings(boost::extents[1][1])
 {
     if (option == 0)
     {
@@ -150,7 +152,7 @@ void MuirData::print_stats()
 int MuirData::decode(int id)
 {
     // Use OpenCL Decoding
-    int err = process_data(id, _sample_data, _phasecode, _decoded_data);
+    int err = process_data(id, _sample_data, _phasecode, _decoded_data, _decode_timing_strings, _decode_timings);
     
     return err;
 }
@@ -176,6 +178,9 @@ void MuirData::save_decoded_data(const std::string &output_file)
     // Prepare and write framecount data
     h5file.write_2D_uint(RTI_DECODEDFRAME_PATH, _framecount);
 
+    // Prepare and write decoding time data
+    h5file.write_2D_double(RTI_DECODEDTIMINGS_PATH, _decode_timings);
+    
     h5file.close();
     return;
 

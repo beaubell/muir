@@ -38,6 +38,10 @@ class MuirData
     Muir2DArrayUI _framecount;
     Muir2DArrayD  _time;
 
+    // Decoding timings
+    std::vector<std::string> _decode_timing_strings;
+    Muir2DArrayD             _decode_timings;
+
    public:
     MuirData(const std::string &filename_in, int option = 0);
     virtual ~MuirData();
