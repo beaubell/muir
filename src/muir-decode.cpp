@@ -258,6 +258,8 @@ void process_thread(int id, std::vector<fs::path> files, int *position)
         }
 
     }
+
+    std::cout << "Thread[" << id << "] Done! " << datafile << std::endl;
 }
 
 
