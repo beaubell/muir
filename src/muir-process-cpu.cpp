@@ -1,5 +1,6 @@
 
 #include "muir-process-cpu.h"
+#include "muir-global.h"
 
 #include <fftw3.h>
 
@@ -28,6 +29,9 @@ using namespace boost::accumulators;
 // Boost::Timers
 #include <boost/timer.hpp>
 using boost::timer;
+
+/// Constants
+static const std::string SectionName("CPU");
 
 int process_init_cpu()
 {
@@ -81,16 +85,18 @@ int process_data_cpu(int id, const Muir4DArrayF& sample_data, const std::vector<
         
         // Display stats from first thread
         int th_id = omp_get_thread_num();
-        if ( th_id == 0)
-            std::cout << "Progress:" << static_cast<float>(count(acc_row))/static_cast<float>(max_rows)*100.0 << "%"
-            << "  (Mean Timings [s]) Row TTL: " << mean(acc_row)
-            << ", Setup: " << mean(acc_setup)
-            << ", Copy/Phase/Zero: " << mean(acc_copyto)
-            << ", FFTW: " << mean(acc_fftw)
-            << ", FindPeak: " << mean(acc_copyfrom)
-            << ", Rows/Sec: " << static_cast<float>(count(acc_row))/main_time.elapsed()
-            << ", Threads: " << omp_get_num_threads()
-            << std::endl;
+        if ( th_id == 0 && MUIR_Verbose)
+            std::cout
+                << SectionName << "[" << id << "]"
+                << ": Progress:" << static_cast<float>(count(acc_row))/static_cast<float>(max_rows)*100.0 << "%"
+                << "  (Mean Timings [s]) Row TTL: " << mean(acc_row)
+                << ", Setup: " << mean(acc_setup)
+                << ", Copy/Phase/Zero: " << mean(acc_copyto)
+                << ", FFTW: " << mean(acc_fftw)
+                << ", FindPeak: " << mean(acc_copyfrom)
+                << ", Rows/Sec: " << static_cast<float>(count(acc_row))/main_time.elapsed()
+                << ", Threads: " << omp_get_num_threads()
+                << std::endl;
         
         #pragma omp critical (fftw)
             {
