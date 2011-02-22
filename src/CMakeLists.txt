@@ -34,6 +34,7 @@ SET(CORE_MUIR_LIBRARIES
 # MUIR Common Library
 add_library(muir STATIC
  muir-data.cpp
+ muir-global.cpp
  muir-hd5.cpp
  muir-constants.cpp
  muir-utility.cpp
