@@ -1,5 +1,5 @@
 __kernel void
-findpeak(__global float2* postfft_data,
+findpeak(__global float*  power_data,
          __global float*  output_data,
                   uint    range,
                   uint    num_rangebins,
@@ -12,9 +12,9 @@ findpeak(__global float2* postfft_data,
 
   for(uint i = 0; i < num_rangebins; i++)
   {
-    float data = pown(postfft_data[frameidx + i].s0,2) + pown(postfft_data[frameidx + i].s1,2);
+    //float data = power_data[frameidx + i];
 
-    max_sample = max(data, max_sample);
+    max_sample = max(power_data[frameidx + i], max_sample);
   }
 
   // Output data

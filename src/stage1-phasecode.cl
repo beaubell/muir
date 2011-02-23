@@ -1,7 +1,7 @@
 __kernel void
 phasecode(__global float2* sample_data,
-          __global float*  phasecode_data,
-          __global float2* prefft_data, 
+          __constant float*  phasecode_data,
+          __global float2* prefft_data,
                    uint    phasecode_offset, 
                    uint    phasecode_size, 
                    uint    num_rangebins)

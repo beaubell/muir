@@ -42,9 +42,11 @@ cl::Context muir_cl_context;
 cl::Program stage1_program;
 cl::Program stage2_program;
 cl::Program stage3_program;
+cl::Program stage4_program;
 cl::Kernel stage1_kernel;
 cl::Kernel stage2_kernel;
 cl::Kernel stage3_kernel;
+cl::Kernel stage4_kernel;
 
 void load_file (const std::string &path, std::string &file_contents);
 void decode_cl_load_kernels(void);
@@ -116,11 +118,13 @@ void decode_cl_load_kernels(void)
     std::string stage1_str;
     std::string stage2_str;
     std::string stage3_str;
+    std::string stage4_str;
 
     try{
         load_file ("stage1-phasecode.cl", stage1_str);
         load_file ("stage2-fft.cl", stage2_str);
-        load_file ("stage3-findpeak.cl", stage3_str);
+        load_file ("stage3-power.cl", stage3_str);
+        load_file ("stage4-findpeak.cl", stage4_str);
     }
     catch (std::runtime_error error)
     {
@@ -142,7 +146,6 @@ void decode_cl_load_kernels(void)
         std::cout <<  "Build Log: "     << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
         throw;
     }
-    //stage1_kernel = cl::Kernel(stage1_program, "phasecode", &err);
 
     /// compile stage2 kernel
     cl::Program::Sources stage2_source(1, std::make_pair(stage2_str.c_str(),stage2_str.size()));
@@ -157,7 +160,6 @@ void decode_cl_load_kernels(void)
         std::cout << "Build Log: "     << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
         throw;
     }
-    //stage2_kernel = cl::Kernel(stage2_program, "fft0", &err);
 
     /// compile stage 3 kernel
     cl::Program::Sources stage3_source(1, std::make_pair(stage3_str.c_str(),stage3_str.size()));
@@ -172,7 +174,20 @@ void decode_cl_load_kernels(void)
         std::cout << "Build Log: "     << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
         throw;
     }
-    //stage3_kernel = cl::Kernel(stage3_program, "findpeak", &err);
+
+    /// compile stage 4 kernel
+    cl::Program::Sources stage4_source(1, std::make_pair(stage4_str.c_str(),stage4_str.size()));
+    stage4_program = cl::Program(muir_cl_context, stage4_source);
+    try{
+        stage4_program.build(muir_cl_devices);
+    }
+    catch(...)
+    {
+        std::cout << "Build Status: "  << stage4_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(muir_cl_devices[0]) << std::endl;
+        std::cout << "Build Options: " << stage4_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(muir_cl_devices[0]) << std::endl;
+        std::cout << "Build Log: "     << stage4_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
+        throw;
+    }
 
 }
 
@@ -200,8 +215,9 @@ int process_data_cl(int id,
       // Initialize kernels here since setarg and enque are not threadsafe
       cl::Kernel stage1_kernel(stage1_program, "phasecode", &err);
       cl::Kernel stage2_kernel(stage2_program, "fft0", &err);
-      cl::Kernel stage3_kernel(stage3_program, "findpeak", &err);
-
+      cl::Kernel stage3_kernel(stage3_program, "power", &err);
+      cl::Kernel stage4_kernel(stage4_program, "findpeak", &err);
+      
       // Load Data and Initialize memory
       Muir4DArrayF prefft_data;
       Muir4DArrayF postfft_data;
@@ -256,6 +272,7 @@ int process_data_cl(int id,
       cl::Buffer cl_buf_phasecode = cl::Buffer(muir_cl_context, CL_MEM_READ_ONLY,  phasecode_size,  NULL, &err);
       cl::Buffer cl_buf_prefft    = cl::Buffer(muir_cl_context, CL_MEM_READ_WRITE, sample_size, NULL, &err);
       cl::Buffer cl_buf_postfft   = cl::Buffer(muir_cl_context, CL_MEM_READ_WRITE, sample_size, NULL, &err);
+      cl::Buffer cl_buf_power     = cl::Buffer(muir_cl_context, CL_MEM_READ_WRITE, output_size, NULL, &err);
       cl::Buffer cl_buf_output    = cl::Buffer(muir_cl_context, CL_MEM_WRITE_ONLY, output_size, NULL, &err);
 
 
@@ -275,18 +292,20 @@ int process_data_cl(int id,
       std::cout << SectionName << ": GPU[" << id << "] Load Experiment Data Time: " << stage_time.elapsed() << std::endl;
       stage_time.restart();
       
-      float FFT_NSize = 1024.0f;
-      float normalize = 1/FFT_NSize;
+      unsigned int FFT_NSize = 1024;
+      float normalize = 1/static_cast<float>(FFT_NSize);
       int  total_frames = max_sets*max_cols;
 
       cl::Event stage1_event;
       cl::Event stage2_event;
       cl::Event stage3_event;
+      cl::Event stage4_event;
       std::vector<cl::Event> waitevents;
 
       std::vector<cl::Event> stage1_event_list;
       std::vector<cl::Event> stage2_event_list;
       std::vector<cl::Event> stage3_event_list;
+      std::vector<cl::Event> stage4_event_list;
 
       std::cout << SectionName << ": GPU[" << id << "] Processing..." << std::endl;
       for(unsigned int i = 0; i < max_range; i++)
@@ -302,9 +321,9 @@ int process_data_cl(int id,
           //Wait for the command queue to finish these commands before proceeding
           //queue.finish();
 
-          // Setup waiting for stage 3
+          // Setup waiting for stage 4
           waitevents.clear();
-          waitevents.push_back(stage3_event);
+          waitevents.push_back(stage4_event);
           
           //Execute Stage 1 (Phasecode) Kernel  (dont wait for events on the first run!)
           err = queue.enqueueNDRangeKernel(stage1_kernel, cl::NullRange, cl::NDRange(phasecode.size(),total_frames), cl::NullRange, (i == 0)?NULL:&waitevents, &stage1_event);
@@ -324,28 +343,38 @@ int process_data_cl(int id,
           
           //Execute Stage 2 (FFT) Kernel
           err = queue.enqueueNDRangeKernel(stage2_kernel, cl::NullRange, cl::NDRange(64*total_frames), cl::NDRange(64), &waitevents, &stage2_event);
-          //queue.finish();
 
-          //Setup Stage 3 (FindPeak) Kernel
-          //
+          //Setup Stage 3 (Power) Kernel
           err = stage3_kernel.setArg(0, cl_buf_postfft);
-          err = stage3_kernel.setArg(1, cl_buf_output);
-          err = stage3_kernel.setArg(2, i);
-          err = stage3_kernel.setArg(3, (int)max_range);
-          err = stage3_kernel.setArg(4, (float)normalize);
+          err = stage3_kernel.setArg(1, cl_buf_power);
+          err = stage3_kernel.setArg(2, (int)max_range);
 
           // Setup waiting for stage 2
           waitevents.clear();
           waitevents.push_back(stage2_event);
           
+          //Execute Stage 3 (Power) Kernel
+          err = queue.enqueueNDRangeKernel(stage3_kernel, cl::NullRange, cl::NDRange(FFT_NSize,total_frames), cl::NullRange, &waitevents, &stage3_event);
+
+          //Setup Stage 4 (Power) Kernel
+          err = stage4_kernel.setArg(0, cl_buf_power);
+          err = stage4_kernel.setArg(1, cl_buf_output);
+          err = stage4_kernel.setArg(2, i);
+          err = stage4_kernel.setArg(3, (int)max_range);
+          err = stage4_kernel.setArg(4, (float)normalize);
+          
+          // Setup waiting for stage 3
+          waitevents.clear();
+          waitevents.push_back(stage3_event);
+          
           //Execute Stage 3 (FindPeak) Kernel
-          err = queue.enqueueNDRangeKernel(stage3_kernel, cl::NullRange, cl::NDRange(total_frames), cl::NullRange, &waitevents, &stage3_event);
-          //queue.finish();
+          err = queue.enqueueNDRangeKernel(stage4_kernel, cl::NullRange, cl::NDRange(total_frames), cl::NullRange, &waitevents, &stage4_event);
 
           // Get stage events for timing/profiling information
           stage1_event_list.push_back(stage1_event);
           stage2_event_list.push_back(stage2_event);
           stage3_event_list.push_back(stage3_event);
+          stage4_event_list.push_back(stage4_event);
      }
 
      queue.finish();
@@ -371,8 +400,13 @@ int process_data_cl(int id,
          float stage3exec = ((end - start) * 1.0e-9f) ;
          timings[3][i] = stage3exec; // Peakfind
 
-         timings[4][i] = 0.0; // Cleanup
-         timings[5][i] = stage1exec + stage2exec + stage3exec; // Row TTL
+        stage4_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
+        stage4_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
+        float stage4exec = ((end - start) * 1.0e-9f) ;
+        //timings[3][i] = stage3exec + stage4exec; // Peakfind
+        timings[4][i] = stage4exec; // Peakfind
+
+        timings[5][i] = stage1exec + stage2exec + stage3exec + stage4exec; // Row TTL
      }
      
      
