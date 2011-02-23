@@ -245,13 +245,16 @@ void process_thread(int id, std::vector<fs::path> files, int *position)
         }
 
         std::cout << "Thread[" << id << "] Decoding: " << expfile << std::endl;
-        data->decode(id);
+        int err = data->decode(id);
 
         std::string datafile = base + std::string(".decoded.h5");
         {
             boost::mutex::scoped_lock lock(thread_mutex);
-            std::cout << "Thread[" << id << "] Saving decoded data: " << datafile << std::endl;
-            data->save_decoded_data(datafile);
+            if (!err)
+            {
+                std::cout << "Thread[" << id << "] Saving decoded data: " << datafile << std::endl;
+                data->save_decoded_data(datafile);
+            }
             delete data;
  
             i = ++(*position);

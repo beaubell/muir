@@ -151,9 +151,15 @@ void MuirData::print_stats()
 
 int MuirData::decode(int id)
 {
-    // Use OpenCL Decoding
+    if(_phasecode.empty())
+    {
+        std::cout << "Thread[ " << id << "]: Error: Cannot decode file! No phasecode. File: " << _filename << std::endl;
+        return 1;
+    }
+
+    // Call general decoding process
     int err = process_data(id, _sample_data, _phasecode, _decoded_data, _decode_timing_strings, _decode_timings);
-    
+
     return err;
 }
 
@@ -180,7 +186,7 @@ void MuirData::save_decoded_data(const std::string &output_file)
 
     // Prepare and write decoding time data
     h5file.write_2D_double(RTI_DECODEDTIMINGS_PATH, _decode_timings);
-    
+
     h5file.close();
     return;
 
