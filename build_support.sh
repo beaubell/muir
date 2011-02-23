@@ -41,11 +41,11 @@ GLIBC_VER=2.12.2
 GLIBC_FILE=glibc-$GLIBC_VER.tar.bz2
 GLIBC_URL=http://ftp.gnu.org/gnu/glibc/$GLIBC_FILE
 
-BOOST_VER=1_45_0
+BOOST_VER=1_46_0
 BOOST_FILE=boost_$BOOST_VER.tar.bz2
-BOOST_URL=http://sourceforge.net/projects/boost/files/boost/1.45.0/$BOOST_FILE/download
+BOOST_URL=http://sourceforge.net/projects/boost/files/boost/1.46.0/$BOOST_FILE/download
 
-HDF5_VER=1.8.5-patch1
+HDF5_VER=1.8.6
 HDF5_FILE=hdf5-$HDF5_VER.tar.bz2
 HDF5_URL=http://www.hdfgroup.org/ftp/HDF5/current/src/$HDF5_FILE
 
@@ -297,7 +297,7 @@ wget -c $MPFR_URL
 wget -c $GMP_URL
 wget -c $MPC_URL
 #wget -c $GLIBC_URL
-#wget -c $BOOST_URL
+wget -c $BOOST_URL
 wget -c $HDF5_URL
 wget -c $FFTW_URL
 }
