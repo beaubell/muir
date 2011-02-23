@@ -589,17 +589,17 @@ void loadfiles(const std::string &dir)
 
         for (FS::directory_iterator dirI(path1); dirI!=FS::directory_iterator(); ++dirI)
         {
-            std::cout << dirI->string() << std::endl;
+            std::cout << dirI->path().string() << std::endl;
 
             if (!FS::is_directory(*dirI))
             {
                 try
                 {
-                    LoadHD5Meta(dirI->string(), data);
+                    LoadHD5Meta(dirI->path().string(), data);
                 }
                 catch(...)
                 {
-                    std::cout << "Error loading file: " << dirI->string() << std::endl;
+                    std::cout << "Error loading file: " << dirI->path().string() << std::endl;
                 }
                /// FIXME Doesn't scan higher directories
             }
