@@ -178,7 +178,12 @@ void decode_cl_load_kernels(void)
 
 
 
-int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<float>& phasecode, Muir3DArrayF& output_data)
+int process_data_cl(int id,
+                    const Muir4DArrayF& sample_data,
+                    const std::vector<float>& phasecode,
+                    Muir3DArrayF& output_data,
+                    std::vector<std::string>& timing_strings,
+                    Muir2DArrayD& timings)
 {
     boost::timer main_time;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_setup;
@@ -216,6 +221,16 @@ int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<f
       // Initialize decoded data boost multi_array;
       output_data.resize(boost::extents[max_sets][max_cols][max_range]);
 
+      // Initialize timing structure
+      timing_strings.clear();
+      timing_strings.push_back("Setup Time");     // 0
+      timing_strings.push_back("Phasecode Time"); // 1
+      timing_strings.push_back("FFT Time");       // 2
+      timing_strings.push_back("Peakfind Time");  // 3
+      timing_strings.push_back("Cleanup Time");   // 4
+      timing_strings.push_back("Row Total Time"); // 5
+      timings.resize(boost::extents[timing_strings.size()][max_range]);
+      
       size_t sample_size    = sample_data.num_elements()*sizeof(float);
       size_t phasecode_size = phasecode.size() * sizeof(float);
       size_t output_size    = output_data.num_elements()*sizeof(float);
@@ -245,7 +260,7 @@ int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<f
 
 
       cl::Event event;
-      cl::CommandQueue queue(muir_cl_context, muir_cl_devices[id], 0, &err);
+      cl::CommandQueue queue(muir_cl_context, muir_cl_devices[id], CL_QUEUE_PROFILING_ENABLE, &err);
 
       std::cout << SectionName << ": GPU[" << id << "] Pushing data to the GPU" << std::endl;
 
@@ -268,6 +283,10 @@ int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<f
       cl::Event stage2_event;
       cl::Event stage3_event;
       std::vector<cl::Event> waitevents;
+
+      std::vector<cl::Event> stage1_event_list;
+      std::vector<cl::Event> stage2_event_list;
+      std::vector<cl::Event> stage3_event_list;
 
       std::cout << SectionName << ": GPU[" << id << "] Processing..." << std::endl;
       for(unsigned int i = 0; i < max_range; i++)
@@ -322,11 +341,41 @@ int process_data_cl(int id, const Muir4DArrayF& sample_data, const std::vector<f
           //Execute Stage 3 (FindPeak) Kernel
           err = queue.enqueueNDRangeKernel(stage3_kernel, cl::NullRange, cl::NDRange(total_frames), cl::NullRange, &waitevents, &stage3_event);
           //queue.finish();
-         
+
+          // Get stage events for timing/profiling information
+          stage1_event_list.push_back(stage1_event);
+          stage2_event_list.push_back(stage2_event);
+          stage3_event_list.push_back(stage3_event);
      }
 
      queue.finish();
 
+     // Get timing information
+     cl_ulong start, end;
+     for (unsigned int i = 0; i < stage1_event_list.size(); i++)
+     {
+         timings[0][i] = 0.0; // Startup
+
+         stage1_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
+         stage1_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
+         float stage1exec = (end - start) * 1.0e-9f;
+         timings[1][i] = stage1exec; // Phasecode
+
+         stage2_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
+         stage2_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
+         float stage2exec = ((end - start) * 1.0e-9f) ;
+         timings[2][i] = stage2exec; // FFT
+
+         stage3_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
+         stage3_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
+         float stage3exec = ((end - start) * 1.0e-9f) ;
+         timings[3][i] = stage3exec; // Peakfind
+
+         timings[4][i] = 0.0; // Cleanup
+         timings[5][i] = stage1exec + stage2exec + stage3exec; // Row TTL
+     }
+     
+     
      std::cout.precision(10);
      std::cout << SectionName << ": GPU[" << id << "] OpenCL Stage 1+2+3 Time: " << stage_time.elapsed() << std::endl;
      stage_time.restart();

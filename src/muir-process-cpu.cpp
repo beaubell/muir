@@ -72,12 +72,12 @@ int process_data_cpu(int id,
 
     // Initialize timing structure
     timing_strings.clear();
-    timing_strings.push_back("Setup Time");
-    timing_strings.push_back("Phasecode Time");
-    timing_strings.push_back("FFT Time");
-    timing_strings.push_back("Peakfind Time");
-    timing_strings.push_back("Cleanup Time");
-    timing_strings.push_back("Row Total Time");
+    timing_strings.push_back("Setup Time");     // 0
+    timing_strings.push_back("Phasecode Time"); // 1 
+    timing_strings.push_back("FFT Time");       // 2
+    timing_strings.push_back("Peakfind Time");  // 3
+    timing_strings.push_back("Cleanup Time");   // 4
+    timing_strings.push_back("Row Total Time"); // 5
     timings.resize(boost::extents[timing_strings.size()][max_rows]);
 
 
@@ -198,13 +198,10 @@ int process_data_cpu(int id,
             }
         }
 
-        // Timing peakfind [4]
+        // Timing peakfind [3]
         acc_copyfrom(stage_time.elapsed());
-        timings[4][phase_code_offset] = stage_time.elapsed();
-
-        // Timing Row
-        timings[5][phase_code_offset] = row_time.elapsed();
-        acc_row(row_time.elapsed());
+        timings[3][phase_code_offset] = stage_time.elapsed();
+        stage_time.restart();
 
         #pragma omp critical (fftw)
         {
@@ -212,6 +209,13 @@ int process_data_cpu(int id,
             fftw_free(in);
             fftw_free(out);
         }
+
+        // Timing Cleanup [4]
+        timings[4][phase_code_offset] = stage_time.elapsed();
+
+        // Timing Row [5]
+        timings[5][phase_code_offset] = row_time.elapsed();
+        acc_row(row_time.elapsed());
     }
 
     #pragma omp critical (fftw)

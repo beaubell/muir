@@ -67,14 +67,18 @@ int process_data(int id,
     int err = 0;
 
     if ((id - opencl_initialized) < 0)
+    {
         // Use OpenCL Decoding
-        err = process_data_cl(id, sample_data, phasecode, decoded_data);
+        err = process_data_cl(id, sample_data, phasecode, decoded_data, timing_strings, timings);
+    }
     //if ((cuda_initialized- id) < 0)
     //    // Use CUDA Decoding
     //    err = process_data_cuda(id, sample_data, phasecode, decoded_data);
     else if (cpu_initialized)
+    {
         // Use CPU Decoding
         err = process_data_cpu(id - (opencl_initialized + cuda_initialized), sample_data, phasecode, decoded_data, timing_strings, timings);
+    }
     
     return err;
 }
