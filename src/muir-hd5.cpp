@@ -67,6 +67,30 @@ std::string MuirHD5::read_string(const H5std_string &dataset_name) const
 }
 
 
+// Read a String Array from a dataset path.
+void MuirHD5::write_string(const H5std_string &dataset_name, const std::string &out)
+{
+
+    const hsize_t rank =1;
+    //const hsize_t shape = out.size();
+    
+    hsize_t dimsm[rank];
+    dimsm[0] = out.size(); //out.size();
+
+    // Create dataspace
+    H5::DataSpace dataspace(H5S_SCALAR);
+
+    // Define Datatype
+    H5::StrType datatype( H5::PredType::C_S1, out.size() );
+
+    // Create a new dataset within the file...
+    H5::DataSet dataset = createDataSet( dataset_name, datatype, dataspace);
+
+    // Write data
+    dataset.write(out, datatype);
+}
+
+
 // Read a 2D Unsigned Integer Array from a dataset path.
 void MuirHD5::read_2D_uint(const H5std_string &dataset_name, Muir2DArrayUI &in) const
 {
