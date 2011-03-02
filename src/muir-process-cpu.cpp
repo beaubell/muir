@@ -249,7 +249,7 @@ int process_data_cpu(int id,
     std::cout << " Phase 4 (FindPeak) Max  : " << max(acc_copyfrom) << std::endl;
 
     // Fill out config
-    config.threads = 1;
+    //config.threads = 1; this is done earlier in the OpenMP context.
     config.fft_size = max_rows;
     config.decoding_time = main_time.elapsed();
     config.platform = std::string("CPU");
