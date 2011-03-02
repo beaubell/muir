@@ -30,5 +30,6 @@ extern const std::string RTI_DECODEDRANGE_PATH;
 extern const std::string RTI_DECODEDRADAC_PATH;
 extern const std::string RTI_DECODEDFRAME_PATH;
 extern const std::string RTI_DECODEDTIMINGS_PATH;
+extern const std::string RTI_DECODEDTIMINGCOLUMNS_PATH;
 
 #endif // MUIR_CONSTANTS

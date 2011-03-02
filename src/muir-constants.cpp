@@ -28,3 +28,4 @@ const std::string RTI_DECODEDRANGE_PATH("/Decoded/Range");
 const std::string RTI_DECODEDRADAC_PATH("/Decoded/RadacTime");
 const std::string RTI_DECODEDFRAME_PATH("/Decoded/FrameCount");
 const std::string RTI_DECODEDTIMINGS_PATH("/Decoded/Timings");
+const std::string RTI_DECODEDTIMINGCOLUMNS_PATH("/Decoded/TimingColumns");

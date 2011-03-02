@@ -187,6 +187,8 @@ void MuirData::save_decoded_data(const std::string &output_file)
     // Prepare and write decoding time data
     h5file.write_2D_double(RTI_DECODEDTIMINGS_PATH, _decode_timings);
 
+    h5file.write_1D_string(RTI_DECODEDTIMINGCOLUMNS_PATH, _decode_timing_strings);
+    
     h5file.close();
     return;
 
