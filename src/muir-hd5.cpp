@@ -38,6 +38,54 @@ float MuirHD5::read_scalar_float(const H5std_string &dataset_name) const
 }
 
 
+void  MuirHD5::write_scalar_float(const H5std_string &dataset_name, float out)
+{
+    // Create dataspace
+    H5::DataSpace dataspace(H5S_SCALAR);
+
+    // Define Datatype
+    H5::FloatType datatype( H5::PredType::NATIVE_DOUBLE );
+
+    // Create a new dataset within the file...
+    H5::DataSet dataset = createDataSet( dataset_name, datatype, dataspace);
+
+    // Write data
+    dataset.write(&out, datatype);
+}
+
+
+void  MuirHD5::write_scalar_double(const H5std_string &dataset_name, double out)
+{
+    // Create dataspace
+    H5::DataSpace dataspace(H5S_SCALAR);
+    
+    // Define Datatype
+    H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
+    
+    // Create a new dataset within the file...
+    H5::DataSet dataset = createDataSet( dataset_name, datatype, dataspace);
+    
+    // Write data
+    dataset.write(&out, datatype);
+}
+
+
+void  MuirHD5::write_scalar_unit(const H5std_string &dataset_name, unsigned int out)
+{
+    // Create dataspace
+    H5::DataSpace dataspace(H5S_SCALAR);
+
+    // Define Datatype
+    H5::IntType datatype( H5::PredType::NATIVE_UINT );
+
+    // Create a new dataset within the file...
+    H5::DataSet dataset = createDataSet( dataset_name, datatype, dataspace);
+
+    // Write data
+    dataset.write(&out, datatype);
+}
+
+
 // Read a String Array from a dataset path.
 std::string MuirHD5::read_string(const H5std_string &dataset_name) const
 {
@@ -70,12 +118,6 @@ std::string MuirHD5::read_string(const H5std_string &dataset_name) const
 // Read a String Array from a dataset path.
 void MuirHD5::write_string(const H5std_string &dataset_name, const std::string &out)
 {
-
-    const hsize_t rank =1;
-    //const hsize_t shape = out.size();
-    
-    hsize_t dimsm[rank];
-    dimsm[0] = out.size(); //out.size();
 
     // Create dataspace
     H5::DataSpace dataspace(H5S_SCALAR);
@@ -116,7 +158,7 @@ void MuirHD5::write_1D_string(const H5std_string &dataset_name, const std::vecto
     count_out[0]  = 1;
     memspace.selectHyperslab( H5S_SELECT_SET, count_out, offset_out );
 
-    for (int i = 0; i < out.size(); i++)
+    for (unsigned int i = 0; i < out.size(); i++)
     {
         offset_out[0] = i;
 

@@ -25,12 +25,17 @@ class MuirHD5 : public H5::H5File
 
         const std::string &filename() const;
 
-        float       read_scalar_float(const H5std_string &dataset_name) const;
+        float read_scalar_float(const H5std_string &dataset_name) const;
+
+        void  write_scalar_unit(const H5std_string &dataset_name, unsigned int out);
+        void  write_scalar_float(const H5std_string &dataset_name, float out);
+        void  write_scalar_double(const H5std_string &dataset_name, double out);
+
         std::string read_string(const H5std_string &dataset_name) const;
         void        write_string(const H5std_string &dataset_name, const std::string &out);
 
         void write_1D_string(const H5std_string &dataset_name, const std::vector<std::string> &out);
-        
+
         void read_2D_uint(const H5std_string &dataset_name, Muir2DArrayUI &in) const;
         void read_3D_uint(const H5std_string &dataset_name, Muir3DArrayUI &in) const;
         void read_4D_uint(const H5std_string &dataset_name, Muir4DArrayUI &in) const;
