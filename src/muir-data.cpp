@@ -184,10 +184,13 @@ void MuirData::save_decoded_data(const std::string &output_file)
     // Prepare and write framecount data
     h5file.write_2D_uint(RTI_DECODEDFRAME_PATH, _framecount);
 
+    // Create rowtiming group
+    h5file.createGroup(RTI_DECODEDROWTIMINGDIR_PATH);
+    
     // Prepare and write decoding time data
-    h5file.write_2D_double(RTI_DECODEDTIMINGS_PATH, _decode_timings);
+    h5file.write_2D_double(RTI_DECODEDROWTIMINGDATA_PATH, _decode_timings);
 
-    h5file.write_1D_string(RTI_DECODEDTIMINGCOLUMNS_PATH, _decode_timing_strings);
+    h5file.write_1D_string(RTI_DECODEDROWTIMINGCOLUMNS_PATH, _decode_timing_strings);
     
     h5file.close();
     return;

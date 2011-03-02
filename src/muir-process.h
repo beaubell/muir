@@ -27,12 +27,14 @@ class DecodingConfig
     unsigned int PhaseCode_Muting;
     unsigned int Time_Integration;
     std::string  Platform;
+    double DecodingTime;
 
     DecodingConfig(void) :
     FFT_Size(1024),
     PhaseCode_Muting(0),
     Time_Integration(0),
-    Platform()
+    Platform(),
+    DecodingTime()
     {}
 };
 
