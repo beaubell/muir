@@ -158,7 +158,7 @@ int MuirData::decode(int id)
     }
 
     // Call general decoding process
-    int err = process_data(id, _sample_data, _phasecode, _decoded_data, _decode_timing_strings, _decode_timings);
+    int err = process_data(id, _sample_data, _phasecode, _decoded_data, _decode_config, _decode_timing_strings, _decode_timings);
 
     return err;
 }

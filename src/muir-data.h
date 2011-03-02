@@ -17,9 +17,12 @@
 #include <vector>
 
 #include "muir-hd5.h"
+#include "muir-process.h"
 
 typedef boost::multi_array<float , 4> SampleDataArray;
 typedef boost::multi_array<float , 3> DecodedDataArray;
+
+
 
 class MuirData
 {
@@ -37,6 +40,8 @@ class MuirData
     Muir2DArrayF  _sample_range;
     Muir2DArrayUI _framecount;
     Muir2DArrayD  _time;
+
+    DecodingConfig _decode_config;
 
     // Decoding timings
     std::vector<std::string> _decode_timing_strings;

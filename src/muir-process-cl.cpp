@@ -31,6 +31,7 @@ using boost::timer;
 #include "muir-utility.h"
 #include "muir-constants.h"
 #include "muir-global.h"
+#include "muir-process.h"
 
 /// Constants
 static const std::string SectionName("OpenCL");
@@ -182,6 +183,7 @@ int process_data_cl(int id,
                     const Muir4DArrayF& sample_data,
                     const std::vector<float>& phasecode,
                     Muir3DArrayF& output_data,
+                    DecodingConfig &config,
                     std::vector<std::string>& timing_strings,
                     Muir2DArrayD& timings)
 {

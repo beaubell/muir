@@ -1,5 +1,6 @@
 
 #include "muir-process-cpu.h"
+#include "muir-process.h"
 #include "muir-global.h"
 
 #include <fftw3.h>
@@ -45,6 +46,7 @@ int process_data_cpu(int id,
                      const Muir4DArrayF& sample_data,
                      const std::vector<float>& phasecode,
                      Muir3DArrayF& decoded_data,
+                     DecodingConfig &config,
                      std::vector<std::string>& timing_strings,
                      Muir2DArrayD& timings)
 {
@@ -94,13 +96,13 @@ int process_data_cpu(int id,
         // Row Timing
         boost::timer row_time;
         boost::timer stage_time;
-        
+
         // Setup for row
         fftw_complex *in, *out;
         fftw_plan p;
         unsigned int fft_size = max_rows;  // Also used for normalization
         int N[1] = {fft_size};
-        
+
         // Display stats from first thread
         int th_id = omp_get_thread_num();
         if ( th_id == 0 && MUIR_Verbose)
@@ -115,26 +117,26 @@ int process_data_cpu(int id,
                 << ", Rows/Sec: " << static_cast<float>(count(acc_row))/main_time.elapsed()
                 << ", Threads: " << omp_get_num_threads()
                 << std::endl;
-        
+
         #pragma omp critical (fftw)
             {
                 in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * fft_size*max_sets*max_cols);
                 out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * fft_size*max_sets*max_cols);
                 p = fftw_plan_many_dft(1, N, max_sets*max_cols, in, NULL, 1, fft_size, out, NULL, 1, fft_size, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
             }
-            
+
             // Timing Startup [0]
             acc_setup(stage_time.elapsed());
             timings[0][phase_code_offset] = stage_time.elapsed();
             stage_time.restart();
-            
+
             // Copy data into fftw vector, apply phasecode, and zero out the rest
             for(Muir4DArrayF::size_type row = 0; row < fft_size; row++)
             {
                 if((row >= phase_code_offset) && (row < (phasecode_size + phase_code_offset)))
                 {
                     float phase_multiplier = phasecode[row-phase_code_offset];
-                    
+
                     for(Muir4DArrayF::size_type set = 0; set < max_sets; set++)
                         for(Muir4DArrayF::size_type col = 0; col < max_cols; col++)
                         {
