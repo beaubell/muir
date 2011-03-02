@@ -35,6 +35,7 @@ using boost::timer;
 
 /// Constants
 static const std::string SectionName("OpenCL");
+static const std::string SectionVersion("0.1");
 
 /// OpenCL Global State
 std::vector<cl::Platform> muir_cl_platforms;
@@ -193,6 +194,9 @@ int process_data_cl(int id,
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_fftw;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyfrom;
     accumulator_set< double, features< tag::count, tag::min, tag::mean, tag::max > > acc_row;
+
+
+    
 
     cl_int err = CL_SUCCESS;
     try 
@@ -390,6 +394,16 @@ int process_data_cl(int id,
 
       queue.finish();
       event.wait();
+
+
+      // Fill out config
+      config.threads = 1;
+      config.fft_size = 1024; //FIXME Hardcoded
+      config.decoding_time = main_time.elapsed();
+      config.platform = muir_cl_devices[id].getInfo<CL_DEVICE_NAME>();
+      config.process = std::string("OpenCL Decoding Process Version: ") + SectionVersion;
+      config.phasecode_muting = 0;
+      config.time_integration = 0;
 
     }
     catch (cl::Error err) {

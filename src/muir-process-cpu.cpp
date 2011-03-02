@@ -35,6 +35,7 @@ using boost::timer;
 
 /// Constants
 static const std::string SectionName("CPU");
+static const std::string SectionVersion("0.1");
 
 int process_init_cpu()
 {
@@ -93,6 +94,11 @@ int process_data_cpu(int id,
     #pragma omp parallel for
     for(unsigned int phase_code_offset = 0; phase_code_offset < max_rows; phase_code_offset++)
     {
+
+        // Write number of threads in config for first pass
+        if (phase_code_offset == 0)
+            config.threads = omp_get_num_threads();
+        
         // Row Timing
         boost::timer row_time;
         boost::timer stage_time;
@@ -242,6 +248,15 @@ int process_data_cpu(int id,
     std::cout << " Phase 4 (FindPeak) Mean : " << mean(acc_copyfrom) << std::endl;
     std::cout << " Phase 4 (FindPeak) Max  : " << max(acc_copyfrom) << std::endl;
 
+    // Fill out config
+    config.threads = 1;
+    config.fft_size = max_rows;
+    config.decoding_time = main_time.elapsed();
+    config.platform = std::string("CPU");
+    config.process = std::string("CPU Decoding Process Version: ") + SectionVersion;
+    config.phasecode_muting = 0;
+    config.time_integration = 0;
+    
     return 0;
 }
 

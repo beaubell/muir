@@ -23,18 +23,22 @@
 class DecodingConfig
 {
   public:
-    unsigned int FFT_Size;
-    unsigned int PhaseCode_Muting;
-    unsigned int Time_Integration;
-    std::string  Platform;
-    double DecodingTime;
+    unsigned int fft_size;
+    unsigned int phasecode_muting;
+    unsigned int time_integration;
+    unsigned int threads;
+    std::string  platform;
+    std::string  process;
+    double decoding_time;
 
     DecodingConfig(void) :
-    FFT_Size(1024),
-    PhaseCode_Muting(0),
-    Time_Integration(0),
-    Platform(),
-    DecodingTime()
+    fft_size(1024),
+    phasecode_muting(0),
+    time_integration(0),
+    threads(0),
+    platform(""),
+    process(""),
+    decoding_time(0.0)
     {}
 };
 

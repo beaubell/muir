@@ -33,7 +33,9 @@ extern const std::string RTI_DECODEDFRAME_PATH;
 extern const std::string RTI_DECODEDFFTSIZE_PATH;
 extern const std::string RTI_DECODEDTIMEINTEGRATION_PATH;
 extern const std::string RTI_DECODEDPHASECODEMUTING_PATH;
+extern const std::string RTI_DECODEDDECODINGTHREADS_PATH;
 extern const std::string RTI_DECODEDDECODINGPLATFORM_PATH;
+extern const std::string RTI_DECODEDDECODINGPROCESS_PATH;
 extern const std::string RTI_DECODEDDECODINGTIME_PATH;
 
 extern const std::string RTI_DECODEDROWTIMINGDIR_PATH;

@@ -31,8 +31,11 @@ const std::string RTI_DECODEDFRAME_PATH("/Decoded/FrameCount");
 const std::string RTI_DECODEDFFTSIZE_PATH("/Decoded/FFTSize");
 const std::string RTI_DECODEDTIMEINTEGRATION_PATH("/Decoded/TimeIntegration");
 const std::string RTI_DECODEDPHASECODEMUTING_PATH("/Decoded/PhasecodeMuting");
+const std::string RTI_DECODEDDECODINGTHREADS_PATH("/Decoded/DecodingThreads");
 const std::string RTI_DECODEDDECODINGPLATFORM_PATH("/Decoded/DecodingPlatform");
+const std::string RTI_DECODEDDECODINGPROCESS_PATH("/Decoded/DecodingProcess");
 const std::string RTI_DECODEDDECODINGTIME_PATH("/Decoded/DecodingTime");
+
 
 const std::string RTI_DECODEDROWTIMINGDIR_PATH("/Decoded/RowTiming");
 const std::string RTI_DECODEDROWTIMINGDATA_PATH("/Decoded/RowTiming/Data");

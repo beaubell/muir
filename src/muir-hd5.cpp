@@ -44,7 +44,7 @@ void  MuirHD5::write_scalar_float(const H5std_string &dataset_name, float out)
     H5::DataSpace dataspace(H5S_SCALAR);
 
     // Define Datatype
-    H5::FloatType datatype( H5::PredType::NATIVE_DOUBLE );
+    H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
 
     // Create a new dataset within the file...
     H5::DataSet dataset = createDataSet( dataset_name, datatype, dataspace);
@@ -60,7 +60,7 @@ void  MuirHD5::write_scalar_double(const H5std_string &dataset_name, double out)
     H5::DataSpace dataspace(H5S_SCALAR);
     
     // Define Datatype
-    H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
+    H5::FloatType datatype( H5::PredType::NATIVE_DOUBLE );
     
     // Create a new dataset within the file...
     H5::DataSet dataset = createDataSet( dataset_name, datatype, dataspace);
@@ -118,12 +118,11 @@ std::string MuirHD5::read_string(const H5std_string &dataset_name) const
 // Read a String Array from a dataset path.
 void MuirHD5::write_string(const H5std_string &dataset_name, const std::string &out)
 {
-
     // Create dataspace
     H5::DataSpace dataspace(H5S_SCALAR);
 
     // Define Datatype
-    H5::StrType datatype( H5::PredType::C_S1, out.size() );
+    H5::StrType datatype( H5::PredType::C_S1, H5T_VARIABLE );
 
     // Create a new dataset within the file...
     H5::DataSet dataset = createDataSet( dataset_name, datatype, dataspace);
