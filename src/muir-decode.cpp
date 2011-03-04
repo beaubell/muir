@@ -45,6 +45,7 @@ struct Flags
 
 
 fs::path output_dir;
+int processing_threads = -1;  // Max out resources
 
 // Prototypes
 void print_help (void);
@@ -137,6 +138,12 @@ int main (const int argc, const char * argv[])
             flags.option_dec_cpu = true;
             continue;
         }
+        if (!strcmp(argv[argi],"--threads"))
+        {
+            argi++;
+            processing_threads = atoi(argv[argi]);
+            continue;
+        }
         if (!strcmp(argv[argi],"--gpu-cuda"))
         {
             flags.option_dec_cuda = true;
@@ -203,10 +210,14 @@ void process_expfiles(std::vector<fs::path> files, const Flags& flags)
 
     int position = 0;
 
+
+    if (processing_threads == -1)
+        processing_threads = process_get_num_devices();
+
     // Create threads
     boost::thread_group g;
 
-    for (int i = 1; i < process_get_num_devices(); i++)
+    for (int i = 1; i < processing_threads; i++)
     {
         boost::thread *t = new boost::thread(boost::bind(process_thread, i, files, &position));
         g.add_thread(t);
@@ -306,4 +317,6 @@ void print_help ()
     std::cout << "  --gpu-opencl     : Froce GPU OpenCL decoding method." << std::endl;
     std::cout << "  --cpu            : Force CPU decoding method. (May be combined with one other gpu method)" << std::endl;
     std::cout << "  --output         : Specify a directory for output files" << std::endl;
+    std::cout << "  --threads        : Specify the number of files to process simultaniously. Default is" << std::endl;
+    std::cout << "                     one file per device. (Ex: GPU, CPU).  Extra threads goto CPU device." << std::endl;
 }
