@@ -192,7 +192,8 @@ void MuirData::save_decoded_data(const std::string &output_file)
     h5file.write_string(RTI_DECODEDDECODINGPLATFORM_PATH, _decode_config.platform);
     h5file.write_string(RTI_DECODEDDECODINGPROCESS_PATH, _decode_config.process);
     h5file.write_scalar_double(RTI_DECODEDDECODINGTIME_PATH, _decode_config.decoding_time);
-
+    h5file.write_string(RTI_DECODEDSOURCEFILE_PATH, _filename);
+    
     // Create rowtiming group
     h5file.createGroup(RTI_DECODEDROWTIMINGDIR_PATH);
 
