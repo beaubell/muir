@@ -41,6 +41,7 @@ add_library(muir STATIC
  muir-process.cpp
  muir-process-cl.cpp 
  muir-process-cpu.cpp
+ muir-timer.cpp
 )
 
 # Create and link the executables

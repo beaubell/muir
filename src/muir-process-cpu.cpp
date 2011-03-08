@@ -2,6 +2,7 @@
 #include "muir-process-cpu.h"
 #include "muir-process.h"
 #include "muir-global.h"
+#include "muir-timer.h"
 
 #include <fftw3.h>
 
@@ -19,10 +20,6 @@
 #include <boost/accumulators/statistics/max.hpp>
 #include <boost/accumulators/statistics/count.hpp>
 using namespace boost::accumulators;
-
-// Boost::Timers
-#include <boost/timer.hpp>
-using boost::timer;
 
 /// Macros
 #ifdef _OPENMP
@@ -53,7 +50,8 @@ int process_data_cpu(int id,
 {
 
     // Setup Accumulators For Statistics
-    boost::timer main_time;
+    MUIR::Timer main_time;
+    //main_time.restart();
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_setup;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyto;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_fftw;
@@ -98,10 +96,10 @@ int process_data_cpu(int id,
         // Write number of threads in config for first pass
         if (phase_code_offset == 0)
             config.threads = omp_get_num_threads();
-        
+
         // Row Timing
-        boost::timer row_time;
-        boost::timer stage_time;
+        MUIR::Timer row_time;
+        MUIR::Timer stage_time;
 
         // Setup for row
         fftw_complex *in, *out;
@@ -256,7 +254,7 @@ int process_data_cpu(int id,
     config.process = std::string("CPU Decoding Process Version: ") + SectionVersion;
     config.phasecode_muting = 0;
     config.time_integration = 0;
-    
+
     return 0;
 }
 

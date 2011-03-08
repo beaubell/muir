@@ -1,5 +1,12 @@
 #define __CL_ENABLE_EXCEPTIONS
- 
+
+#include "muir-hd5.h"
+#include "muir-utility.h"
+#include "muir-constants.h"
+#include "muir-global.h"
+#include "muir-process.h"
+#include "muir-timer.h"
+
 //#if defined(__APPLE__) || defined(__MACOSX)
 //#include <OpenCL/cl.hpp>
 //#else
@@ -21,17 +28,6 @@ using namespace boost::accumulators;
 
 #include <boost/bind.hpp>
 using boost::bind;
-
-// Boost::Timers
-#include <boost/timer.hpp>
-using boost::timer;
-
-
-#include "muir-hd5.h"
-#include "muir-utility.h"
-#include "muir-constants.h"
-#include "muir-global.h"
-#include "muir-process.h"
 
 /// Constants
 static const std::string SectionName("OpenCL");
@@ -188,7 +184,7 @@ int process_data_cl(int id,
                     std::vector<std::string>& timing_strings,
                     Muir2DArrayD& timings)
 {
-    boost::timer main_time;
+    MUIR::Timer main_time;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_setup;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyto;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_fftw;
@@ -201,7 +197,7 @@ int process_data_cl(int id,
     cl_int err = CL_SUCCESS;
     try 
     {
-      boost::timer stage_time;
+      MUIR::Timer stage_time;
 
       // Initialize kernels here since setarg and enque are not threadsafe
       cl::Kernel stage1_kernel(stage1_program, "phasecode", &err);
@@ -311,7 +307,7 @@ int process_data_cl(int id,
           // Setup waiting for stage 3
           waitevents.clear();
           waitevents.push_back(stage3_event);
-          
+
           //Execute Stage 1 (Phasecode) Kernel  (dont wait for events on the first run!)
           err = queue.enqueueNDRangeKernel(stage1_kernel, cl::NullRange, cl::NDRange(phasecode.size(),total_frames), cl::NullRange, (i == 0)?NULL:&waitevents, &stage1_event);
           //queue.finish();
@@ -327,7 +323,7 @@ int process_data_cl(int id,
           // Setup waiting for stage 1
           waitevents.clear();
           waitevents.push_back(stage1_event);
-          
+
           //Execute Stage 2 (FFT) Kernel
           err = queue.enqueueNDRangeKernel(stage2_kernel, cl::NullRange, cl::NDRange(64*total_frames), cl::NDRange(64), &waitevents, &stage2_event);
           //queue.finish();
@@ -343,7 +339,7 @@ int process_data_cl(int id,
           // Setup waiting for stage 2
           waitevents.clear();
           waitevents.push_back(stage2_event);
-          
+
           //Execute Stage 3 (FindPeak) Kernel
           err = queue.enqueueNDRangeKernel(stage3_kernel, cl::NullRange, cl::NDRange(total_frames), cl::NullRange, &waitevents, &stage3_event);
           //queue.finish();
@@ -380,8 +376,8 @@ int process_data_cl(int id,
          timings[4][i] = 0.0; // Cleanup
          timings[5][i] = stage1exec + stage2exec + stage3exec; // Row TTL
      }
-     
-     
+
+
      std::cout.precision(10);
      std::cout << SectionName << ": GPU[" << id << "] OpenCL Stage 1+2+3 Time: " << stage_time.elapsed() << std::endl;
      stage_time.restart();
