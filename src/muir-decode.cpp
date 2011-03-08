@@ -110,7 +110,6 @@ int main (const int argc, const char * argv[])
                 argi++;
                 output_dir = fs::path(argv[argi]);
 
-
                 if(!fs::exists(output_dir))
                 {
                     std::cout << "Output directory doesn't exist, creating: " << output_dir.c_str() << std::endl;
@@ -289,13 +288,13 @@ void process_thread(int id, std::vector<fs::path> files, int *position)
         std::cout << "Thread[" << id << "] Decoding: " << expfile << std::endl;
         int err = data->decode(id);
 
-        std::string datafile = output_dir.string() + std::string("/") + base + std::string(".decoded.h5");
+        fs::path datafile = output_dir / fs::path(base + std::string(".decoded.h5"));
         {
             boost::mutex::scoped_lock lock(thread_mutex);
             if (!err)
             {
-                std::cout << "Thread[" << id << "] Saving decoded data: " << datafile << std::endl;
-                data->save_decoded_data(datafile);
+                std::cout << "Thread[" << id << "] Saving decoded data: " << datafile.string() << std::endl;
+                data->save_decoded_data(datafile.string());
             }
             delete data;
  
