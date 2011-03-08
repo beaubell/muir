@@ -1,6 +1,8 @@
 
 #include "muir-process-cpu.h"
+#include "muir-process.h"
 #include "muir-global.h"
+#include "muir-timer.h"
 
 #include <fftw3.h>
 
@@ -19,10 +21,6 @@
 #include <boost/accumulators/statistics/count.hpp>
 using namespace boost::accumulators;
 
-// Boost::Timers
-#include <boost/timer.hpp>
-using boost::timer;
-
 /// Macros
 #ifdef _OPENMP
 #include <omp.h>
@@ -34,6 +32,7 @@ using boost::timer;
 
 /// Constants
 static const std::string SectionName("CPU");
+static const std::string SectionVersion("0.1");
 
 int process_init_cpu()
 {
@@ -45,12 +44,14 @@ int process_data_cpu(int id,
                      const Muir4DArrayF& sample_data,
                      const std::vector<float>& phasecode,
                      Muir3DArrayF& decoded_data,
+                     DecodingConfig &config,
                      std::vector<std::string>& timing_strings,
                      Muir2DArrayD& timings)
 {
 
     // Setup Accumulators For Statistics
-    boost::timer main_time;
+    MUIR::Timer main_time;
+    //main_time.restart();
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_setup;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyto;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_fftw;
@@ -91,16 +92,21 @@ int process_data_cpu(int id,
     #pragma omp parallel for
     for(unsigned int phase_code_offset = 0; phase_code_offset < max_rows; phase_code_offset++)
     {
+
+        // Write number of threads in config for first pass
+        if (phase_code_offset == 0)
+            config.threads = omp_get_num_threads();
+
         // Row Timing
-        boost::timer row_time;
-        boost::timer stage_time;
-        
+        MUIR::Timer row_time;
+        MUIR::Timer stage_time;
+
         // Setup for row
         fftw_complex *in, *out;
         fftw_plan p;
         unsigned int fft_size = max_rows;  // Also used for normalization
         int N[1] = {fft_size};
-        
+
         // Display stats from first thread
         int th_id = omp_get_thread_num();
         if ( th_id == 0 && MUIR_Verbose)
@@ -115,26 +121,26 @@ int process_data_cpu(int id,
                 << ", Rows/Sec: " << static_cast<float>(count(acc_row))/main_time.elapsed()
                 << ", Threads: " << omp_get_num_threads()
                 << std::endl;
-        
+
         #pragma omp critical (fftw)
             {
                 in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * fft_size*max_sets*max_cols);
                 out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * fft_size*max_sets*max_cols);
                 p = fftw_plan_many_dft(1, N, max_sets*max_cols, in, NULL, 1, fft_size, out, NULL, 1, fft_size, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
             }
-            
+
             // Timing Startup [0]
             acc_setup(stage_time.elapsed());
             timings[0][phase_code_offset] = stage_time.elapsed();
             stage_time.restart();
-            
+
             // Copy data into fftw vector, apply phasecode, and zero out the rest
             for(Muir4DArrayF::size_type row = 0; row < fft_size; row++)
             {
                 if((row >= phase_code_offset) && (row < (phasecode_size + phase_code_offset)))
                 {
                     float phase_multiplier = phasecode[row-phase_code_offset];
-                    
+
                     for(Muir4DArrayF::size_type set = 0; set < max_sets; set++)
                         for(Muir4DArrayF::size_type col = 0; col < max_cols; col++)
                         {
@@ -239,6 +245,15 @@ int process_data_cpu(int id,
     std::cout << " Phase 4 (FindPeak) Min  : " << min(acc_copyfrom) << std::endl;
     std::cout << " Phase 4 (FindPeak) Mean : " << mean(acc_copyfrom) << std::endl;
     std::cout << " Phase 4 (FindPeak) Max  : " << max(acc_copyfrom) << std::endl;
+
+    // Fill out config
+    //config.threads = 1; this is done earlier in the OpenMP context.
+    config.fft_size = max_rows;
+    config.decoding_time = main_time.elapsed();
+    config.platform = std::string("CPU");
+    config.process = std::string("CPU Decoding Process Version: ") + SectionVersion;
+    config.phasecode_muting = 0;
+    config.time_integration = 0;
 
     return 0;
 }

@@ -43,6 +43,10 @@ struct Flags
     {}
 };
 
+
+fs::path output_dir;
+int processing_threads = -1;  // Max out resources
+
 // Prototypes
 void print_help (void);
 void process_expfiles(std::vector<fs::path> files, const Flags& flags);  // No reference, want copies
@@ -83,7 +87,7 @@ int main (const int argc, const char * argv[])
                 return 1;
             }
 
-           // Get Second date
+            // Get Second date
             try
             {
                 argi++;
@@ -101,9 +105,42 @@ int main (const int argc, const char * argv[])
 
             continue;
         }
+        if (!strcmp(argv[argi],"--output"))  // Expects two more arguments
+        {
+                argi++;
+                output_dir = fs::path(argv[argi]);
+
+                if(!fs::exists(output_dir))
+                {
+                    std::cout << "Output directory doesn't exist, creating: " << output_dir.c_str() << std::endl;
+
+                    if(!fs::create_directories(output_dir))
+                    {
+                        std::cout << "ERROR: Cannot create output dir: " << output_dir.c_str() << std::endl;
+                        return 1;
+                    }
+                }
+                else
+                {
+                    if(!fs::is_directory(output_dir))
+                    {
+                        std::cout << "ERROR: Output directory isn't a directory: " << output_dir.c_str() << std::endl;
+                        return 1;
+                    }
+                }
+                
+
+            continue;
+        }
         if (!strcmp(argv[argi],"--cpu"))
         {
             flags.option_dec_cpu = true;
+            continue;
+        }
+        if (!strcmp(argv[argi],"--threads"))
+        {
+            argi++;
+            processing_threads = atoi(argv[argi]);
             continue;
         }
         if (!strcmp(argv[argi],"--gpu-cuda"))
@@ -172,10 +209,14 @@ void process_expfiles(std::vector<fs::path> files, const Flags& flags)
 
     int position = 0;
 
+
+    if (processing_threads == -1)
+        processing_threads = process_get_num_devices();
+
     // Create threads
     boost::thread_group g;
-    
-    for (int i = 1; i < process_get_num_devices(); i++)
+
+    for (int i = 1; i < processing_threads; i++)
     {
         boost::thread *t = new boost::thread(boost::bind(process_thread, i, files, &position));
         g.add_thread(t);
@@ -247,13 +288,13 @@ void process_thread(int id, std::vector<fs::path> files, int *position)
         std::cout << "Thread[" << id << "] Decoding: " << expfile << std::endl;
         int err = data->decode(id);
 
-        std::string datafile = base + std::string(".decoded.h5");
+        fs::path datafile = output_dir / fs::path(base + std::string(".decoded.h5"));
         {
             boost::mutex::scoped_lock lock(thread_mutex);
             if (!err)
             {
-                std::cout << "Thread[" << id << "] Saving decoded data: " << datafile << std::endl;
-                data->save_decoded_data(datafile);
+                std::cout << "Thread[" << id << "] Saving decoded data: " << datafile.string() << std::endl;
+                data->save_decoded_data(datafile.string());
             }
             delete data;
  
@@ -273,5 +314,8 @@ void print_help ()
     std::cout << "  --range          : Only process files that fall within a specified ISO date range in GMT." << std::endl;
     std::cout << "  --gpu-cuda       : Force GPU CUDA decoding method." << std::endl;
     std::cout << "  --gpu-opencl     : Froce GPU OpenCL decoding method." << std::endl;
-    std::cout << "  --cpu            : Force CPU decoding method. (May be combined with one other gpu method)" << std::endl; 
+    std::cout << "  --cpu            : Force CPU decoding method. (May be combined with one other gpu method)" << std::endl;
+    std::cout << "  --output         : Specify a directory for output files" << std::endl;
+    std::cout << "  --threads        : Specify the number of files to process simultaniously. Default is" << std::endl;
+    std::cout << "                     one file per device. (Ex: GPU, CPU).  Extra threads goto CPU device." << std::endl;
 }

@@ -158,7 +158,7 @@ int MuirData::decode(int id)
     }
 
     // Call general decoding process
-    int err = process_data(id, _sample_data, _phasecode, _decoded_data, _decode_timing_strings, _decode_timings);
+    int err = process_data(id, _sample_data, _phasecode, _decoded_data, _decode_config, _decode_timing_strings, _decode_timings);
 
     return err;
 }
@@ -184,9 +184,24 @@ void MuirData::save_decoded_data(const std::string &output_file)
     // Prepare and write framecount data
     h5file.write_2D_uint(RTI_DECODEDFRAME_PATH, _framecount);
 
-    // Prepare and write decoding time data
-    h5file.write_2D_double(RTI_DECODEDTIMINGS_PATH, _decode_timings);
+    // Write Decoding Config
+    h5file.write_scalar_unit(RTI_DECODEDFFTSIZE_PATH, _decode_config.fft_size);
+    h5file.write_scalar_unit(RTI_DECODEDTIMEINTEGRATION_PATH, _decode_config.time_integration);
+    h5file.write_scalar_unit(RTI_DECODEDPHASECODEMUTING_PATH, _decode_config.phasecode_muting);
+    h5file.write_scalar_unit(RTI_DECODEDDECODINGTHREADS_PATH, _decode_config.threads);
+    h5file.write_string(RTI_DECODEDDECODINGPLATFORM_PATH, _decode_config.platform);
+    h5file.write_string(RTI_DECODEDDECODINGPROCESS_PATH, _decode_config.process);
+    h5file.write_scalar_double(RTI_DECODEDDECODINGTIME_PATH, _decode_config.decoding_time);
+    h5file.write_string(RTI_DECODEDSOURCEFILE_PATH, _filename);
+    
+    // Create rowtiming group
+    h5file.createGroup(RTI_DECODEDROWTIMINGDIR_PATH);
 
+    // Prepare and write decoding time data
+    h5file.write_2D_double(RTI_DECODEDROWTIMINGDATA_PATH, _decode_timings);
+
+    h5file.write_1D_string(RTI_DECODEDROWTIMINGCOLUMNS_PATH, _decode_timing_strings);
+    
     h5file.close();
     return;
 

@@ -1,5 +1,12 @@
 #define __CL_ENABLE_EXCEPTIONS
- 
+
+#include "muir-hd5.h"
+#include "muir-utility.h"
+#include "muir-constants.h"
+#include "muir-global.h"
+#include "muir-process.h"
+#include "muir-timer.h"
+
 //#if defined(__APPLE__) || defined(__MACOSX)
 //#include <OpenCL/cl.hpp>
 //#else
@@ -22,18 +29,9 @@ using namespace boost::accumulators;
 #include <boost/bind.hpp>
 using boost::bind;
 
-// Boost::Timers
-#include <boost/timer.hpp>
-using boost::timer;
-
-
-#include "muir-hd5.h"
-#include "muir-utility.h"
-#include "muir-constants.h"
-#include "muir-global.h"
-
 /// Constants
 static const std::string SectionName("OpenCL");
+static const std::string SectionVersion("0.1");
 
 /// OpenCL Global State
 std::vector<cl::Platform> muir_cl_platforms;
@@ -197,20 +195,24 @@ int process_data_cl(int id,
                     const Muir4DArrayF& sample_data,
                     const std::vector<float>& phasecode,
                     Muir3DArrayF& output_data,
+                    DecodingConfig &config,
                     std::vector<std::string>& timing_strings,
                     Muir2DArrayD& timings)
 {
-    boost::timer main_time;
+    MUIR::Timer main_time;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_setup;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyto;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_fftw;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyfrom;
     accumulator_set< double, features< tag::count, tag::min, tag::mean, tag::max > > acc_row;
 
+
+    
+
     cl_int err = CL_SUCCESS;
     try 
     {
-      boost::timer stage_time;
+      MUIR::Timer stage_time;
 
       // Initialize kernels here since setarg and enque are not threadsafe
       cl::Kernel stage1_kernel(stage1_program, "phasecode", &err);
@@ -340,7 +342,7 @@ int process_data_cl(int id,
           // Setup waiting for stage 1
           waitevents.clear();
           waitevents.push_back(stage1_event);
-          
+
           //Execute Stage 2 (FFT) Kernel
           err = queue.enqueueNDRangeKernel(stage2_kernel, cl::NullRange, cl::NDRange(64*total_frames), cl::NDRange(64), &waitevents, &stage2_event);
 
@@ -367,7 +369,7 @@ int process_data_cl(int id,
           waitevents.clear();
           waitevents.push_back(stage3_event);
           
-          //Execute Stage 3 (FindPeak) Kernel
+          //Execute Stage 4 (FindPeak) Kernel
           err = queue.enqueueNDRangeKernel(stage4_kernel, cl::NullRange, cl::NDRange(total_frames), cl::NullRange, &waitevents, &stage4_event);
 
           // Get stage events for timing/profiling information
@@ -408,8 +410,8 @@ int process_data_cl(int id,
 
         timings[5][i] = stage1exec + stage2exec + stage3exec + stage4exec; // Row TTL
      }
-     
-     
+
+
      std::cout.precision(10);
      std::cout << SectionName << ": GPU[" << id << "] OpenCL Stage 1+2+3 Time: " << stage_time.elapsed() << std::endl;
      stage_time.restart();
@@ -422,6 +424,16 @@ int process_data_cl(int id,
 
       queue.finish();
       event.wait();
+
+
+      // Fill out config
+      config.threads = 1;
+      config.fft_size = 1024; //FIXME Hardcoded
+      config.decoding_time = main_time.elapsed();
+      config.platform = muir_cl_devices[id].getInfo<CL_DEVICE_NAME>();
+      config.process = std::string("OpenCL Decoding Process Version: ") + SectionVersion;
+      config.phasecode_muting = 0;
+      config.time_integration = 0;
 
     }
     catch (cl::Error err) {

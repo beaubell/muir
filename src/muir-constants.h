@@ -29,6 +29,18 @@ extern const std::string RTI_DECODEDDATA_PATH;
 extern const std::string RTI_DECODEDRANGE_PATH;
 extern const std::string RTI_DECODEDRADAC_PATH;
 extern const std::string RTI_DECODEDFRAME_PATH;
-extern const std::string RTI_DECODEDTIMINGS_PATH;
+
+extern const std::string RTI_DECODEDFFTSIZE_PATH;
+extern const std::string RTI_DECODEDTIMEINTEGRATION_PATH;
+extern const std::string RTI_DECODEDPHASECODEMUTING_PATH;
+extern const std::string RTI_DECODEDDECODINGTHREADS_PATH;
+extern const std::string RTI_DECODEDDECODINGPLATFORM_PATH;
+extern const std::string RTI_DECODEDDECODINGPROCESS_PATH;
+extern const std::string RTI_DECODEDDECODINGTIME_PATH;
+extern const std::string RTI_DECODEDSOURCEFILE_PATH;
+
+extern const std::string RTI_DECODEDROWTIMINGDIR_PATH;
+extern const std::string RTI_DECODEDROWTIMINGDATA_PATH;
+extern const std::string RTI_DECODEDROWTIMINGCOLUMNS_PATH;
 
 #endif // MUIR_CONSTANTS
