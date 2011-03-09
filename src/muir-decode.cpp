@@ -112,11 +112,11 @@ int main (const int argc, const char * argv[])
 
                 if(!fs::exists(output_dir))
                 {
-                    std::cout << "Output directory doesn't exist, creating: " << output_dir.c_str() << std::endl;
+                    std::cout << "Output directory doesn't exist, creating: " << output_dir.string() << std::endl;
 
                     if(!fs::create_directories(output_dir))
                     {
-                        std::cout << "ERROR: Cannot create output dir: " << output_dir.c_str() << std::endl;
+                        std::cout << "ERROR: Cannot create output dir: " << output_dir.string() << std::endl;
                         return 1;
                     }
                 }
@@ -124,7 +124,7 @@ int main (const int argc, const char * argv[])
                 {
                     if(!fs::is_directory(output_dir))
                     {
-                        std::cout << "ERROR: Output directory isn't a directory: " << output_dir.c_str() << std::endl;
+                        std::cout << "ERROR: Output directory isn't a directory: " << output_dir.string() << std::endl;
                         return 1;
                     }
                 }
