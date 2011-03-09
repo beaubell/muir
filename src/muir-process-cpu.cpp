@@ -32,7 +32,7 @@ using namespace boost::accumulators;
 
 /// Constants
 static const std::string SectionName("CPU");
-static const std::string SectionVersion("0.1");
+static const std::string SectionVersion("0.2");
 
 int process_init_cpu()
 {
@@ -102,8 +102,8 @@ int process_data_cpu(int id,
         MUIR::Timer stage_time;
 
         // Setup for row
-        fftw_complex *in, *out;
-        fftw_plan p;
+        fftwf_complex *in, *out;
+        fftwf_plan p;
         unsigned int fft_size = max_rows;  // Also used for normalization
         int N[1] = {fft_size};
 
@@ -124,9 +124,9 @@ int process_data_cpu(int id,
 
         #pragma omp critical (fftw)
             {
-                in  = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * fft_size*max_sets*max_cols);
-                out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * fft_size*max_sets*max_cols);
-                p = fftw_plan_many_dft(1, N, max_sets*max_cols, in, NULL, 1, fft_size, out, NULL, 1, fft_size, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
+                in  = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * fft_size*max_sets*max_cols);
+                out = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * fft_size*max_sets*max_cols);
+                p = fftwf_plan_many_dft(1, N, max_sets*max_cols, in, NULL, 1, fft_size, out, NULL, 1, fft_size, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
             }
 
             // Timing Startup [0]
@@ -167,7 +167,7 @@ int process_data_cpu(int id,
             stage_time.restart();
 
             // Execute FFTW
-            fftw_execute(p);
+            fftwf_execute(p);
 
             // Timing FFT [2]
             acc_fftw(stage_time.elapsed());
@@ -180,7 +180,7 @@ int process_data_cpu(int id,
                 for(std::size_t col = 0; col < max_cols; col++)
                 {
                     //fftw_complex max_value = {0.0,0.0};
-                    double        max_power = 0.0;
+                    float        max_power = 0.0;
 
                     // Iterate through the column spectra and find the max value
                     for(std::size_t row = 0; row < fft_size; row++)
@@ -188,7 +188,7 @@ int process_data_cpu(int id,
                         std::size_t index = set*(fft_size*max_cols) + col*(fft_size) + row;
 
                         // Skip sqrt when taking magnitude, but save it for later.
-                        double power = pow(out[index][0],2) + pow(out[index][1],2);
+                        float power = powf(out[index][0],2) + powf(out[index][1],2);
                         if (power > max_power)
                         {
                             //max_value[0] = out[index][0];
@@ -211,9 +211,9 @@ int process_data_cpu(int id,
 
         #pragma omp critical (fftw)
         {
-            fftw_destroy_plan(p);
-            fftw_free(in);
-            fftw_free(out);
+            fftwf_destroy_plan(p);
+            fftwf_free(in);
+            fftwf_free(out);
         }
 
         // Timing Cleanup [4]
@@ -225,7 +225,7 @@ int process_data_cpu(int id,
     }
 
     #pragma omp critical (fftw)
-    fftw_cleanup_threads();
+    fftwf_cleanup_threads();
 
     std::cout << "Done!" << std::endl;
     std::cout << "Rows completed: " << count(acc_row) << std::endl;
@@ -251,7 +251,7 @@ int process_data_cpu(int id,
     config.fft_size = max_rows;
     config.decoding_time = main_time.elapsed();
     config.platform = std::string("CPU");
-    config.process = std::string("CPU Decoding Process Version: ") + SectionVersion;
+    config.process = std::string("CPU Decoding (single precision) Process Version: ") + SectionVersion;
     config.phasecode_muting = 0;
     config.time_integration = 0;
 
