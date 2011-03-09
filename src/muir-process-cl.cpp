@@ -31,7 +31,7 @@ using boost::bind;
 
 /// Constants
 static const std::string SectionName("OpenCL");
-static const std::string SectionVersion("0.1");
+static const std::string SectionVersion("0.2");
 
 /// OpenCL Global State
 std::vector<cl::Platform> muir_cl_platforms;
@@ -244,8 +244,8 @@ int process_data_cl(int id,
       timing_strings.push_back("Setup Time");     // 0
       timing_strings.push_back("Phasecode Time"); // 1
       timing_strings.push_back("FFT Time");       // 2
-      timing_strings.push_back("Peakfind Time");  // 3
-      timing_strings.push_back("Cleanup Time");   // 4
+      timing_strings.push_back("Power Time");     // 3
+      timing_strings.push_back("Peakfind Time");  // 4
       timing_strings.push_back("Row Total Time"); // 5
       timings.resize(boost::extents[timing_strings.size()][max_range]);
       
@@ -317,11 +317,9 @@ int process_data_cl(int id,
           err = stage1_kernel.setArg(0, cl_buf_sample);
           err = stage1_kernel.setArg(1, cl_buf_phasecode);
           err = stage1_kernel.setArg(2, cl_buf_prefft);
-          err = stage1_kernel.setArg(3, i);
-          err = stage1_kernel.setArg(4, (unsigned int)phasecode.size());
-          err = stage1_kernel.setArg(5, (unsigned int)max_range);
-          //Wait for the command queue to finish these commands before proceeding
-          //queue.finish();
+          err = stage1_kernel.setArg(3, i);                               // Current Rangebin
+          err = stage1_kernel.setArg(4, (unsigned int)phasecode.size());  // Phasecode Size
+          err = stage1_kernel.setArg(5, (unsigned int)max_range);         // Input and Output Stride
 
           // Setup waiting for stage 4
           waitevents.clear();
@@ -329,15 +327,15 @@ int process_data_cl(int id,
           
           //Execute Stage 1 (Phasecode) Kernel  (dont wait for events on the first run!)
           err = queue.enqueueNDRangeKernel(stage1_kernel, cl::NullRange, cl::NDRange(phasecode.size(),total_frames), cl::NullRange, (i == 0)?NULL:&waitevents, &stage1_event);
-          //queue.finish();
+ 
 
           //Setup Stage 2 (FFT) Kernel
           // __kernel void fft0(__global float2 *in, __global float2 *out, int dir, int S, uint)
           err = stage2_kernel.setArg(0, cl_buf_prefft);
           err = stage2_kernel.setArg(1, cl_buf_postfft);
-          err = stage2_kernel.setArg(2, -1);
-          err = stage2_kernel.setArg(3, (int)total_frames);
-          err = stage2_kernel.setArg(4, (int)max_range);
+          err = stage2_kernel.setArg(2, -1);                // Direction: -1 Forward, 1 Reverse
+          err = stage2_kernel.setArg(3, (int)total_frames); // # of 1D FFTs
+          err = stage2_kernel.setArg(4, (int)max_range);    // Input and Output Stride
 
           // Setup waiting for stage 1
           waitevents.clear();
@@ -349,7 +347,7 @@ int process_data_cl(int id,
           //Setup Stage 3 (Power) Kernel
           err = stage3_kernel.setArg(0, cl_buf_postfft);
           err = stage3_kernel.setArg(1, cl_buf_power);
-          err = stage3_kernel.setArg(2, (int)max_range);
+          err = stage3_kernel.setArg(2, (int)max_range);  // Stride
 
           // Setup waiting for stage 2
           waitevents.clear();
@@ -362,8 +360,9 @@ int process_data_cl(int id,
           err = stage4_kernel.setArg(0, cl_buf_power);
           err = stage4_kernel.setArg(1, cl_buf_output);
           err = stage4_kernel.setArg(2, i);
-          err = stage4_kernel.setArg(3, (int)max_range);
-          err = stage4_kernel.setArg(4, (float)normalize);
+          err = stage4_kernel.setArg(3, FFT_NSize);        // FFT Size
+          err = stage4_kernel.setArg(4, (int)max_range);   // Input/Output Stride
+          err = stage4_kernel.setArg(5, (float)normalize); // Normalization value
           
           // Setup waiting for stage 3
           waitevents.clear();
@@ -400,15 +399,14 @@ int process_data_cl(int id,
          stage3_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
          stage3_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
          float stage3exec = ((end - start) * 1.0e-9f) ;
-         timings[3][i] = stage3exec; // Peakfind
+         timings[3][i] = stage3exec; // Power
 
-        stage4_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
-        stage4_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
-        float stage4exec = ((end - start) * 1.0e-9f) ;
-        //timings[3][i] = stage3exec + stage4exec; // Peakfind
-        timings[4][i] = stage4exec; // Peakfind
+         stage4_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
+         stage4_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
+         float stage4exec = ((end - start) * 1.0e-9f) ;
+         timings[4][i] = stage4exec; // Peakfind
 
-        timings[5][i] = stage1exec + stage2exec + stage3exec + stage4exec; // Row TTL
+         timings[5][i] = stage1exec + stage2exec + stage3exec + stage4exec; // Row TTL
      }
 
 
@@ -428,7 +426,7 @@ int process_data_cl(int id,
 
       // Fill out config
       config.threads = 1;
-      config.fft_size = 1024; //FIXME Hardcoded
+      config.fft_size = FFT_NSize;
       config.decoding_time = main_time.elapsed();
       config.platform = muir_cl_devices[id].getInfo<CL_DEVICE_NAME>();
       config.process = std::string("OpenCL Decoding Process Version: ") + SectionVersion;
@@ -437,7 +435,7 @@ int process_data_cl(int id,
 
     }
     catch (cl::Error err) {
-       std::cerr 
+        std::cerr 
           << SectionName
           << ": GPU["
           << id
@@ -447,6 +445,9 @@ int process_data_cl(int id,
           << err.err()
           << ")"
           << std::endl;
+
+        // Rethrow error, something bad has happened and we can't handle it at this level.
+        throw;
     }
 
     return EXIT_SUCCESS;
