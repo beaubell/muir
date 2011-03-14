@@ -13,6 +13,11 @@
 
 #include "muir-gl-shader.h"
 #include "muir-utility.h"
+#include "muir-config.h"
+
+#ifdef TEXTINCLUDES
+#include "colorizer.frag.h"
+#endif
 
 #ifdef __APPLE__
  #include <glut.h>
@@ -33,7 +38,7 @@ int shader_data_max_loc;
 float shader_data_min = 0.0f;
 float shader_data_max = 100.0f;
 
-std::string fragshader_source[1];
+std::string fragshader_source[1] = { std::string(reinterpret_cast<char *>(colorizer_frag), colorizer_frag_len) };
 
 void printInfoLog(GLhandleARB obj);
 
@@ -49,7 +54,15 @@ void muir_opengl_shader_init()
     GLhandleARB myFragmentShader = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
 
     //char *vtxt = textFileRead(vpath.c_str());
-    load_file("colorizer.frag", fragshader_source[0]);
+    try
+    {
+        load_file("colorizer.frag", fragshader_source[0]);
+        std::cout << "Notice: Loaded fragment shader from file..." << std::endl;
+    }
+    catch(...)
+    {
+        std::cout << "Notice: Unable to load fragment shader file, so using built-in.  (This is OK)" << std::endl;
+    }
 
     //glShaderSourceARB(myVertexShader, 1, const_cast<const char**>(&vtxt), NULL);
     const char* chararr= fragshader_source[0].c_str();
