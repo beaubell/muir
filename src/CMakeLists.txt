@@ -75,11 +75,12 @@ ENDIF(XXD_VERSION)
 add_executable (muir-decode muir-decode.cpp)
 target_link_libraries (muir-decode ${LINK_STATIC} muir ${CORE_MUIR_LIBRARIES})
 
+add_executable (muir-validate muir-validate.cpp)
+target_link_libraries (muir-validate ${LINK_STATIC} muir ${CORE_MUIR_LIBRARIES})
+
 add_executable (muir-rti muir-rti.cpp muir-plot.cpp)
 target_link_libraries (muir-rti muir ${CORE_MUIR_LIBRARIES} ${GD_LIBRARY} gd)
 
 add_executable (muir-gl  muir-gl.cpp  muir-gl-shader.cpp muir-gl-data.cpp)
 target_link_libraries (muir-gl muir ${CORE_MUIR_LIBRARIES} ${GD_LIBRARY} ${GLUT_glut_LIBRARY} ${OPENGL_LIBRARY} gd)
 
-#add_executable (muir-cl  muir-cl.cpp)
-#target_link_libraries (muir-cl muir ${CORE_MUIR_LIBRARIES} ${GD_LIBRARY} ${OPENCL_LIBRARIES} gd)
