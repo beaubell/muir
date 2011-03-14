@@ -8,6 +8,7 @@
 
 #include <string>
 #include <iostream>
+#include <limits>
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/convenience.hpp>
@@ -70,7 +71,7 @@ int main (const int argc, const char * argv[])
     file_standard.read_3D_float(RTI_DECODEDDATA_PATH, data_standard);
     file_test.read_3D_float(RTI_DECODEDDATA_PATH, data_test);
 
-    std::cout << "Difference: " << diff_sum(data_standard, data_test) << std::endl;
+    diff_sum(data_standard, data_test);
 
     return 0;  // successfully terminated
 }
@@ -84,7 +85,7 @@ double diff_sum(Muir3DArrayF &standard, Muir3DArrayF &test)
     Muir4DArrayF::size_type max_cols = array_dims[1];
     Muir4DArrayF::size_type max_range = array_dims[2];
 
-    float max_standard, max_test = 0.0;
+    float max_standard = -std::numeric_limits<float>::infinity( ), max_test = -std::numeric_limits<float>::infinity( );
     for (size_t set = 0; set < max_sets; set++)
         for (size_t col = 0; col < max_cols; col++)
             for (size_t range = 0; range < max_range; range++)
@@ -95,16 +96,22 @@ double diff_sum(Muir3DArrayF &standard, Muir3DArrayF &test)
 
     std::cout << "Maximums found, standard: " << max_standard << std::endl;
     std::cout << "                test    : " << max_test << std::endl;
-    std::cout << "Ratios s/t: " << max_standard/max_test << std::endl;
-    std::cout << "Ratios t/s: " << max_test/max_standard << std::endl;
+    std::cout << "          Ratios s/t: " << max_standard/max_test << std::endl;
+    std::cout << "          Ratios t/s: " << max_test/max_standard << std::endl;
 
-    double accumulator = 0.0;
+    double accumulator = 0.0 ,sc_accumulator = 0.0;
     for (size_t set = 0; set < max_sets; set++)
         for (size_t col = 0; col < max_cols; col++)
             for (size_t range = 0; range < max_range; range++)
-                accumulator += abs(standard[set][col][range]/max_standard - test[set][col][range]/max_range);
+            {
+                accumulator    += abs(standard[set][col][range] - test[set][col][range]);
+                sc_accumulator += abs(standard[set][col][range]/max_standard - test[set][col][range]/max_test);
+            }
 
-
+    std::cout << "       Sum Difference: " << accumulator << std::endl;
+    std::cout << "Scaled Sum Difference: " << sc_accumulator << std::endl;
+    
+    
     return accumulator;
 }
 
