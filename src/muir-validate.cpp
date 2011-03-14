@@ -58,10 +58,10 @@ int main (const int argc, const char * argv[])
     }
 
     // Open file
-    MuirHD5 file_standard( files[0].c_str(), H5F_ACC_RDONLY );
+    MuirHD5 file_standard( files[0].string(), H5F_ACC_RDONLY );
 
     // Open file
-    MuirHD5 file_test( files[1].c_str(), H5F_ACC_RDONLY );
+    MuirHD5 file_test( files[1].string(), H5F_ACC_RDONLY );
 
     // Get data
     Muir3DArrayF data_standard;
@@ -84,11 +84,26 @@ double diff_sum(Muir3DArrayF &standard, Muir3DArrayF &test)
     Muir4DArrayF::size_type max_cols = array_dims[1];
     Muir4DArrayF::size_type max_range = array_dims[2];
 
+    float max_standard, max_test = 0.0;
+    for (size_t set = 0; set < max_sets; set++)
+        for (size_t col = 0; col < max_cols; col++)
+            for (size_t range = 0; range < max_range; range++)
+            {
+                max_standard = std::max(max_standard, standard[set][col][range]);
+                max_test = std::max(max_test, test[set][col][range]);
+            }
+
+    std::cout << "Maximums found, standard: " << max_standard << std::endl;
+    std::cout << "                test    : " << max_test << std::endl;
+    std::cout << "Ratios s/t: " << max_standard/max_test << std::endl;
+    std::cout << "Ratios t/s: " << max_test/max_standard << std::endl;
+
     double accumulator = 0.0;
     for (size_t set = 0; set < max_sets; set++)
         for (size_t col = 0; col < max_cols; col++)
             for (size_t range = 0; range < max_range; range++)
-                accumulator += abs(standard[set][col][range] - test[set][col][range]);
+                accumulator += abs(standard[set][col][range]/max_standard - test[set][col][range]/max_range);
+
 
     return accumulator;
 }
