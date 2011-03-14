@@ -12,6 +12,7 @@
 #define GL_GLEXT_PROTOTYPES 1
 
 #include "muir-gl-shader.h"
+#include "muir-utility.h"
 
 #ifdef __APPLE__
  #include <glut.h>
@@ -32,8 +33,9 @@ int shader_data_max_loc;
 float shader_data_min = 0.0f;
 float shader_data_max = 100.0f;
 
+std::string fragshader_source[1];
+
 void printInfoLog(GLhandleARB obj);
-char *textFileRead(const char *fn);
 
 // This function loads both a texture and fragment shader. (fragment parts commented out)
 // Ripped from my space sim (Beau V.C. Bellamy)
@@ -47,10 +49,11 @@ void muir_opengl_shader_init()
     GLhandleARB myFragmentShader = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
 
     //char *vtxt = textFileRead(vpath.c_str());
-    char *ftxt = textFileRead("colorizer.frag");
+    load_file("colorizer.frag", fragshader_source[0]);
 
     //glShaderSourceARB(myVertexShader, 1, const_cast<const char**>(&vtxt), NULL);
-    glShaderSourceARB(myFragmentShader, 1, const_cast<const char**>(&ftxt), NULL);
+    const char* chararr= fragshader_source[0].c_str();
+    glShaderSourceARB(myFragmentShader, 1, (const char **)&chararr, NULL);
 
     //glCompileShaderARB(myVertexShader);
 
@@ -139,30 +142,3 @@ void printInfoLog(GLhandleARB obj)
     }
 }
 
-char *textFileRead(const char *fn) {
-
-
-    FILE *fp;
-    char *content = NULL;
-
-    size_t count=0;
-
-    if (fn != NULL) {
-        fp = fopen(fn,"rt");
-
-        if (fp != NULL) {
-
-            fseek(fp, 0, SEEK_END);
-            count = ftell(fp);
-            rewind(fp);
-
-            if (count > 0) {
-                content = reinterpret_cast<char *>(malloc(sizeof(char) * (count+1)));
-                count = fread(content,sizeof(char),count,fp);
-                content[count] = '\0';
-            }
-            fclose(fp);
-        }
-    }
-    return content;
-}
