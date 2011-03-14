@@ -17,6 +17,7 @@
 #include "muir-hd5.h"
 #include "muir-utility.h"
 #include "muir-process.h"
+#include "muir-config.h"
 
 namespace fs = boost::filesystem;
 namespace BST_PT = boost::posix_time;
@@ -310,6 +311,7 @@ void process_thread(int id, std::vector<fs::path> files, int *position)
 
 void print_help ()
 {
+    std::cout << "MUIR Decode, Version " << PACKAGE_VERSION << std::endl;
     std::cout << "usage: muir-decode [--range yyyymmddThhmmss yyyymmddThhmmss] hdf5files... " << std::endl;
     std::cout << "  --range          : Only process files that fall within a specified ISO date range in GMT." << std::endl;
     std::cout << "  --gpu-cuda       : Force GPU CUDA decoding method." << std::endl;

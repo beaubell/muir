@@ -15,6 +15,7 @@
 #include "muir-constants.h"
 #include "muir-utility.h"
 #include "muir-process.h"
+#include "muir-config.h"
 
 #include <iostream>  // std::cout
 #include <iomanip>   // std::setprecision()
@@ -193,7 +194,8 @@ void MuirData::save_decoded_data(const std::string &output_file)
     h5file.write_string(RTI_DECODEDDECODINGPROCESS_PATH, _decode_config.process);
     h5file.write_scalar_double(RTI_DECODEDDECODINGTIME_PATH, _decode_config.decoding_time);
     h5file.write_string(RTI_DECODEDSOURCEFILE_PATH, _filename);
-    
+
+    h5file.write_string(RTI_DECODEDPROGRAMVER_PATH, PACKAGE_VERSION);
     // Create rowtiming group
     h5file.createGroup(RTI_DECODEDROWTIMINGDIR_PATH);
 

@@ -36,6 +36,7 @@ const std::string RTI_DECODEDDECODINGPLATFORM_PATH("/Decoded/DecodingPlatform");
 const std::string RTI_DECODEDDECODINGPROCESS_PATH("/Decoded/DecodingProcess");
 const std::string RTI_DECODEDDECODINGTIME_PATH("/Decoded/DecodingTime");
 const std::string RTI_DECODEDSOURCEFILE_PATH("/Decoded/SourceFile");
+const std::string RTI_DECODEDPROGRAMVER_PATH("/Decoded/ProgramVersion");
 
 const std::string RTI_DECODEDROWTIMINGDIR_PATH("/Decoded/RowTiming");
 const std::string RTI_DECODEDROWTIMINGDATA_PATH("/Decoded/RowTiming/Data");
