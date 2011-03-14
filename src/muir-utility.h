@@ -22,4 +22,7 @@ bool have_range(const MuirHD5 &file, boost::posix_time::time_period range);
 // Return false if the the file doesn't contain a phasecode.
 bool read_phasecode(const MuirHD5 &file_in, std::vector<float> &phasecode);
 
+// Load a textfile into a string
+void load_file (const std::string &path, std::string &file_contents);
+
 #endif // MUIR_UTILITY

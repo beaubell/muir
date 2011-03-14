@@ -1,6 +1,29 @@
 
 cmake_minimum_required (VERSION 2.6)
-project (MUIRRTI)
+PROJECT(MUIRRTI)
+
+# Get package version information from git
+execute_process( COMMAND "git" "describe"
+                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                 RESULT_VARIABLE GIT_OUTPUT_VALUE
+                 OUTPUT_VARIABLE CURRENT_GIT_VERSION
+                 OUTPUT_STRIP_TRAILING_WHITESPACE )
+if(GIT_OUTPUT_VALUE EQUAL 0)
+   message(STATUS "Building git version ${CURRENT_GIT_VERSION}")
+endif(GIT_OUTPUT_VALUE EQUAL 0)
+set(PACKAGE_VERSION ${CURRENT_GIT_VERSION})
+
+# See if XXD exists
+execute_process( COMMAND "xxd" "-v"
+                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                 RESULT_VARIABLE XXD_OUTPUT_VALUE
+                 ERROR_VARIABLE XXD_VERSION
+                 ERROR_STRIP_TRAILING_WHITESPACE )
+if(XXD_OUTPUT_VALUE EQUAL 0)
+   message(STATUS "XXD_VERSION: ${XXD_VERSION}")
+   set(TEXTINCLUDES TRUE)
+endif(XXD_OUTPUT_VALUE EQUAL 0)
+
 
 SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake.local)
 
@@ -25,6 +48,8 @@ FIND_PACKAGE(CUDA)
 
 SET(FFTW_HOME $ENV{FFTW_HOME})
 FIND_PACKAGE(FFTW)
+
+CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/muir-config.h.in ${CMAKE_CURRENT_BINARY_DIR}/muir-config.h)
 
 SUBDIRS(src gd-2.0.35)
 

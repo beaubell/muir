@@ -3,6 +3,8 @@
 include_directories (
  ${MUIRRTI_SOURCE_DIR}
  ${MUIRRTI_SOURCE_DIR}/include
+ ${MUIRRTI_BINARY_DIR}
+ ${CMAKE_CURRENT_BINARY_DIR}
  ${HDF5_INCLUDE_DIR}
  ${GD_SOURCE_DIR}
  ${FFTW_INCLUDE_DIR}
@@ -43,6 +45,31 @@ add_library(muir STATIC
  muir-process-cpu.cpp
  muir-timer.cpp
 )
+
+# Create include files from GLSL and CL source
+set(TXT_SOURCES
+ stage1-phasecode.cl
+ stage2-fft.cl
+ stage3-power.cl
+ stage4-findpeak.cl
+ colorizer.frag
+)
+
+IF(XXD_VERSION)
+# Turn GLSL shaders and CL kernels into include files
+foreach(f ${TXT_SOURCES})
+    message("Converting ${f} to ${f}.h")
+execute_process( COMMAND "xxd" "-i" ${f} ${CMAKE_CURRENT_BINARY_DIR}/${f}.h
+                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+#file(READ ${CMAKE_CURRENT_SOURCE_DIR}/${f} g HEX)
+#string(REPLACE "\n"
+#         "\\\\\n" g
+#         ${g})
+#message(${g}) 
+
+endforeach(f)
+ENDIF(XXD_VERSION)
+
 
 # Create and link the executables
 add_executable (muir-decode muir-decode.cpp)

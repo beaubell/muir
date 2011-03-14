@@ -14,6 +14,8 @@
 #include "muir-constants.h"
 #include "muir-types.h"
 
+#include <fstream>
+
 #include <boost/date_time/posix_time/posix_time.hpp>
 namespace BST_PT = boost::posix_time;
 
@@ -81,4 +83,30 @@ bool read_phasecode(const MuirHD5 &file_in, std::vector<float> &phasecode)
     }
 
     return true;
+}
+
+// Load a textfile into a string
+void load_file (const std::string &path, std::string &file_contents)
+{
+    // Load file
+    //std::string strpath = path.string();
+    std::ifstream file;
+    file.open(path.c_str(), std::ios::in | std::ios::ate | std::ios::binary);
+
+    if (file.is_open())
+    {
+        std::ifstream::pos_type size;
+
+        size = file.tellg();
+
+        file_contents.resize(size);
+
+        file.seekg (0, std::ios::beg);
+        file.read (const_cast<char *>(file_contents.c_str()), size);
+        file.close();
+    }
+    else
+    {
+        throw std::runtime_error("Unable to open file: " + path);
+    }
 }

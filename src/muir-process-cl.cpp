@@ -6,6 +6,15 @@
 #include "muir-global.h"
 #include "muir-process.h"
 #include "muir-timer.h"
+#include "muir-config.h"
+
+#ifdef TEXTINCLUDES
+#include "stage1-phasecode.cl.h"
+#include "stage2-fft.cl.h"
+#include "stage3-power.cl.h"
+#include "stage4-findpeak.cl.h"
+#endif
+
 
 //#if defined(__APPLE__) || defined(__MACOSX)
 //#include <OpenCL/cl.hpp>
@@ -15,7 +24,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
-#include <fstream>
+
 
 // Boost::Accumulators
 #include <boost/accumulators/accumulators.hpp>
@@ -37,23 +46,31 @@ static const std::string SectionVersion("0.2");
 std::vector<cl::Platform> muir_cl_platforms;
 std::vector<cl::Device> muir_cl_devices;
 cl::Context muir_cl_context;
-cl::Program stage1_program;
-cl::Program stage2_program;
-cl::Program stage3_program;
-cl::Program stage4_program;
-cl::Kernel stage1_kernel;
-cl::Kernel stage2_kernel;
-cl::Kernel stage3_kernel;
-cl::Kernel stage4_kernel;
+cl::Program stage_program[4];
 
-void load_file (const std::string &path, std::string &file_contents);
+std::string kernel_sources[4] = { std::string(reinterpret_cast<char *>(stage1_phasecode_cl), stage1_phasecode_cl_len),
+                                  std::string(reinterpret_cast<char *>(stage2_fft_cl), stage2_fft_cl_len),
+                                  std::string(reinterpret_cast<char *>(stage3_power_cl), stage3_power_cl_len),
+                                  std::string(reinterpret_cast<char *>(stage4_findpeak_cl), stage4_findpeak_cl_len) };
+
+std::string kernel_files[4] = {"stage1-phasecode.cl",
+                               "stage2-fft.cl",
+                               "stage3-power.cl",
+                               "stage4-findpeak.cl" };
+
+std::string kernel_function[4] = {"phasecode",
+                                  "fft0",
+                                  "power",
+                                  "findpeak" };
+
+
+
 void decode_cl_load_kernels(void);
 
 
 int process_init_cl(void* opengl_ctx)
 {
-    cl_int err = CL_SUCCESS;
-    
+
     try
     {
         cl::Platform::get(&muir_cl_platforms);
@@ -110,19 +127,13 @@ int process_init_cl(void* opengl_ctx)
 
 void decode_cl_load_kernels(void)
 {
-    cl_int err = CL_SUCCESS;
 
     /// Load kernel sources
-    std::string stage1_str;
-    std::string stage2_str;
-    std::string stage3_str;
-    std::string stage4_str;
-
     try{
-        load_file ("stage1-phasecode.cl", stage1_str);
-        load_file ("stage2-fft.cl", stage2_str);
-        load_file ("stage3-power.cl", stage3_str);
-        load_file ("stage4-findpeak.cl", stage4_str);
+        //load_file (kernel_files[0], kernel_sources[0]);
+        //load_file (kernel_files[1], kernel_sources[1]);
+        //load_file (kernel_files[2], kernel_sources[2]);
+        //load_file (kernel_files[3],  kernel_sources[3]);
     }
     catch (std::runtime_error error)
     {
@@ -131,60 +142,22 @@ void decode_cl_load_kernels(void)
         throw error;
     }
 
-    /// Load and compile stage1 kernel
-    cl::Program::Sources stage1_source(1, std::make_pair(stage1_str.c_str(),stage1_str.size()));
-    stage1_program = cl::Program(muir_cl_context, stage1_source);
-    try{
-        stage1_program.build(muir_cl_devices);
-    }
-    catch(...)
+    /// Compile Kernels
+    for (unsigned int i = 0; i < 4; i++)
     {
-        std::cout << "Build Status: "  << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(muir_cl_devices[0]) << std::endl;
-        std::cout <<  "Build Options: " << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(muir_cl_devices[0]) << std::endl;
-        std::cout <<  "Build Log: "     << stage1_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
-        throw;
-    }
-
-    /// compile stage2 kernel
-    cl::Program::Sources stage2_source(1, std::make_pair(stage2_str.c_str(),stage2_str.size()));
-    stage2_program = cl::Program(muir_cl_context, stage2_source);
-    try{
-        stage2_program.build(muir_cl_devices);
-    }
-    catch(...)
-    {
-        std::cout << "Build Status: "  << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(muir_cl_devices[0]) << std::endl;
-        std::cout << "Build Options: " << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(muir_cl_devices[0]) << std::endl;
-        std::cout << "Build Log: "     << stage2_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
-        throw;
-    }
-
-    /// compile stage 3 kernel
-    cl::Program::Sources stage3_source(1, std::make_pair(stage3_str.c_str(),stage3_str.size()));
-    stage3_program = cl::Program(muir_cl_context, stage3_source);
-    try{
-        stage3_program.build(muir_cl_devices);
-    }
-    catch(...)
-    {
-        std::cout << "Build Status: "  << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(muir_cl_devices[0]) << std::endl;
-        std::cout << "Build Options: " << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(muir_cl_devices[0]) << std::endl;
-        std::cout << "Build Log: "     << stage3_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
-        throw;
-    }
-
-    /// compile stage 4 kernel
-    cl::Program::Sources stage4_source(1, std::make_pair(stage4_str.c_str(),stage4_str.size()));
-    stage4_program = cl::Program(muir_cl_context, stage4_source);
-    try{
-        stage4_program.build(muir_cl_devices);
-    }
-    catch(...)
-    {
-        std::cout << "Build Status: "  << stage4_program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(muir_cl_devices[0]) << std::endl;
-        std::cout << "Build Options: " << stage4_program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(muir_cl_devices[0]) << std::endl;
-        std::cout << "Build Log: "     << stage4_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
-        throw;
+        cl::Program::Sources stage_source(1, std::make_pair(kernel_sources[i].c_str(),kernel_sources[i].size()));
+        stage_program[i] = cl::Program(muir_cl_context, stage_source);
+        try{
+            stage_program[i].build(muir_cl_devices);
+        }
+        catch(...)
+        {
+            std::cout << "Build Failed for " << kernel_files[i] << std::endl;
+            std::cout << "Build Status: "  << stage_program[i].getBuildInfo<CL_PROGRAM_BUILD_STATUS>(muir_cl_devices[0]) << std::endl;
+            std::cout << "Build Options: " << stage_program[i].getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(muir_cl_devices[0]) << std::endl;
+            std::cout << "Build Log: "     << stage_program[i].getBuildInfo<CL_PROGRAM_BUILD_LOG>(muir_cl_devices[0]) << std::endl;
+            throw;
+        }
     }
 
 }
@@ -215,10 +188,10 @@ int process_data_cl(int id,
       MUIR::Timer stage_time;
 
       // Initialize kernels here since setarg and enque are not threadsafe
-      cl::Kernel stage1_kernel(stage1_program, "phasecode", &err);
-      cl::Kernel stage2_kernel(stage2_program, "fft0", &err);
-      cl::Kernel stage3_kernel(stage3_program, "power", &err);
-      cl::Kernel stage4_kernel(stage4_program, "findpeak", &err);
+      cl::Kernel stage1_kernel(stage_program[0], kernel_function[0].c_str(), &err);
+      cl::Kernel stage2_kernel(stage_program[1], kernel_function[1].c_str(), &err);
+      cl::Kernel stage3_kernel(stage_program[2], kernel_function[2].c_str(), &err);
+      cl::Kernel stage4_kernel(stage_program[3], kernel_function[3].c_str(), &err);
       
       // Load Data and Initialize memory
       Muir4DArrayF prefft_data;
@@ -451,30 +424,5 @@ int process_data_cl(int id,
     }
 
     return EXIT_SUCCESS;
-}
-
-void load_file (const std::string &path, std::string &file_contents)
-{
-    // Load file
-    //std::string strpath = path.string();
-    std::ifstream file;
-    file.open(path.c_str(), std::ios::in | std::ios::ate | std::ios::binary);
-
-    if (file.is_open())
-    {
-        std::ifstream::pos_type size;
-
-        size = file.tellg();
-
-        file_contents.resize(size);
-
-        file.seekg (0, std::ios::beg);
-        file.read (const_cast<char *>(file_contents.c_str()), size);
-        file.close();
-    }
-    else
-    {
-        throw std::runtime_error("Unable to open file: " + path);
-    }
 }
 
