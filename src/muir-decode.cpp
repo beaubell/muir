@@ -57,6 +57,7 @@ void process_thread(int id, std::vector<fs::path> files, int *position);
 
 int main (const int argc, const char * argv[])
 {
+    std::cout << "MUIR Decode, Version " << PACKAGE_VERSION << std::endl;
 
     // There must at least be a file specified
     if ( argc < 2 )
@@ -129,7 +130,6 @@ int main (const int argc, const char * argv[])
                         return 1;
                     }
                 }
-                
 
             continue;
         }
@@ -311,7 +311,6 @@ void process_thread(int id, std::vector<fs::path> files, int *position)
 
 void print_help ()
 {
-    std::cout << "MUIR Decode, Version " << PACKAGE_VERSION << std::endl;
     std::cout << "usage: muir-decode [--range yyyymmddThhmmss yyyymmddThhmmss] hdf5files... " << std::endl;
     std::cout << "  --range          : Only process files that fall within a specified ISO date range in GMT." << std::endl;
     std::cout << "  --gpu-cuda       : Force GPU CUDA decoding method." << std::endl;

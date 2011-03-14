@@ -1,6 +1,13 @@
 // 
 //
 //
+#include "muir-data.h"
+#include "muir-hd5.h"
+#include "muir-utility.h"
+#include "muir-plot.h"
+#include "muir-process.h"
+#include "muir-config.h"
+
 #include <cstdio>
 #include <iostream>
 #include <string>
@@ -12,12 +19,6 @@
 #include <boost/date_time/local_time_adjustor.hpp>
 #include <boost/date_time/c_local_time_adjustor.hpp>
 #include <boost/lexical_cast.hpp>
-
-#include "muir-data.h"
-#include "muir-hd5.h"
-#include "muir-utility.h"
-#include "muir-plot.h"
-#include "muir-process.h"
 
 namespace fs = boost::filesystem;
 namespace BST_PT = boost::posix_time;
@@ -52,6 +53,7 @@ void cull_files_range(std::vector<fs::path> &files, const Flags& flags);
 
 int main (const int argc, const char * argv[])
 {
+    std::cout << "MUIR RTI, Version " << PACKAGE_VERSION << std::endl;
 
    // There must at least be a file specified
    if ( argc < 2 )

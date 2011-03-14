@@ -3,6 +3,7 @@
 #include "muir-constants.h"
 #include "muir-gl-shader.h"
 #include "muir-gl-data.h"
+#include "muir-config.h"
 
 #include <iostream>
 #include <cmath>
@@ -63,6 +64,8 @@ std::vector<Muirgl_Data> data;
 
 int main(int argc, char **argv)
 {
+    std::cout << "MUIR-GL, Version " << PACKAGE_VERSION << std::endl;
+
     // Initialize timer state
     walltime = static_cast<double>(glutGet(GLUT_ELAPSED_TIME))/1000.0;
 
