@@ -35,8 +35,8 @@
 GLhandleARB shaderProgram;
 int shader_data_min_loc;
 int shader_data_max_loc;
-float shader_data_min = 0.0f;
-float shader_data_max = 100.0f;
+float shader_data_min = -10.0f;
+float shader_data_max = 20.0f;
 
 std::string fragshader_source[1] = { std::string(reinterpret_cast<char *>(colorizer_frag), colorizer_frag_len) };
 

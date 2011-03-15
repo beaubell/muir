@@ -23,7 +23,7 @@
 #include <boost/timer.hpp>
 #include <boost/lexical_cast.hpp>
 namespace FS = boost::filesystem;
-namespace T = boost::filesystem;
+
 
 void renderScene(void);
 void idleFunc(void);
@@ -36,7 +36,7 @@ void processMouseActiveMotion(int x, int y);
 void processMousePassiveMotion(int x, int y);
 void processMouseEntry(int state);
 
-void LoadHD5Meta(const std::string &filename, std::vector<Muirgl_Data> &data );
+void LoadHD5Meta(const std::string &filename, std::vector<Muirgl_Data*> &data );
 void loadfiles(const std::string &dir);
 
 // Global state
@@ -58,7 +58,7 @@ bool texture_smooth = true;
 double walltime = 0.0;
 
 // Data Handler
-std::vector<Muirgl_Data> data;
+std::vector<Muirgl_Data*> data;
 
 
 
@@ -93,16 +93,16 @@ int main(int argc, char **argv)
     muir_opengl_shader_init();
 
     /// FIXME, load initialization data from file
-    for (unsigned int i = 1; i < argc; i++)
+    for (int i = 1; i < argc; i++)
         loadfiles(argv[i]);
 
     // Find radactime min/max
-    radac_max = data[0].radacend;
-    radac_min = data[0].radacstart;
-    for(std::vector<Muirgl_Data>::iterator iter = data.begin(); iter != data.end(); iter++)
+    radac_max = data[0]->radacend;
+    radac_min = data[0]->radacstart;
+    for(unsigned int i = 0; i < data.size(); i++)
     {
-            radac_max = std::max(iter->radacend, radac_max);
-            radac_min = std::min(iter->radacstart, radac_min);
+            radac_max = std::max(data[i]->radacend, radac_max);
+            radac_min = std::min(data[i]->radacstart, radac_min);
     }
     radac_position = radac_min;
 
@@ -147,27 +147,18 @@ void renderScene(void) {
     // Texture On!
     glEnable( GL_TEXTURE_RECTANGLE_ARB );
 
-    for(std::vector<Muirgl_Data>::iterator iter = data.begin(); iter != data.end(); iter++)
+    for(unsigned int i = 0; i < data.size(); i++)
     {
-        double x1 = (iter->radacstart-radac_min)/10000.0;
-        double x2 = (iter->radacend-radac_min)/10000.0;
-        
-        glBindTexture( GL_TEXTURE_RECTANGLE_ARB, iter->texnum );
-        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
+        double x1 = (data[i]->radacstart-radac_min)/10000.0;
+        //double x2 = (iter->radacend-radac_min)/10000.0;
 
-        glBegin( GL_QUADS );
-        glTexCoord2d(0.0        ,0.0        ); glVertex2d(x1,0.0);
-        glTexCoord2d(iter->dataw,0.0        ); glVertex2d(x2,0.0);
-        glTexCoord2d(iter->dataw,iter->datah); glVertex2d(x2,iter->datah);
-        glTexCoord2d(0.0        ,iter->datah); glVertex2d(x1,iter->datah);
-        glEnd();
-        
+        data[i]->render(radac_min, texture_smooth);
+
         glPushMatrix();
         glRasterPos2d(x1, 0.0);
-        for (std::string::iterator i = iter->filename_decoded.begin(); i != iter->filename_decoded.end(); ++i)
+        for (std::string::const_iterator s = data[i]->file_decoded.string().begin(); s != data[i]->file_decoded.string().end(); ++s)
         {
-          char c = *i;
+          char c = *s;
           glutBitmapCharacter(font, c);
         }
         glPopMatrix();
@@ -469,116 +460,16 @@ void processMouseEntry(int state) {
 }
 
 
-void LoadHD5Meta(const std::string &filename, std::vector<Muirgl_Data> &datavec )
+void LoadHD5Meta(const std::string &filename, std::vector<Muirgl_Data *> &datavec )
 {
-    unsigned int width, height;
-    GLfloat * data;
 
-    // Open file
-    MuirHD5 h5file( filename.c_str(), H5F_ACC_RDONLY );
 
-    // Get data
-    Muir3DArrayF decoded_data;
-    h5file.read_3D_float(RTI_DECODEDDATA_PATH, decoded_data);
+    Muirgl_Data *dataptr = new Muirgl_Data(filename);
 
-    // Get dataset shape
-    const Muir3DArrayF::size_type *array_dims = decoded_data.shape();
-    assert(decoded_data.num_dimensions() == 3);
+    dataptr->stage();
+    datavec.push_back(dataptr);
 
-    Muir3DArrayF::size_type dataset_count = array_dims[0];  // # sets
-    Muir3DArrayF::size_type dataset_width = array_dims[1];  // frames per set
-    Muir3DArrayF::size_type dataset_height = array_dims[2]; // Range bins
 
-    // Get radactime data
-    Muir2DArrayD radactime;
-    h5file.read_2D_double(RTI_DECODEDRADAC_PATH, radactime);
-
-    // texture width
-    //width = 512;
-    //height = 2048;
-    width = dataset_width;
-    height = dataset_height;
-
-    for (unsigned int set = 0; set < dataset_count; set++)
-    {
-        Muirgl_Data dataptr;
-        dataptr.texwidth = width;
-        dataptr.texheight = height;
-        dataptr.datawoffset = 0;
-        dataptr.datahoffset = 0;
-        dataptr.dataw = dataset_width;
-        dataptr.datah = dataset_height;
-        dataptr.radacstart = radactime[set][0];
-        dataptr.radacend = radactime[set][1];
-        dataptr.filename_decoded = filename;
-
-        data = reinterpret_cast<GLfloat*>(malloc( width * height*sizeof(GLfloat) ));
-
-        for (Muir3DArrayF::size_type col = 0; col < width ;col++)
-        {
-            for (Muir3DArrayF::size_type row = 0; row < height; row++)
-            {
-                data[row*width + col] = 0.0;
-            }
-        }
-
-        float min = std::numeric_limits<float>::infinity();
-        float max = -std::numeric_limits<float>::infinity();
-
-        for (Muir3DArrayF::size_type col = 0; col < dataset_width ;col++)
-        {
-            for (Muir3DArrayF::size_type row = 0; row < dataset_height; row++)
-            {
-                    //float pixel = log10(decoded_data[set][col][row]+1)*10;
-                    float pixel = decoded_data[set][col][row];
-                    data[row*width + col] = pixel;
-
-                    max = std::max(max, pixel);
-                    min = std::min(min, pixel);
-           }
-        }
-
-        shader_data_max = std::log10(max)*10.0f;
-        shader_data_min = std::log10(min+0.01f)*10.0f;
-        muir_GPU_send_variables();
-
-        // allocate a texture name
-        glGenTextures( 1, &dataptr.texnum );
-
-        // select our current texture
-        glBindTexture(GL_TEXTURE_RECTANGLE_ARB, dataptr.texnum );
-
-        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP);
-
-        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        //In this case, the driver will convert your 32 bit float to 16 bit float
-        glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_LUMINANCE32F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, data);
-
-        // free buffer
-        free( data );
-
-        // Add GPU texture data to vector
-        datavec.push_back(dataptr);
-
-        // Geewhiz stuff
-#if 0
-        #define GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX 0x9048
-        #define GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX 0x9049
-
-        GLint total_mem_kb = 0;
-                glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX,
-                            &total_mem_kb);
-
-        GLint cur_avail_mem_kb = 0;
-                glGetIntegerv(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX,
-                            &cur_avail_mem_kb);
-#endif
-        std::cout << "Loaded set: " << filename << ":" << set << "   texnum:" << dataptr.texnum << 
-                 " Glerror?: " << glGetError() << std::endl;
-    }
-    //return texture;
 }
 
 /// FIXME This is dumb, find a better way
