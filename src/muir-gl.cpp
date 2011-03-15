@@ -155,7 +155,7 @@ void renderScene(void) {
         if ((data[i]->radacstart < (radac_min - (x_loc-window_w/scale)*10000 )) && (data[i]->radacend > (radac_min - (x_loc)*10000 )))
             data[i]->stage();
 
-        if ((data[i]->radacstart > (radac_min - (x_loc-window_w/scale)*10000 )) || (data[i]->radacend < (radac_min - (x_loc)*10000 )))
+        if ((data[i]->radacstart > (radac_min - (x_loc-window_w/scale*3)*10000 )) || (data[i]->radacend < (radac_min - (x_loc+window_w/scale*2)*10000 )))
             data[i]->release();
         //if ((data[i]->radacstart > (radac_min - (x_loc)*20000 )) || (data[i]->radacend < (radac_min - (x_loc-window_w/scale)*20000 )))
         //    data[i]->release();

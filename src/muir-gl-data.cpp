@@ -160,7 +160,7 @@ void Muirgl_Data::release()
     // Delete textures!
     glDeleteTextures( _sets, &texnames[0] );
 
-    std::cout << "Relase: " << file_decoded.string() << std::endl;
+    std::cout << "Release: " << file_decoded.string() << std::endl;
 }
 
 void Muirgl_Data::render(const double radac_min,const bool texture_smooth)
