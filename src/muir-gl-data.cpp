@@ -53,7 +53,7 @@ Muirgl_Data::Muirgl_Data(FS::path file)
     
     radacstart = radac_time[0][0];
     radacend = radac_time[_sets-1][1];
-    std::cout << "Radactime: " << radacstart << ":" << radacend << " " << _sets << std::endl;
+    //std::cout << "Radactime: " << radacstart << ":" << radacend << " " << _sets << std::endl;
 }
 
 void Muirgl_Data::stage()

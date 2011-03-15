@@ -268,7 +268,21 @@ void renderScene(void) {
         int y_offset = window_h%18;
         for(unsigned int i = 0; i < data.size(); i++)
         {
-            
+            // Highlight entries in view
+            if ((data[i]->radacstart < (radac_position - (x_loc-window_w/scale)*10000 )) && (data[i]->radacend > (radac_position - (x_loc)*10000 )))
+            {
+                glEnable(GL_BLEND);
+                glColor4f(0.2f,0.5f,0.7f,0.5f);
+                glBegin( GL_QUADS );
+                glVertex2d(window_w-panel_file_x_min,(max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset-3);
+                glVertex2d(window_w-panel_file_x_min,(max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset+15);
+                glVertex2d(window_w                 ,(max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset+15);
+                glVertex2d(window_w                 ,(max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset-3);
+                glEnd();
+                glDisable(GL_BLEND);
+            }
+
+            glColor3f(1.0f,1.0f,1.0f);
             glRasterPos2f(window_w-panel_file_x_min+10, (max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset);
             std::string s1 = data[i]->file_decoded.filename().string();
             
