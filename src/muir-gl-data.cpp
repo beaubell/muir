@@ -63,6 +63,8 @@ void Muirgl_Data::stage()
         return;
     }
 
+    std::cout << "Staging: " << file_decoded.string() << std::endl;
+
     unsigned int width, height;
     GLfloat * data;
 
@@ -136,8 +138,8 @@ void Muirgl_Data::stage()
         // free buffer
         free( data );
 
-        std::cout << "Loaded set: " << file_decoded << ":" << set << "   texnum:" << texnames[set] <<
-        " Glerror?: " << glGetError() << std::endl;
+        //std::cout << "Loaded set: " << file_decoded << ":" << set << "   texnum:" << texnames[set] <<
+        //" Glerror?: " << glGetError() << std::endl;
     }
 
     // Textures are setup!
@@ -157,6 +159,8 @@ void Muirgl_Data::release()
 
     // Delete textures!
     glDeleteTextures( _sets, &texnames[0] );
+
+    std::cout << "Relase: " << file_decoded.string() << std::endl;
 }
 
 void Muirgl_Data::render(const double radac_min,const bool texture_smooth)

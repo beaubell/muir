@@ -155,6 +155,11 @@ void renderScene(void) {
         if ((data[i]->radacstart < (radac_min - (x_loc-window_w/scale)*10000 )) && (data[i]->radacend > (radac_min - (x_loc)*10000 )))
             data[i]->stage();
 
+        if ((data[i]->radacstart > (radac_min - (x_loc-window_w/scale)*10000 )) || (data[i]->radacend < (radac_min - (x_loc)*10000 )))
+            data[i]->release();
+        //if ((data[i]->radacstart > (radac_min - (x_loc)*20000 )) || (data[i]->radacend < (radac_min - (x_loc-window_w/scale)*20000 )))
+        //    data[i]->release();
+
         data[i]->render(radac_min, texture_smooth);
 
         glPushMatrix();
