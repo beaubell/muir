@@ -22,6 +22,7 @@
 #include <boost/filesystem/convenience.hpp>
 #include <boost/timer.hpp>
 #include <boost/lexical_cast.hpp>
+#include <CL/cl_platform.h>
 namespace FS = boost::filesystem;
 
 
@@ -35,9 +36,11 @@ void processMouse(int button, int state, int x, int y);
 void processMouseActiveMotion(int x, int y);
 void processMousePassiveMotion(int x, int y);
 void processMouseEntry(int state);
+void stage_unstage();
 
 void LoadHD5Meta(const std::string &filename, std::vector<Muirgl_Data*> &data );
 void loadfiles(const std::string &dir);
+
 
 // Global state
 int window_w = 0;
@@ -56,6 +59,10 @@ float scroll_vel = 0.0f;
 float scroll_acc = 0.0f;
 bool texture_smooth = true;
 double walltime = 0.0;
+
+bool panel_file_open = false;
+int panel_file_scroll_offset = 0;
+int panel_file_x_min = 250;
 
 // Data Handler
 std::vector<Muirgl_Data*> data;
@@ -152,29 +159,33 @@ void renderScene(void) {
         double x1 = (data[i]->radacstart-radac_min)/10000.0;
         //double x2 = (iter->radacend-radac_min)/10000.0;
 
-        if ((data[i]->radacstart < (radac_min - (x_loc-window_w/scale)*10000 )) && (data[i]->radacend > (radac_min - (x_loc)*10000 )))
-            data[i]->stage();
-
-        if ((data[i]->radacstart > (radac_min - (x_loc-window_w/scale*3)*10000 )) || (data[i]->radacend < (radac_min - (x_loc+window_w/scale*2)*10000 )))
-            data[i]->release();
-        //if ((data[i]->radacstart > (radac_min - (x_loc)*20000 )) || (data[i]->radacend < (radac_min - (x_loc-window_w/scale)*20000 )))
-        //    data[i]->release();
-
-        data[i]->render(radac_min, texture_smooth);
-
-        glPushMatrix();
-        glRasterPos2d(x1, 0.0);
-        for (std::string::const_iterator s = data[i]->file_decoded.string().begin(); s != data[i]->file_decoded.string().end(); ++s)
-        {
-          char c = *s;
-          glutBitmapCharacter(font, c);
-        }
-        glPopMatrix();
+        data[i]->render(radac_position, texture_smooth);
     }
 
     // Texture off
     glDisable( GL_TEXTURE_RECTANGLE_ARB );
 
+    glPopMatrix();
+
+    glPushMatrix();
+    glScaled(scale, 1.0, 1.0);
+    glTranslated(x_loc, 0.0, 0.0);
+    muir_opengl_shader_switch(0);
+    glColor3f(1.0, 1.0, 1.0); // White
+    for(unsigned int i = 0; i < data.size(); i++)
+    {
+        double x1 = (data[i]->radacstart-radac_position)/10000.0;
+
+            glPushMatrix();
+            glRasterPos2d(x1, 50.0);
+            for (std::string::const_iterator s = data[i]->file_decoded.string().begin(); s != data[i]->file_decoded.string().end(); ++s)
+            {
+                char c = *s;
+                glutBitmapCharacter(font, c);
+            }
+            glPopMatrix();
+    }
+    
 #if 0
     glDisable( GL_TEXTURE_2D );
     glColor3f(1.0f,1.0f,1.0f);
@@ -234,6 +245,42 @@ void renderScene(void) {
         glutBitmapCharacter(font, c);
     }
 
+    /// File Panel
+    
+
+    if (panel_file_open)
+    {
+        glEnable (GL_BLEND);
+        glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        glColor4f(0.2f,0.5f,0.2f,0.5f);
+        glBegin( GL_QUADS );
+        glVertex2d(window_w-panel_file_x_min,window_h);
+        glVertex2d(window_w-panel_file_x_min,0);
+        glVertex2d(window_w,0);
+        glVertex2d(window_w,window_h);
+        glEnd();
+
+        glDisable(GL_BLEND);
+        glColor3f(1.0f,1.0f,1.0f);
+
+        int max_entires = window_h/18;
+        int y_offset = window_h%18;
+        for(unsigned int i = 0; i < data.size(); i++)
+        {
+            
+            glRasterPos2f(window_w-panel_file_x_min+10, (max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset);
+            std::string s1 = data[i]->file_decoded.filename().string();
+            
+            for (std::string::iterator i = s1.begin(); i != s1.end(); ++i)
+            {
+                char c = *i;
+                glutBitmapCharacter(font, c);
+            }
+        }
+    }
+
+    
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
 
@@ -262,6 +309,8 @@ void idleFunc(void)
 
     // Render Scene
     glutPostRedisplay();
+
+    stage_unstage();
 }
 
 
@@ -293,7 +342,10 @@ void changeSize(int w, int h) {
     window_h = h;
 }
 
-void processNormalKeys(unsigned char key, int x, int y) {
+void processNormalKeys(unsigned char key, int x, int y)
+{
+    // Match mouse to gl coords
+    y = window_h - y;
 
     if (key == 27) 
         exit(0);
@@ -326,7 +378,10 @@ void processNormalKeys(unsigned char key, int x, int y) {
 
 }
 
-void processSpecialKeys(int key, int x, int y) {
+void processSpecialKeys(int key, int x, int y)
+{
+    // Match mouse to gl coords
+    y = window_h - y;
 
     int mod;
     switch(key) {
@@ -356,26 +411,64 @@ void processSpecialKeys(int key, int x, int y) {
 }
 
 
-void processMouse(int button, int state, int x, int y) {
+void processMouse(int button, int state, int x, int y)
+{
 
+    // Match mouse to gl coords
+    y = window_h - y;
 
+    
 //    specialKey = glutGetModifiers();
 	// if both a mouse button, and the ALT key, are pressed  then
     if (state == GLUT_DOWN)
     {
         //std::cout << "Button:" << button << std::endl;
+        if (button == 0) // Keft click
+        {
+            if(panel_file_open)
+            {
+                int y_offset = window_h%18;
+                int index = ((window_h-y-y_offset + panel_file_scroll_offset*10)/18); // (max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset
+                
+                //scale = 1;
+                x_loc = 0;
+                //y_loc = 0;
+                radac_position = data[index]->radacstart;
+                
+                
+            }
+        }
+        
+        //std::cout << "Button:" << button << std::endl;
         if (button == 3) // scroll up
         {
-          scale *= 1.5f;
-          x_loc -= (mouse_x)/(scale*2);
-          y_loc -= (mouse_y)/(scale*2);
+            if(panel_file_open)
+            {
+                panel_file_scroll_offset--;
+
+                if(panel_file_scroll_offset < 0)
+                    panel_file_scroll_offset = 0;
+            }
+            else
+            {
+                scale *= 1.5f;
+                x_loc -= (mouse_x)/(scale*2);
+                y_loc -= (mouse_y)/(scale*2);
+            }
         }
 
         if (button == 4) // scroll down
         {
-          x_loc += (mouse_x)/(scale*2);
-          y_loc += (mouse_y)/(scale*2);
-          scale /= 1.5f;
+            if(panel_file_open)
+            {
+                panel_file_scroll_offset++;
+            }
+            else
+            {
+                x_loc += (mouse_x)/(scale*2);
+                y_loc += (mouse_y)/(scale*2);
+                scale /= 1.5f;
+            }
         }
     }
 
@@ -465,6 +558,12 @@ void processMousePassiveMotion(int x, int y) {
     //}
    mouse_x = x;
    mouse_y = window_h-y;
+
+   if ((mouse_x > window_w-30))
+       panel_file_open = true;
+
+   if ((mouse_x < window_w-panel_file_x_min))
+       panel_file_open = false;
 }
 
 
@@ -473,6 +572,22 @@ void processMouseEntry(int state) {
     //    deltaAngle = 0.0;/scratch/bellamy/d0000598-decoded.h5
     //else
     //    deltaAngle = 1.0;
+}
+
+
+void stage_unstage()
+{
+    for(unsigned int i = 0; i < data.size(); i++)
+    {
+
+        if ((data[i]->radacstart < (radac_position - (x_loc-window_w/scale)*10000 )) && (data[i]->radacend > (radac_position - (x_loc)*10000 )))
+            data[i]->stage();
+
+        if ((data[i]->radacstart > (radac_position - (x_loc-window_w/scale*3)*10000 )) || (data[i]->radacend < (radac_position - (x_loc+window_w/scale*2)*10000 )))
+            data[i]->release();
+
+    }
+
 }
 
 
@@ -496,20 +611,27 @@ void loadfiles(const std::string &dir)
        // If not a command, must be a file
     if (FS::is_directory(path1))
     {
+        typedef std::vector<FS::path> vec;             // store paths,
+        vec v;                                // so we can sort them later
+        
+        std::copy(FS::directory_iterator(path1), FS::directory_iterator(), std::back_inserter(v));
+        
+        std::sort(v.begin(), v.end());   // sort, since directory iteration
+                                    // is not ordered on some file systems
 
-        for (FS::directory_iterator dirI(path1); dirI!=FS::directory_iterator(); ++dirI)
+        for (vec::const_iterator dirI (v.begin()); dirI != v.end(); ++dirI)
         {
-            std::cout << dirI->path().string() << std::endl;
+            std::cout << dirI->string() << std::endl;
 
             if (!FS::is_directory(*dirI))
             {
                 try
                 {
-                    LoadHD5Meta(dirI->path().string(), data);
+                    LoadHD5Meta(dirI->string(), data);
                 }
                 catch(...)
                 {
-                    std::cout << "Error loading file: " << dirI->path().string() << std::endl;
+                    std::cout << "Error loading file: " << dirI->string() << std::endl;
                 }
                /// FIXME Doesn't scan higher directories
             }

@@ -13,7 +13,7 @@
 #include "muir-gl-data.h"
 #include "muir-constants.h"
 
-#include <malloc.h>
+#include <cstdlib>
 #include <iostream>
 
 #include <boost/filesystem/path.hpp>
