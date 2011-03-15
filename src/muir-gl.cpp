@@ -8,7 +8,8 @@
 #include <iostream>
 #include <cmath>
 #include <complex>
-#include <stdlib.h>
+#include <cstdlib>
+#include <ctime>
 
 #ifdef __APPLE__
  #include <glut.h>
@@ -62,7 +63,7 @@ double walltime = 0.0;
 
 bool panel_file_open = false;
 int panel_file_scroll_offset = 0;
-int panel_file_x_min = 250;
+int panel_file_x_min = 500;
 
 // Data Handler
 std::vector<Muirgl_Data*> data;
@@ -156,7 +157,7 @@ void renderScene(void) {
 
     for(unsigned int i = 0; i < data.size(); i++)
     {
-        double x1 = (data[i]->radacstart-radac_min)/10000.0;
+        //double x1 = (data[i]->radacstart-radac_min)/10000.0;
         //double x2 = (iter->radacend-radac_min)/10000.0;
 
         data[i]->render(radac_position, texture_smooth);
@@ -272,25 +273,37 @@ void renderScene(void) {
             if ((data[i]->radacstart < (radac_position - (x_loc-window_w/scale)*10000 )) && (data[i]->radacend > (radac_position - (x_loc)*10000 )))
             {
                 glEnable(GL_BLEND);
-                glColor4f(0.2f,0.5f,0.7f,0.5f);
+                glColor4f(0.6f,0.5f,0.7f,0.5f);
                 glBegin( GL_QUADS );
-                glVertex2d(window_w-panel_file_x_min,(max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset-3);
-                glVertex2d(window_w-panel_file_x_min,(max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset+15);
-                glVertex2d(window_w                 ,(max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset+15);
-                glVertex2d(window_w                 ,(max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset-3);
+                glVertex2d(window_w-panel_file_x_min,(max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset-4);
+                glVertex2d(window_w-panel_file_x_min,(max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset+14);
+                glVertex2d(window_w                 ,(max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset+14);
+                glVertex2d(window_w                 ,(max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset-4);
                 glEnd();
                 glDisable(GL_BLEND);
             }
 
+            // Print Time
+            char gmtbuf[80];
+            char lclbuf[80];
+            char buf2[200];
+            time_t then;
+            struct tm *ts;
+            then = static_cast<time_t>(data[i]->radacstart/1000000.0);
+            ts = gmtime(&then);
+            strftime(gmtbuf, sizeof(gmtbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
+            ts = localtime(&then);
+            strftime(lclbuf, sizeof(lclbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
             glColor3f(1.0f,1.0f,1.0f);
             glRasterPos2f(window_w-panel_file_x_min+10, (max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset);
-            std::string s1 = data[i]->file_decoded.filename().string();
-            
-            for (std::string::iterator i = s1.begin(); i != s1.end(); ++i)
+            std::string s2 = std::string(lclbuf) + " (" + data[i]->file_decoded.filename().string() + ")";
+
+            for (std::string::iterator i = s2.begin(); i != s2.end(); ++i)
             {
                 char c = *i;
                 glutBitmapCharacter(font, c);
             }
+
         }
     }
 
@@ -364,7 +377,7 @@ void processNormalKeys(unsigned char key, int x, int y)
     if (key == 27) 
         exit(0);
     else if (key=='r') {
-        int mod = glutGetModifiers();
+        //int mod = glutGetModifiers();
         //if (mod == GLUT_ACTIVE_ALT)
 
     }
