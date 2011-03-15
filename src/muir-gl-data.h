@@ -53,6 +53,7 @@ class Muirgl_Data {
 
     private:
         unsigned int _sets;
+        bool _staged;
 };
 
 #endif //MUIR_GL_DATA_H

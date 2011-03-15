@@ -34,7 +34,8 @@ Muirgl_Data::Muirgl_Data(FS::path file)
     sample_range(boost::extents[1][1]),
     framecount(boost::extents[1][1]),
     radac_time(boost::extents[1][2]),
-    _sets(0)
+    _sets(0),
+    _staged(0)
 {
 
     // Open file
@@ -57,6 +58,11 @@ Muirgl_Data::Muirgl_Data(FS::path file)
 
 void Muirgl_Data::stage()
 {
+    if (_staged == 1)
+    {
+        return;
+    }
+
     unsigned int width, height;
     GLfloat * data;
 
@@ -78,8 +84,8 @@ void Muirgl_Data::stage()
     width = dataset_width;
     height = dataset_height;
 
-    texnames.resize(dataset_count);
-    glGenTextures( dataset_count, &texnames[0] );
+    texnames.resize(_sets);
+    glGenTextures( _sets, &texnames[0] );
 
     for (unsigned int set = 0; set < dataset_count; set++)
     {
@@ -134,10 +140,32 @@ void Muirgl_Data::stage()
         " Glerror?: " << glGetError() << std::endl;
     }
 
+    // Textures are setup!
+    _staged = true;
+}
+
+void Muirgl_Data::release()
+{
+    if (_staged == 0)
+    {
+        return;
+    }
+    else
+    {
+        _staged = false;
+    }
+
+    // Delete textures!
+    glDeleteTextures( _sets, &texnames[0] );
 }
 
 void Muirgl_Data::render(const double radac_min,const bool texture_smooth)
 {
+    if (_staged == 0)
+    {
+        return;
+    }
+
     for (unsigned int i = 0; i < _sets; i++)
     {
         double x1 = (radac_time[i][0]-radac_min)/10000.0;
