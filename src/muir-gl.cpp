@@ -52,8 +52,8 @@ float mouse_y_vel = 0.0f;
 double radac_max = 0.0;
 double radac_min = 0.0;
 double radac_position = 0.0;
-float scroll_vel = 10.0f;
-float scroll_acc = -2.0f;
+float scroll_vel = 0.0f;
+float scroll_acc = 0.0f;
 bool texture_smooth = true;
 double walltime = 0.0;
 
@@ -152,6 +152,9 @@ void renderScene(void) {
         double x1 = (data[i]->radacstart-radac_min)/10000.0;
         //double x2 = (iter->radacend-radac_min)/10000.0;
 
+        if ((data[i]->radacstart < (radac_min - (x_loc-window_w/scale)*10000 )) && (data[i]->radacend > (radac_min - (x_loc)*10000 )))
+            data[i]->stage();
+
         data[i]->render(radac_min, texture_smooth);
 
         glPushMatrix();
@@ -197,10 +200,18 @@ void renderScene(void) {
     glColor3f(1.0, 1.0, 1.0); // White
 
     glRasterPos2f(5, 5);
-    std::string s = "Color Scale: Min= " + boost::lexical_cast<std::string>(shader_data_min) + 
+    std::string s1 = "Color Scale: Min= " + boost::lexical_cast<std::string>(shader_data_min) + 
                                ", Max= " + boost::lexical_cast<std::string>(shader_data_max);
     
-    for (std::string::iterator i = s.begin(); i != s.end(); ++i)
+    for (std::string::iterator i = s1.begin(); i != s1.end(); ++i)
+    {
+        char c = *i;
+        glutBitmapCharacter(font, c);
+    }
+
+    glRasterPos2f(5, 20);
+    std::string s2 = "Position: X= " + boost::lexical_cast<std::string>(radac_min - x_loc*10000.0) + ", Y= " + boost::lexical_cast<std::string>(data[1]->radacstart);
+    for (std::string::iterator i = s2.begin(); i != s2.end(); ++i)
     {
         char c = *i;
         glutBitmapCharacter(font, c);
@@ -211,8 +222,8 @@ void renderScene(void) {
     //float mousepos_y = static_cast<float>(-mouse_y + window_h/2)/static_cast<float>(window_h)* 3.0f;
 
     glRasterPos2f(mouse_x, mouse_y);
-    s = "Mouse: " + boost::lexical_cast<std::string>(mouse_x) + "," + boost::lexical_cast<std::string>(mouse_y);
-    for (std::string::iterator i = s.begin(); i != s.end(); ++i)
+    std::string s3 = "Mouse: " + boost::lexical_cast<std::string>(mouse_x) + "," + boost::lexical_cast<std::string>(mouse_y);
+    for (std::string::iterator i = s3.begin(); i != s3.end(); ++i)
     {
         char c = *i;
         glutBitmapCharacter(font, c);
@@ -466,7 +477,7 @@ void LoadHD5Meta(const std::string &filename, std::vector<Muirgl_Data *> &datave
 
     Muirgl_Data *dataptr = new Muirgl_Data(filename);
 
-    dataptr->stage();
+    //dataptr->stage();
     datavec.push_back(dataptr);
 
 
