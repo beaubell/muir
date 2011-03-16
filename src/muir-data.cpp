@@ -191,7 +191,9 @@ void MuirData::save_decoded_data(const std::string &output_file)
     h5file.write_scalar_unit(RTI_DECODEDPHASECODEMUTING_PATH, _decode_config.phasecode_muting);
     h5file.write_scalar_unit(RTI_DECODEDDECODINGTHREADS_PATH, _decode_config.threads);
     h5file.write_string(RTI_DECODEDDECODINGPLATFORM_PATH, _decode_config.platform);
+    h5file.write_string(RTI_DECODEDDECODINGDEVICE_PATH, _decode_config.device);
     h5file.write_string(RTI_DECODEDDECODINGPROCESS_PATH, _decode_config.process);
+    h5file.write_string(RTI_DECODEDDECODINGPROCESSVER_PATH, _decode_config.process_version);
     h5file.write_scalar_double(RTI_DECODEDDECODINGTIME_PATH, _decode_config.decoding_time);
     h5file.write_string(RTI_DECODEDSOURCEFILE_PATH, _filename);
 

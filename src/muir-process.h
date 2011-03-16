@@ -28,7 +28,9 @@ class DecodingConfig
     unsigned int time_integration;
     unsigned int threads;
     std::string  platform;
+    std::string  device;
     std::string  process;
+    std::string  process_version;
     double decoding_time;
 
     DecodingConfig(void) :
@@ -37,7 +39,9 @@ class DecodingConfig
     time_integration(0),
     threads(0),
     platform(""),
+    device(""),
     process(""),
+    process_version(""),
     decoding_time(0.0)
     {}
 };

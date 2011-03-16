@@ -451,7 +451,7 @@ void processMouse(int button, int state, int x, int y)
             if(panel_file_open)
             {
                 int y_offset = window_h%18;
-                int index = ((window_h-y-y_offset + panel_file_scroll_offset*10)/18); // (max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset
+                size_t index = ((window_h-y-y_offset + panel_file_scroll_offset*10)/18); // (max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset
 
                 if(data.size() > index)
                 {

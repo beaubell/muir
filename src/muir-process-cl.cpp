@@ -40,7 +40,8 @@ using boost::bind;
 
 /// Constants
 static const std::string SectionName("OpenCL");
-static const std::string SectionVersion("0.2");
+static const std::string ProcessVersion("0.2");
+static const std::string ProcessString("OpenCL Decoding Process");
 
 /// OpenCL Global State
 std::vector<cl::Platform> muir_cl_platforms;
@@ -401,8 +402,10 @@ int process_data_cl(int id,
       config.threads = 1;
       config.fft_size = FFT_NSize;
       config.decoding_time = main_time.elapsed();
-      config.platform = muir_cl_devices[id].getInfo<CL_DEVICE_NAME>();
-      config.process = std::string("OpenCL Decoding Process Version: ") + SectionVersion;
+      config.platform = SectionName;
+      config.device = muir_cl_devices[id].getInfo<CL_DEVICE_NAME>();
+      config.process = ProcessString;
+      config.process_version = ProcessVersion;
       config.phasecode_muting = 0;
       config.time_integration = 0;
 

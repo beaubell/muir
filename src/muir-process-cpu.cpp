@@ -31,8 +31,9 @@ using namespace boost::accumulators;
 
 
 /// Constants
-static const std::string SectionName("CPU");
-static const std::string SectionVersion("0.3");
+static const std::string SectionName("CPU/OpenMP");
+static const std::string ProcessVersion("0.3");
+static const std::string ProcessString("CPU Decoding (single precision) Process");
 
 int process_init_cpu()
 {
@@ -252,8 +253,10 @@ int process_data_cpu(int id,
     //config.threads = 1; this is done earlier in the OpenMP context.
     config.fft_size = fft_size;
     config.decoding_time = main_time.elapsed();
-    config.platform = std::string("CPU");
-    config.process = std::string("CPU Decoding (single precision) Process Version: ") + SectionVersion;
+    config.platform = SectionName;
+    config.device = std::string("Unknown CPU");
+    config.process = ProcessString;
+    config.process_version = ProcessVersion;
     config.phasecode_muting = 0;
     config.time_integration = 0;
 
