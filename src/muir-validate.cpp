@@ -17,7 +17,7 @@ namespace fs = boost::filesystem;
 
 // Prototypes
 void print_help (void);
-double diff_sum(Muir3DArrayF &standard, Muir3DArrayF &test);
+double diff_sum(const Muir3DArrayF &standard, const Muir3DArrayF &test, Muir3DArrayF &output);
 
 int main (const int argc, const char * argv[])
 {
@@ -67,24 +67,66 @@ int main (const int argc, const char * argv[])
     // Get data
     Muir3DArrayF data_standard;
     Muir3DArrayF data_test;
+    Muir3DArrayF data_output;
 
     file_standard.read_3D_float(RTI_DECODEDDATA_PATH, data_standard);
     file_test.read_3D_float(RTI_DECODEDDATA_PATH, data_test);
 
-    diff_sum(data_standard, data_test);
+    diff_sum(data_standard, data_test, data_output);
+
+    // Output file
+    if(files.size() == 3)
+    {
+        if(fs::is_regular_file(files[2]))
+        {
+            std::cout << "Output File: " << files[2].string() << " exists!" << std::endl;
+            return 1;
+        }
+
+        MuirHD5 file_output( files[2].string(), H5F_ACC_TRUNC);
+
+        // Create group
+        file_output.createGroup(RTI_DECODEDDIR_PATH);
+        
+        // Prepare and write decoded sample data
+        file_output.write_3D_float(RTI_DECODEDDATA_PATH, data_output);
+
+        Muir2DArrayF _sample_range;
+        // Get range data
+        file_standard.read_2D_float(RTI_DECODEDRANGE_PATH, _sample_range);
+        // Prepare and write range data
+        file_output.write_2D_float(RTI_DECODEDRANGE_PATH, _sample_range);
+
+        Muir2DArrayD _time;
+        // Get radac data
+        file_standard.read_2D_double(RTI_DECODEDRADAC_PATH, _time);
+        // Prepare and write radac data
+        file_output.write_2D_double(RTI_DECODEDRADAC_PATH, _time);
+
+        Muir2DArrayUI _framecount;
+        // Get framecount data
+        file_standard.read_2D_uint(RTI_DECODEDFRAME_PATH, _framecount);
+        // Prepare and write framecount data
+        file_output.write_2D_uint(RTI_DECODEDFRAME_PATH, _framecount);
+        
+
+    }
 
     return 0;  // successfully terminated
 }
 
-double diff_sum(Muir3DArrayF &standard, Muir3DArrayF &test)
+double diff_sum(const Muir3DArrayF &standard, const Muir3DArrayF &test, Muir3DArrayF &output)
 {
     const Muir3DArrayF::size_type *array_dims = standard.shape();
     assert(standard.num_dimensions() == 3);
 
-    Muir4DArrayF::size_type max_sets = array_dims[0];
-    Muir4DArrayF::size_type max_cols = array_dims[1];
-    Muir4DArrayF::size_type max_range = array_dims[2];
+    Muir3DArrayF::size_type max_sets = array_dims[0];
+    Muir3DArrayF::size_type max_cols = array_dims[1];
+    Muir3DArrayF::size_type max_range = array_dims[2];
 
+    // Resize output
+    output.resize(boost::extents[max_sets][max_cols][max_range]);
+    
     float max_standard = -std::numeric_limits<float>::infinity( ), max_test = -std::numeric_limits<float>::infinity( );
     for (size_t set = 0; set < max_sets; set++)
         for (size_t col = 0; col < max_cols; col++)
@@ -104,7 +146,9 @@ double diff_sum(Muir3DArrayF &standard, Muir3DArrayF &test)
         for (size_t col = 0; col < max_cols; col++)
             for (size_t range = 0; range < max_range; range++)
             {
-                accumulator    += abs(standard[set][col][range] - test[set][col][range]);
+                double abs_diff = abs(standard[set][col][range] - test[set][col][range]);
+                accumulator += abs_diff;
+                output[set][col][range] = abs_diff;
                 sc_accumulator += abs(standard[set][col][range]/max_standard - test[set][col][range]/max_test);
             }
 
