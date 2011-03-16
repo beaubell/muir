@@ -13,8 +13,10 @@
 
 #ifdef __APPLE__
  #include <glut.h>
+ #include <glx.h>
 #else
  #include <GL/glut.h>
+ #include <GL/glx.h>
 #endif
 
 #include <vector>
@@ -23,6 +25,12 @@
 #include <boost/filesystem/convenience.hpp>
 #include <boost/timer.hpp>
 #include <boost/lexical_cast.hpp>
+
+#include <boost/thread.hpp>
+#include <boost/thread/mutex.hpp>
+boost::thread worker_thread;
+
+
 #include <CL/cl_platform.h>
 namespace FS = boost::filesystem;
 
@@ -38,6 +46,7 @@ void processMouseActiveMotion(int x, int y);
 void processMousePassiveMotion(int x, int y);
 void processMouseEntry(int state);
 void stage_unstage();
+void worker_loader(Display * display, GLXDrawable drawable, GLXContext glcontext );
 
 void LoadHD5Meta(const std::string &filename, std::vector<Muirgl_Data*> &data );
 void loadfiles(const std::string &dir);
@@ -77,6 +86,7 @@ int main(int argc, char **argv)
     // Initialize timer state
     walltime = static_cast<double>(glutGet(GLUT_ELAPSED_TIME))/1000.0;
 
+    XInitThreads();
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
     glutInitWindowPosition(10,10);
@@ -123,6 +133,7 @@ int main(int argc, char **argv)
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &texSize);
     std::cout << "Maximum texture size: " << texSize << std::endl;
 
+    stage_unstage();
     glutMainLoop();
 
     GLenum err = glGetError();
@@ -186,31 +197,11 @@ void renderScene(void) {
             }
             glPopMatrix();
     }
-    
-#if 0
-    glDisable( GL_TEXTURE_2D );
-    glColor3f(1.0f,1.0f,1.0f);
-    glBegin( GL_QUADS );
-    glVertex2d(0.5,0.5);
-    glVertex2d(1.0,0.5);
-    glVertex2d(1.0,1.0);
-    glVertex2d(0.5,1.0);
-    glEnd();
-#endif
 
     glPopMatrix();
 
     glPushMatrix();
 
-    glViewport(0, 0, window_w, window_h);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, window_w, 0, window_h, -1, 1);
-    //glOrtho(0, window_w, -window_h/2, window_h/2, -1, 1);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    
-    
     // Turn shader off
     muir_opengl_shader_switch(0);
 
@@ -219,7 +210,7 @@ void renderScene(void) {
     glRasterPos2f(5, 5);
     std::string s1 = "Color Scale: Min= " + boost::lexical_cast<std::string>(shader_data_min) + 
                                ", Max= " + boost::lexical_cast<std::string>(shader_data_max);
-    
+
     for (std::string::iterator i = s1.begin(); i != s1.end(); ++i)
     {
         char c = *i;
@@ -234,10 +225,7 @@ void renderScene(void) {
         glutBitmapCharacter(font, c);
     }
 
-    // Find mouse coords relative to opengl coords
-    //float mousepos_x = static_cast<float>(mouse_x - window_w/2)/static_cast<float>(window_w) * 3.0f;
-    //float mousepos_y = static_cast<float>(-mouse_y + window_h/2)/static_cast<float>(window_h)* 3.0f;
-
+    // display mouse coords
     glRasterPos2f(mouse_x, mouse_y);
     std::string s3 = "Mouse: " + boost::lexical_cast<std::string>(mouse_x) + "," + boost::lexical_cast<std::string>(mouse_y);
     for (std::string::iterator i = s3.begin(); i != s3.end(); ++i)
@@ -247,14 +235,12 @@ void renderScene(void) {
     }
 
     /// File Panel
-    
-
     if (panel_file_open)
     {
         glEnable (GL_BLEND);
         glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        glColor4f(0.2f,0.5f,0.2f,0.5f);
+        glColor4f(0.2f,0.5f,0.2f,0.7f);
         glBegin( GL_QUADS );
         glVertex2d(window_w-panel_file_x_min,window_h);
         glVertex2d(window_w-panel_file_x_min,0);
@@ -307,8 +293,6 @@ void renderScene(void) {
         }
     }
 
-    
-    glMatrixMode(GL_PROJECTION);
     glPopMatrix();
 
     glutSwapBuffers();
@@ -334,10 +318,8 @@ void idleFunc(void)
     //Process scroll velocity
     x_loc += scroll_vel * delta_t;
 
-    // Render Scene
     glutPostRedisplay();
 
-    stage_unstage();
 }
 
 
@@ -348,25 +330,16 @@ void changeSize(int w, int h) {
     if(h == 0)
         h = 1;
 
-    float ratio = 1.0* w / h;
-
-	// Reset the coordinate system before modifying
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-	
-	// Set the viewport to be the entire window
-    glViewport(0, 0, w, h);
-
-	// Set the correct perspective.
-    gluPerspective(45,ratio,1,1000);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    gluLookAt(0.0,0.0,5.0, 
-              0.0,0.0,-1.0,
-              0.0f,1.0f,0.0f);
-
     window_w = w;
     window_h = h;
+    glViewport(0, 0, window_w, window_h);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, window_w, 0, window_h, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    glMatrixMode(GL_PROJECTION);
+
 }
 
 void processNormalKeys(unsigned char key, int x, int y)
@@ -403,6 +376,7 @@ void processNormalKeys(unsigned char key, int x, int y)
         muir_GPU_send_variables();
     }
 
+    glutPostRedisplay();
 }
 
 void processSpecialKeys(int key, int x, int y)
@@ -435,6 +409,8 @@ void processSpecialKeys(int key, int x, int y)
              scale /= 1.5;
              break;
     }
+    stage_unstage();
+    glutPostRedisplay();
 }
 
 
@@ -497,9 +473,11 @@ void processMouse(int button, int state, int x, int y)
                 scale /= 1.5f;
             }
         }
+        
+
     }
 
-std::cout << "Mouse (" << button << ")" << std::endl;
+//std::cout << "Mouse (" << button << ")" << std::endl;
 
     if (state == GLUT_UP)
     {
@@ -522,7 +500,8 @@ std::cout << "Mouse (" << button << ")" << std::endl;
         //    red = 0.0; green = 0.0; blue = 1.0;
         //}
     //}
-
+    stage_unstage();
+    glutPostRedisplay();
 }
 
 
@@ -565,6 +544,8 @@ void processMouseActiveMotion(int x, int y) {
         y_loc += (y-mouse_y)/scale;
 
     mouse_y = y;
+    //stage_unstage();
+    glutPostRedisplay();
 }
 
 
@@ -591,6 +572,9 @@ void processMousePassiveMotion(int x, int y) {
 
    if ((mouse_x < window_w-panel_file_x_min))
        panel_file_open = false;
+
+   stage_unstage();
+   glutPostRedisplay();
 }
 
 
@@ -601,19 +585,55 @@ void processMouseEntry(int state) {
     //    deltaAngle = 1.0;
 }
 
+boost::condition_variable cond;
+boost::mutex mut;
 
 void stage_unstage()
 {
-    for(unsigned int i = 0; i < data.size(); i++)
+
+    if (!worker_thread.joinable())
     {
+        worker_thread = boost::thread(worker_loader, glXGetCurrentDisplay(), glXGetCurrentDrawable(), glXGetCurrentContext() );
+    }
 
-        if ((data[i]->radacstart < (radac_position - (x_loc-window_w/scale)*10000 )) && (data[i]->radacend > (radac_position - (x_loc)*10000 )))
-            data[i]->stage();
+    cond.notify_one();
 
-        if ((data[i]->radacstart > (radac_position - (x_loc-window_w/scale*3)*10000 )) || (data[i]->radacend < (radac_position - (x_loc+window_w/scale*2)*10000 )))
-            data[i]->release();
+    return;
+}
+
+void worker_loader(Display* display, GLXDrawable drawable, GLXContext glcontext )
+{
+    static int attrListDbl[] =
+    {
+        GLX_RGBA,    None
+    };
+
+    XVisualInfo * vi = glXChooseVisual( display, 0, attrListDbl);
+    GLXContext this_context = glXCreateContext(display, vi, glcontext, GL_TRUE);
+    glXMakeCurrent(display, drawable, this_context);
+
+    boost::unique_lock<boost::mutex> lock(mut);
+
+    while(1)
+    {
+        //std::cout << "tesT - " << std::clock() << std::endl;
+        cond.wait(lock);
+        for(unsigned int i = 0; i < data.size(); i++)
+        {
+
+            if ((data[i]->radacstart < (radac_position - (x_loc-window_w/scale)*10000 )) && (data[i]->radacend > (radac_position - (x_loc)*10000 )))
+                data[i]->stage();
+
+            if ((data[i]->radacstart > (radac_position - (x_loc-window_w/scale*3)*10000 )) || (data[i]->radacend < (radac_position - (x_loc+window_w/scale*2)*10000 )))
+                data[i]->release();
+
+        }
 
     }
+
+    glXMakeCurrent(display, drawable, NULL);
+    glXDestroyContext(display, this_context);
+    worker_thread.detach();
 
 }
 
@@ -640,9 +660,9 @@ void loadfiles(const std::string &dir)
     {
         typedef std::vector<FS::path> vec;             // store paths,
         vec v;                                // so we can sort them later
-        
+
         std::copy(FS::directory_iterator(path1), FS::directory_iterator(), std::back_inserter(v));
-        
+
         std::sort(v.begin(), v.end());   // sort, since directory iteration
                                     // is not ordered on some file systems
 
