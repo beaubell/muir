@@ -48,7 +48,6 @@ void processMousePassiveMotion(int x, int y);
 void processMouseEntry(int state);
 void stage_unstage();
 #ifdef __APPLE__
-//void worker_loader(AGLContext glcontext);
 void worker_loader(CGLContextObj glcontext);
 #else
 void worker_loader(Display * display, GLXDrawable drawable, GLXContext glcontext );
@@ -83,7 +82,6 @@ int panel_file_x_min = 500;
 std::vector<Muirgl_Data*> data;
 
 #ifdef __APPLE__
-//AGLContext main_glctx; 
 CGLContextObj main_glctx;
 #else
 GLXContext    main_glctx;
@@ -148,7 +146,6 @@ int main(int argc, char **argv)
 
     /// Grab OpenGL Context info for multithreading
     #ifdef __APPLE__
-    //main_glctx = aglGetCurrentContext();
     main_glctx = CGLGetCurrentContext();
     CGLEnable( main_glctx, kCGLCEMPEngine);
     #else
@@ -240,7 +237,7 @@ void renderScene(void) {
     }
 
     glRasterPos2f(5, 20);
-    std::string s2 = "Position: X= " + boost::lexical_cast<std::string>(radac_min - x_loc*10000.0) + ", Y= " + boost::lexical_cast<std::string>(data[1]->radacstart);
+    std::string s2 = "Position: X= " + boost::lexical_cast<std::string>(radac_min - x_loc*10000.0) + ", Y= " + boost::lexical_cast<std::string>(y_loc*10000);
     for (std::string::iterator i = s2.begin(); i != s2.end(); ++i)
     {
         char c = *i;
@@ -340,6 +337,7 @@ void idleFunc(void)
     //Process scroll velocity
     x_loc += scroll_vel * delta_t;
 
+    stage_unstage();
     glutPostRedisplay();
 
 }
@@ -454,12 +452,14 @@ void processMouse(int button, int state, int x, int y)
             {
                 int y_offset = window_h%18;
                 int index = ((window_h-y-y_offset + panel_file_scroll_offset*10)/18); // (max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset
-                
-                //scale = 1;
-                x_loc = 0;
-                //y_loc = 0;
-                radac_position = data[index]->radacstart;
-                
+
+                if(data.size() > index)
+                {
+                    //scale = 1;
+                    x_loc = 0;
+                    y_loc = 0;
+                    radac_position = data[index]->radacstart;
+                }
                 
             }
         }
