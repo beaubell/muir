@@ -32,7 +32,7 @@ using namespace boost::accumulators;
 
 /// Constants
 static const std::string SectionName("CPU");
-static const std::string SectionVersion("0.2");
+static const std::string SectionVersion("0.3");
 
 int process_init_cpu()
 {
@@ -64,12 +64,12 @@ int process_data_cpu(int id,
 
     Muir4DArrayF::size_type max_sets = array_dims[0];
     Muir4DArrayF::size_type max_cols = array_dims[1];
-    Muir4DArrayF::size_type max_rows = array_dims[2];
+    Muir4DArrayF::size_type num_rangebins = array_dims[2];
 
     std::size_t phasecode_size = phasecode.size();
 
     // Initialize decoded data boost multi_array;
-    decoded_data.resize(boost::extents[max_sets][max_cols][max_rows]);
+    decoded_data.resize(boost::extents[max_sets][max_cols][num_rangebins]);
 
     // Initialize timing structure
     timing_strings.clear();
@@ -79,8 +79,9 @@ int process_data_cpu(int id,
     timing_strings.push_back("Peakfind Time");  // 3
     timing_strings.push_back("Cleanup Time");   // 4
     timing_strings.push_back("Row Total Time"); // 5
-    timings.resize(boost::extents[timing_strings.size()][max_rows]);
+    timings.resize(boost::extents[timing_strings.size()][num_rangebins]);
 
+    unsigned int fft_size = 1024;  // Also used for normalization
 
     #pragma omp critical (fftw)
     {
@@ -90,11 +91,11 @@ int process_data_cpu(int id,
     
     // Calculate each row
     #pragma omp parallel for
-    for(unsigned int phase_code_offset = 0; phase_code_offset < max_rows; phase_code_offset++)
+    for(unsigned int phasecode_offset = 0; phasecode_offset < num_rangebins; phasecode_offset++)
     {
 
         // Write number of threads in config for first pass
-        if (phase_code_offset == 0)
+        if (phasecode_offset == 0)
             config.threads = omp_get_num_threads();
 
         // Row Timing
@@ -104,7 +105,7 @@ int process_data_cpu(int id,
         // Setup for row
         fftwf_complex *in, *out;
         fftwf_plan p;
-        unsigned int fft_size = max_rows;  // Also used for normalization
+
         int N[1] = {fft_size};
 
         // Display stats from first thread
@@ -112,7 +113,7 @@ int process_data_cpu(int id,
         if ( th_id == 0 && MUIR_Verbose)
             std::cout
                 << SectionName << "[" << id << "]"
-                << ": Progress:" << static_cast<float>(count(acc_row))/static_cast<float>(max_rows)*100.0 << "%"
+                << ": Progress:" << static_cast<float>(count(acc_row))/static_cast<float>(num_rangebins)*100.0 << "%"
                 << "  (Mean Timings [s]) Row TTL: " << mean(acc_row)
                 << ", Setup: " << mean(acc_setup)
                 << ", Copy/Phase/Zero: " << mean(acc_copyto)
@@ -131,39 +132,40 @@ int process_data_cpu(int id,
 
             // Timing Startup [0]
             acc_setup(stage_time.elapsed());
-            timings[0][phase_code_offset] = stage_time.elapsed();
+            timings[0][phasecode_offset] = stage_time.elapsed();
             stage_time.restart();
 
             // Copy data into fftw vector, apply phasecode, and zero out the rest
-            for(Muir4DArrayF::size_type row = 0; row < fft_size; row++)
+            for(Muir4DArrayF::size_type fft_row = 0; fft_row < fft_size; fft_row++)
             {
-                if((row >= phase_code_offset) && (row < (phasecode_size + phase_code_offset)))
+                if (fft_row > phasecode_size || (phasecode_offset + fft_row) > num_rangebins)
                 {
-                    float phase_multiplier = phasecode[row-phase_code_offset];
+                    for(std::size_t set = 0; set < max_sets; set++)
+                        for(std::size_t col = 0; col < max_cols; col++)
+                        {
+                            std::size_t index = set*(fft_size*max_cols) + col*(fft_size) + fft_row;
+                            in[index][0] = 0;
+                            in[index][1] = 0;
+                        }
+                }
+                else
+                {
+                    float phase_multiplier = phasecode[fft_row];
 
                     for(Muir4DArrayF::size_type set = 0; set < max_sets; set++)
                         for(Muir4DArrayF::size_type col = 0; col < max_cols; col++)
                         {
-                            Muir4DArrayF::size_type index = set*(fft_size*max_cols) + col*(fft_size) + row;
-                            in[index][0] = sample_data[set][col][row][0] * phase_multiplier;
-                            in[index][1] = sample_data[set][col][row][1] * phase_multiplier;
+                            Muir4DArrayF::size_type index = set*(fft_size*max_cols) + col*(fft_size) + fft_row;
+                            in[index][0] = sample_data[set][col][fft_row+phasecode_offset][0] * phase_multiplier;
+                            in[index][1] = sample_data[set][col][fft_row+phasecode_offset][1] * phase_multiplier;
                         }
                 }
-                else // ZEROS!
-            {
-                for(std::size_t set = 0; set < max_sets; set++)
-                    for(std::size_t col = 0; col < max_cols; col++)
-                    {
-                        std::size_t index = set*(fft_size*max_cols) + col*(fft_size) + row;
-                        in[index][0] = 0;
-                        in[index][1] = 0;
-                    }
-            }
+
             }
 
             // Timing Phasecode [1]
             acc_copyto(stage_time.elapsed());
-            timings[1][phase_code_offset] = stage_time.elapsed();
+            timings[1][phasecode_offset] = stage_time.elapsed();
             stage_time.restart();
 
             // Execute FFTW
@@ -171,7 +173,7 @@ int process_data_cpu(int id,
 
             // Timing FFT [2]
             acc_fftw(stage_time.elapsed());
-            timings[2][phase_code_offset] = stage_time.elapsed();
+            timings[2][phasecode_offset] = stage_time.elapsed();
             stage_time.restart();
 
             // Output FFTW data
@@ -199,14 +201,14 @@ int process_data_cpu(int id,
                     }
 
                     // Assign and normalize
-                    decoded_data[set][col][phase_code_offset] = sqrt(max_power)/fft_size;
-                    //decoded_data[set][col][phase_code_offset] = max_power/fft_size;
+                    decoded_data[set][col][phasecode_offset] = sqrt(max_power)/fft_size;
+  
             }
         }
 
         // Timing peakfind [3]
         acc_copyfrom(stage_time.elapsed());
-        timings[3][phase_code_offset] = stage_time.elapsed();
+        timings[3][phasecode_offset] = stage_time.elapsed();
         stage_time.restart();
 
         #pragma omp critical (fftw)
@@ -217,10 +219,10 @@ int process_data_cpu(int id,
         }
 
         // Timing Cleanup [4]
-        timings[4][phase_code_offset] = stage_time.elapsed();
+        timings[4][phasecode_offset] = stage_time.elapsed();
 
         // Timing Row [5]
-        timings[5][phase_code_offset] = row_time.elapsed();
+        timings[5][phasecode_offset] = row_time.elapsed();
         acc_row(row_time.elapsed());
     }
 
@@ -248,7 +250,7 @@ int process_data_cpu(int id,
 
     // Fill out config
     //config.threads = 1; this is done earlier in the OpenMP context.
-    config.fft_size = max_rows;
+    config.fft_size = fft_size;
     config.decoding_time = main_time.elapsed();
     config.platform = std::string("CPU");
     config.process = std::string("CPU Decoding (single precision) Process Version: ") + SectionVersion;
