@@ -13,7 +13,8 @@
 
 #ifdef __APPLE__
  #include <glut.h>
- #include <glx.h>
+ //#include <AGL/agl.h>
+ #include <OpenGL/OpenGL.h>
 #else
  #include <GL/glut.h>
  #include <GL/glx.h>
@@ -46,8 +47,12 @@ void processMouseActiveMotion(int x, int y);
 void processMousePassiveMotion(int x, int y);
 void processMouseEntry(int state);
 void stage_unstage();
+#ifdef __APPLE__
+//void worker_loader(AGLContext glcontext);
+void worker_loader(CGLContextObj glcontext);
+#else
 void worker_loader(Display * display, GLXDrawable drawable, GLXContext glcontext );
-
+#endif
 void LoadHD5Meta(const std::string &filename, std::vector<Muirgl_Data*> &data );
 void loadfiles(const std::string &dir);
 
@@ -77,7 +82,12 @@ int panel_file_x_min = 500;
 // Data Handler
 std::vector<Muirgl_Data*> data;
 
-
+#ifdef __APPLE__
+//AGLContext main_glctx; 
+CGLContextObj main_glctx;
+#else
+GLXContext    main_glctx;
+#endif
 
 int main(int argc, char **argv)
 {
@@ -86,7 +96,10 @@ int main(int argc, char **argv)
     // Initialize timer state
     walltime = static_cast<double>(glutGet(GLUT_ELAPSED_TIME))/1000.0;
 
+    #ifdef __APPLE__
+    #else
     XInitThreads();
+    #endif
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
     glutInitWindowPosition(10,10);
@@ -132,6 +145,15 @@ int main(int argc, char **argv)
     GLint texSize;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &texSize);
     std::cout << "Maximum texture size: " << texSize << std::endl;
+
+    /// Grab OpenGL Context info for multithreading
+    #ifdef __APPLE__
+    //main_glctx = aglGetCurrentContext();
+    main_glctx = CGLGetCurrentContext();
+    CGLEnable( main_glctx, kCGLCEMPEngine);
+    #else
+    main_glctx = glXGetCurrentContext();
+    #endif
 
     stage_unstage();
     glutMainLoop();
@@ -193,7 +215,7 @@ void renderScene(void) {
             for (std::string::const_iterator s = data[i]->file_decoded.string().begin(); s != data[i]->file_decoded.string().end(); ++s)
             {
                 char c = *s;
-                glutBitmapCharacter(font, c);
+                //glutBitmapCharacter(font, c);
             }
             glPopMatrix();
     }
@@ -593,7 +615,11 @@ void stage_unstage()
 
     if (!worker_thread.joinable())
     {
-        worker_thread = boost::thread(worker_loader, glXGetCurrentDisplay(), glXGetCurrentDrawable(), glXGetCurrentContext() );
+        #ifdef __APPLE__
+        worker_thread = boost::thread(worker_loader, main_glctx);
+        #else
+        worker_thread = boost::thread(worker_loader, glXGetCurrentDisplay(), glXGetCurrentDrawable(), main_glctx);
+        #endif
     }
 
     cond.notify_one();
@@ -601,8 +627,29 @@ void stage_unstage()
     return;
 }
 
+#ifdef __APPLE__
+//void worker_loader(AGLContext glcontext)
+void worker_loader(CGLContextObj glcontext)
+#else
 void worker_loader(Display* display, GLXDrawable drawable, GLXContext glcontext )
+#endif
 {
+    #ifdef __APPLE__
+    //GLint attrib[] = {AGL_RGBA, AGL_DOUBLEBUFFER, AGL_NONE};
+    //AGLPixelFormat aglPixFmt = aglChoosePixelFormat (NULL, 0, attrib);
+
+    //AGLContext this_context = aglCreateContext (aglPixFmt, glcontext);
+    //aglSetCurrentContext(this_context);
+    CGLPixelFormatAttribute attrib[] = {kCGLPFAAccelerated, (CGLPixelFormatAttribute)0};
+    CGLPixelFormatObj pixelFormat = NULL;
+    GLint numPixelFormats = 0;
+
+    CGLContextObj this_context = NULL;
+    CGLChoosePixelFormat (attrib, &pixelFormat, &numPixelFormats);
+    CGLCreateContext(pixelFormat, glcontext, &this_context);
+
+    CGLSetCurrentContext(this_context);
+    #else
     static int attrListDbl[] =
     {
         GLX_RGBA,    None
@@ -611,6 +658,7 @@ void worker_loader(Display* display, GLXDrawable drawable, GLXContext glcontext 
     XVisualInfo * vi = glXChooseVisual( display, 0, attrListDbl);
     GLXContext this_context = glXCreateContext(display, vi, glcontext, GL_TRUE);
     glXMakeCurrent(display, drawable, this_context);
+    #endif
 
     boost::unique_lock<boost::mutex> lock(mut);
 
@@ -631,10 +679,12 @@ void worker_loader(Display* display, GLXDrawable drawable, GLXContext glcontext 
 
     }
 
+    #ifdef __APPLE__
+    #else
     glXMakeCurrent(display, drawable, NULL);
     glXDestroyContext(display, this_context);
+    #endif
     worker_thread.detach();
-
 }
 
 
