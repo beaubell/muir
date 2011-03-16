@@ -282,7 +282,7 @@ void renderScene(void) {
             strftime(lclbuf, sizeof(lclbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
             glColor3f(1.0f,1.0f,1.0f);
             glRasterPos2f(window_w-panel_file_x_min+10, (max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset);
-            std::string s2 = std::string(lclbuf) + " (" + data[i]->file_decoded.filename().string() + ")";
+            std::string s2 = std::string(lclbuf) + " (" + data[i]->file_decoded.string() + ")";
 
             for (std::string::iterator i = s2.begin(); i != s2.end(); ++i)
             {
