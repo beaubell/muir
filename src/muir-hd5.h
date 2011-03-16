@@ -27,7 +27,7 @@ class MuirHD5 : public H5::H5File
 
         float read_scalar_float(const H5std_string &dataset_name) const;
 
-        void  write_scalar_unit(const H5std_string &dataset_name, unsigned int out);
+        void  write_scalar_uint(const H5std_string &dataset_name, unsigned int out);
         void  write_scalar_float(const H5std_string &dataset_name, float out);
         void  write_scalar_double(const H5std_string &dataset_name, double out);
 

@@ -70,7 +70,7 @@ void  MuirHD5::write_scalar_double(const H5std_string &dataset_name, double out)
 }
 
 
-void  MuirHD5::write_scalar_unit(const H5std_string &dataset_name, unsigned int out)
+void  MuirHD5::write_scalar_uint(const H5std_string &dataset_name, unsigned int out)
 {
     // Create dataspace
     H5::DataSpace dataspace(H5S_SCALAR);
