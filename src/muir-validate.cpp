@@ -72,6 +72,9 @@ int main (const int argc, const char * argv[])
     file_standard.read_3D_float(RTI_DECODEDDATA_PATH, data_standard);
     file_test.read_3D_float(RTI_DECODEDDATA_PATH, data_test);
 
+    unsigned int fftsize_standard = file_standard.read_scalar_uint(RTI_DECODEDFFTSIZE_PATH);
+    unsigned int fftsize_test = file_test.read_scalar_uint(RTI_DECODEDFFTSIZE_PATH);
+    
     diff_sum(data_standard, data_test, data_output);
 
     // Output file

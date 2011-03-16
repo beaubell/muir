@@ -15,6 +15,28 @@ MuirHD5::~MuirHD5()
 
 
 // Read a Scalar Float from a dataset path.
+unsigned int MuirHD5::read_scalar_uint(const H5std_string &dataset_name) const
+{
+    unsigned int data_out[1] = {0};
+
+    // Get dataset
+    H5::DataSet dataset = openDataSet( dataset_name );
+
+    // Get Type class
+    H5T_class_t type_class = dataset.getTypeClass();
+
+    // Check to see if we are dealing with floats
+    if( type_class != H5T_INTEGER )
+        throw(std::runtime_error(std::string(__FILE__) + ":" + std::string(QUOTEME(__LINE__)) + "  " +
+        std::string("Expecting UINT Type from ") + dataset_name + " in " + getFileName()));
+
+    // Read scalar float
+    dataset.read(data_out, H5::PredType::NATIVE_UINT);
+
+    return data_out[0];
+}
+
+// Read a Scalar Float from a dataset path.
 float MuirHD5::read_scalar_float(const H5std_string &dataset_name) const
 {
 
