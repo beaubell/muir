@@ -18,12 +18,13 @@ namespace fs = boost::filesystem;
 // Prototypes
 void print_help (void);
 double diff_sum(const Muir3DArrayF &standard, const Muir3DArrayF &test, Muir3DArrayF &output);
+unsigned int check_timing(const MuirHD5 &file);
 
 int main (const int argc, const char * argv[])
 {
     std::cout << "MUIR Validate, Version " << PACKAGE_VERSION << std::endl;
     
-    // There must at least be a file specified
+    // There must be at least two files specified
     if ( argc < 3 )
     {
         print_help();
@@ -74,8 +75,39 @@ int main (const int argc, const char * argv[])
 
     unsigned int fftsize_standard = file_standard.read_scalar_uint(RTI_DECODEDFFTSIZE_PATH);
     unsigned int fftsize_test = file_test.read_scalar_uint(RTI_DECODEDFFTSIZE_PATH);
-    
+
+    std::string srcfile_standard = file_standard.read_string(RTI_DECODEDSOURCEFILE_PATH);
+    std::string srcfile_test     = file_test.read_string(RTI_DECODEDSOURCEFILE_PATH);
+
+    std::cout << std::endl;
+    std::cout << "File 1: " << files[0].string() << std::endl;
+    std::cout << " -Source File: " << srcfile_standard << std::endl;
+    std::cout << " -FFT Size   : " << fftsize_standard << std::endl << std::endl;
+    std::cout << "File 2: " << files[1].string() << std::endl;
+    std::cout << " -Source File: " << srcfile_test << std::endl;
+    std::cout << " -FFT Size   : " << fftsize_test << std::endl << std::endl;
+
+    if(srcfile_standard != srcfile_test)
+    {
+        std::cout << "** Warning, Source files do not match." << std::endl;
+    }
+    if(fftsize_standard != fftsize_test)
+    {
+        std::cout << "** Warning, FFT sizes do not match." << std::endl;
+    }
+
+    std::cout << "Calculating differences..." << std::endl;
     diff_sum(data_standard, data_test, data_output);
+
+    std::cout << "Verifying Timing Information..." << std::endl;
+    unsigned int negs = 0;
+    negs = check_timing(file_standard);
+    if (negs)
+        std::cout << "Warning! " << file_standard.getFileName() << " has negative timing information." << std::endl;
+
+    negs = check_timing(file_test);
+    if (negs)
+        std::cout << "Warning! " << file_test.getFileName() << " has negative timing information." << std::endl;
 
     // Output file
     if(files.size() == 3)
@@ -90,7 +122,7 @@ int main (const int argc, const char * argv[])
 
         // Create group
         file_output.createGroup(RTI_DECODEDDIR_PATH);
-        
+
         // Prepare and write decoded sample data
         file_output.write_3D_float(RTI_DECODEDDATA_PATH, data_output);
 
@@ -111,7 +143,6 @@ int main (const int argc, const char * argv[])
         file_standard.read_2D_uint(RTI_DECODEDFRAME_PATH, _framecount);
         // Prepare and write framecount data
         file_output.write_2D_uint(RTI_DECODEDFRAME_PATH, _framecount);
-        
 
     }
 
@@ -129,7 +160,7 @@ double diff_sum(const Muir3DArrayF &standard, const Muir3DArrayF &test, Muir3DAr
 
     // Resize output
     output.resize(boost::extents[max_sets][max_cols][max_range]);
-    
+
     float max_standard = -std::numeric_limits<float>::infinity( ), max_test = -std::numeric_limits<float>::infinity( );
     for (size_t set = 0; set < max_sets; set++)
         for (size_t col = 0; col < max_cols; col++)
@@ -157,11 +188,38 @@ double diff_sum(const Muir3DArrayF &standard, const Muir3DArrayF &test, Muir3DAr
 
     std::cout << "       Sum Difference: " << accumulator << std::endl;
     std::cout << "Scaled Sum Difference: " << sc_accumulator << std::endl;
-    
-    
+
     return accumulator;
 }
 
+unsigned int check_timing(const MuirHD5 &file)
+{
+    Muir2DArrayD rowtiming;
+
+    file.read_2D_double(RTI_DECODEDROWTIMINGDATA_PATH, rowtiming);
+
+    const Muir2DArrayD::size_type *array_dims = rowtiming.shape();
+    assert(rowtiming.num_dimensions() == 2);
+
+    Muir3DArrayF::size_type num_stages = array_dims[0];
+    Muir3DArrayF::size_type num_rangebins = array_dims[1];
+
+    unsigned int num_negatives = 0;
+
+    for (size_t stage = 0; stage < num_stages; stage++)
+    {
+        for (size_t rangebin = 0; rangebin < num_rangebins; rangebin++)
+        {
+            if(rowtiming[stage][rangebin] < 0.0)
+            {
+                num_negatives++;
+            }
+
+        }
+    }
+
+    return num_negatives;
+}
 
 void print_help ()
 {
