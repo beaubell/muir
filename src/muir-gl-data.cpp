@@ -172,18 +172,21 @@ void Muirgl_Data::render(const double radac_min,const bool texture_smooth)
 
     for (unsigned int i = 0; i < _sets; i++)
     {
-        double x1 = (radac_time[i][0]-radac_min)/10000.0;
-        double x2 = (radac_time[i][1]-radac_min)/10000.0;
+        double x1 = (radac_time[i][0]-radac_min);
+        double x2 = (radac_time[i][1]-radac_min);
 
         glBindTexture( GL_TEXTURE_RECTANGLE_ARB, texnames[i] );
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, texture_smooth?GL_LINEAR:GL_NEAREST);
 
+        double range_min = sample_range[0][0];
+        double range_max = sample_range[0][datah-1];
+        
         glBegin( GL_QUADS );
-        glTexCoord2d(0.0  ,0.0  ); glVertex2d(x1,0.0);
-        glTexCoord2d(dataw,0.0  ); glVertex2d(x2,0.0);
-        glTexCoord2d(dataw,datah); glVertex2d(x2,datah);
-        glTexCoord2d(0.0  ,datah); glVertex2d(x1,datah);
+        glTexCoord2d(0.0  ,0.0  ); glVertex2d(x1,range_min);
+        glTexCoord2d(dataw,0.0  ); glVertex2d(x2,range_min);
+        glTexCoord2d(dataw,datah); glVertex2d(x2,range_max);
+        glTexCoord2d(0.0  ,datah); glVertex2d(x1,range_max);
         glEnd();
     }
 }

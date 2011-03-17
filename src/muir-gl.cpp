@@ -64,7 +64,10 @@ int window_w = 0;
 int window_h = 0;
 double x_loc = 0.0;
 double y_loc = 0.0;
-double scale = 1.0;
+const double x_scale_def = 0.0001;
+const double y_scale_def = 0.002;
+double x_scale = x_scale_def;
+double y_scale = y_scale_def;
 int mouse_x = 0;
 int mouse_y = 0;
 float mouse_x_vel = 0.0f;
@@ -172,7 +175,7 @@ void renderScene(void) {
     glPushMatrix();
 
     
-    glScaled(scale, scale, 1.0);
+    glScaled(x_scale, y_scale, 1.0);
     glTranslated(x_loc, y_loc, 0.0);
 
     // FIXME, use more parameters from the data.
@@ -202,13 +205,13 @@ void renderScene(void) {
     glPopMatrix();
 
     glPushMatrix();
-    glScaled(scale, 1.0, 1.0);
+    glScaled(x_scale, 1.0, 1.0);
     glTranslated(x_loc, 0.0, 0.0);
     muir_opengl_shader_switch(0);
     glColor3f(1.0, 1.0, 1.0); // White
     for(unsigned int i = 0; i < data.size(); i++)
     {
-        double x1 = (data[i]->radacstart-radac_position)/10000.0;
+        double x1 = (data[i]->radacstart-radac_position);
 
             glPushMatrix();
             glRasterPos2d(x1, 50.0);
@@ -240,20 +243,20 @@ void renderScene(void) {
     }
 
     glRasterPos2f(5, 20);
-    std::string s2 = "Position: X= " + boost::lexical_cast<std::string>(radac_min - x_loc*10000.0) + ", Y= " + boost::lexical_cast<std::string>(y_loc*10000);
+    std::string s2 = "Position: X= " + boost::lexical_cast<std::string>(radac_min - x_loc) + ", Y= " + boost::lexical_cast<std::string>(y_loc);
     for (std::string::iterator i = s2.begin(); i != s2.end(); ++i)
     {
         char c = *i;
         glutBitmapCharacter(font, c);
     }
 
-    double cursor_time_us = (radac_min + (-x_loc + mouse_x/scale)*10000.0);
+    double cursor_time_us = (radac_min + (-x_loc + mouse_x/x_scale));
     double cursor_time_s = cursor_time_us/1000000.0;
     double cursor_time_frac = (cursor_time_s - std::floor(cursor_time_s))*1000000.0;
     BSPT::ptime curs_time = BSPT::from_time_t((time_t)cursor_time_s);
     curs_time += BSPT::microseconds(cursor_time_frac);
 
-    double cursor_range = (-y_loc + mouse_y/scale);
+    double cursor_range = (-y_loc + mouse_y/y_scale)/1000.0;
     std::stringstream oss;
     oss << std::setprecision(5) << cursor_range;
 
@@ -261,7 +264,7 @@ void renderScene(void) {
     // display mouse coords
     //std::string s3 = "Time : " + boost::lexical_cast<std::string>(cursor_time);
     std::string s4 = BSPT::to_simple_string(curs_time);
-    std::string s3 = "Range: " + oss.str() + " km <- dirty lie!";
+    std::string s3 = "Range: " + oss.str() + " km";
     glRasterPos2f(mouse_x+10, mouse_y-30);
     for (std::string::iterator i = s3.begin(); i != s3.end(); ++i)
     {
@@ -297,7 +300,7 @@ void renderScene(void) {
         for(unsigned int i = 0; i < data.size(); i++)
         {
             // Highlight entries in view
-            if ((data[i]->radacstart < (radac_position - (x_loc-window_w/scale)*10000 )) && (data[i]->radacend > (radac_position - (x_loc)*10000 )))
+            if ((data[i]->radacstart < (radac_position - (x_loc-window_w/x_scale))) && (data[i]->radacend > (radac_position - (x_loc))))
             {
                 glEnable(GL_BLEND);
                 glColor4f(0.6f,0.5f,0.7f,0.5f);
@@ -323,7 +326,7 @@ void renderScene(void) {
             strftime(lclbuf, sizeof(lclbuf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
             glColor3f(1.0f,1.0f,1.0f);
             glRasterPos2f(window_w-panel_file_x_min+10, (max_entires-1-i)*18 + panel_file_scroll_offset*10 + y_offset);
-            std::string s2 = std::string(lclbuf) + " (" + data[i]->file_decoded.string() + ")";
+            std::string s2 = std::string(gmtbuf) + " (" + data[i]->file_decoded.leaf().string() + ")";
 
             for (std::string::iterator i = s2.begin(); i != s2.end(); ++i)
             {
@@ -441,14 +444,16 @@ void processSpecialKeys(int key, int x, int y)
         case GLUT_KEY_F3 : 
              break;
 	case GLUT_KEY_UP :
-             scale *= 1.5;
-             x_loc -= (window_w)/(scale*4);
-             y_loc -= (window_h)/(scale*4);
+             x_scale *= 1.5;
+             y_scale *= 1.5;
+             x_loc -= (window_w)/(x_scale*4);
+             y_loc -= (window_h)/(y_scale*4);
              break;
 	case GLUT_KEY_DOWN :
-             x_loc += (window_w)/(scale*4);
-             y_loc += (window_h)/(scale*4);
-             scale /= 1.5;
+             x_loc += (window_w)/(x_scale*4);
+             y_loc += (window_h)/(y_scale*4);
+             x_scale /= 1.5;
+             y_scale /= 1.5;
              break;
     }
     stage_unstage();
@@ -498,9 +503,10 @@ void processMouse(int button, int state, int x, int y)
             }
             else
             {
-                scale *= 1.5f;
-                x_loc -= (mouse_x)/(scale*2);
-                y_loc -= (mouse_y)/(scale*2);
+                x_scale *= 1.5f;
+                y_scale *= 1.5f;
+                x_loc -= (mouse_x)/(x_scale*2);
+                y_loc -= (mouse_y)/(y_scale*2);
             }
         }
 
@@ -512,9 +518,10 @@ void processMouse(int button, int state, int x, int y)
             }
             else
             {
-                x_loc += (mouse_x)/(scale*2);
-                y_loc += (mouse_y)/(scale*2);
-                scale /= 1.5f;
+                x_loc += (mouse_x)/(x_scale*2);
+                y_loc += (mouse_y)/(y_scale*2);
+                x_scale /= 1.5f;
+                y_scale /= 1.5f;
             }
         }
         
@@ -576,16 +583,16 @@ void processMouseActiveMotion(int x, int y) {
     y = window_h - y;
 
     if (x < mouse_x)
-       x_loc -= (mouse_x-x)/scale;
+       x_loc -= (mouse_x-x)/x_scale;
     else
-       x_loc += (x-mouse_x)/scale;
+       x_loc += (x-mouse_x)/x_scale;
 
     mouse_x = x;
 
     if (y > mouse_y)
-        y_loc -= (mouse_y-y)/scale;
+        y_loc -= (mouse_y-y)/y_scale;
     else
-        y_loc += (y-mouse_y)/scale;
+        y_loc += (y-mouse_y)/y_scale;
 
     mouse_y = y;
     //stage_unstage();
@@ -691,10 +698,10 @@ void worker_loader(Display* display, GLXDrawable drawable, GLXContext glcontext 
         for(unsigned int i = 0; i < data.size(); i++)
         {
 
-            if ((data[i]->radacstart < (radac_position - (x_loc-window_w/scale)*10000 )) && (data[i]->radacend > (radac_position - (x_loc)*10000 )))
+            if ((data[i]->radacstart < (radac_position - (x_loc-window_w/x_scale) )) && (data[i]->radacend > (radac_position - (x_loc) )))
                 data[i]->stage();
 
-            if ((data[i]->radacstart > (radac_position - (x_loc-window_w/scale*3)*10000 )) || (data[i]->radacend < (radac_position - (x_loc+window_w/scale*2)*10000 )))
+            if ((data[i]->radacstart > (radac_position - (x_loc-window_w/x_scale*3) )) || (data[i]->radacend < (radac_position - (x_loc+window_w/x_scale*2) )))
                 data[i]->release();
 
         }
