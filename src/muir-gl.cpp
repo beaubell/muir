@@ -24,16 +24,19 @@
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/convenience.hpp>
-#include <boost/timer.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include <boost/thread.hpp>
 #include <boost/thread/mutex.hpp>
-boost::thread worker_thread;
 
+#include <boost/date_time/posix_time/posix_time.hpp>
+
+// For loading textures
+boost::thread worker_thread;
 
 #include <CL/cl_platform.h>
 namespace FS = boost::filesystem;
+namespace BSPT = boost::posix_time;
 
 
 void renderScene(void);
@@ -244,10 +247,29 @@ void renderScene(void) {
         glutBitmapCharacter(font, c);
     }
 
+    double cursor_time_us = (radac_min + (-x_loc + mouse_x/scale)*10000.0);
+    double cursor_time_s = cursor_time_us/1000000.0;
+    double cursor_time_frac = (cursor_time_s - std::floor(cursor_time_s))*1000000.0;
+    BSPT::ptime curs_time = BSPT::from_time_t((time_t)cursor_time_s);
+    curs_time += BSPT::microseconds(cursor_time_frac);
+
+    double cursor_range = (-y_loc + mouse_y/scale);
+    std::stringstream oss;
+    oss << std::setprecision(5) << cursor_range;
+
+
     // display mouse coords
-    glRasterPos2f(mouse_x, mouse_y);
-    std::string s3 = "Mouse: " + boost::lexical_cast<std::string>(mouse_x) + "," + boost::lexical_cast<std::string>(mouse_y);
+    //std::string s3 = "Time : " + boost::lexical_cast<std::string>(cursor_time);
+    std::string s4 = BSPT::to_simple_string(curs_time);
+    std::string s3 = "Range: " + oss.str() + " km <- dirty lie!";
+    glRasterPos2f(mouse_x+10, mouse_y-30);
     for (std::string::iterator i = s3.begin(); i != s3.end(); ++i)
+    {
+        char c = *i;
+        glutBitmapCharacter(font, c);
+    }
+    glRasterPos2f(mouse_x+10, mouse_y-48);
+    for (std::string::iterator i = s4.begin(); i != s4.end(); ++i)
     {
         char c = *i;
         glutBitmapCharacter(font, c);
