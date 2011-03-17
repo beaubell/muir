@@ -262,6 +262,18 @@ void renderScene(void) {
 
 
     // display mouse coords
+    glEnable(GL_BLEND);
+    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(0.2f,0.2f,0.2f,0.5f);
+    glBegin( GL_QUADS );
+    glVertex2d(mouse_x+5 ,mouse_y-55);
+    glVertex2d(mouse_x+5 ,mouse_y-15);
+    glVertex2d(mouse_x+255,mouse_y-15);
+    glVertex2d(mouse_x+255,mouse_y-55);
+    glEnd();
+    glDisable(GL_BLEND);
+
+    glColor3f(1.0f,1.0f,1.3f);
     //std::string s3 = "Time : " + boost::lexical_cast<std::string>(cursor_time);
     std::string s4 = BSPT::to_simple_string(curs_time);
     std::string s3 = "Range: " + oss.str() + " km";
