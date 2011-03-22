@@ -11,12 +11,12 @@
 //
 //
 
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <ctime>
 
 namespace MUIR
 {
 
-namespace BST_PT = boost::posix_time;
+//namespace BST_PT = boost::posix_time;
 
 class Timer
 {
@@ -28,8 +28,10 @@ class Timer
     void   restart();
 
   private:
-    BST_PT::ptime _starttime;
-
+    //BST_PT::ptime _starttime;
+    timespec _starttime;
+    timespec diff(const timespec &start, const timespec &end) const;
+    timespec gettime();
 };
 
 
