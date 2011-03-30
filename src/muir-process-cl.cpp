@@ -171,7 +171,9 @@ int process_data_cl(int id,
                     Muir3DArrayF& output_data,
                     DecodingConfig &config,
                     std::vector<std::string>& timing_strings,
-                    Muir2DArrayD& timings)
+                    Muir2DArrayD& timings,
+                    Muir4DArrayF& complex_intermediate
+                   )
 {
     MUIR::Timer main_time;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_setup;

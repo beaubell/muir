@@ -159,7 +159,9 @@ int MuirData::decode(int id)
     }
 
     // Call general decoding process
-    int err = process_data(id, _sample_data, _phasecode, _decoded_data, _decode_config, _decode_timing_strings, _decode_timings);
+    Muir4DArrayF complex_intermediate;
+
+    int err = process_data(id, _sample_data, _phasecode, _decoded_data, _decode_config, _decode_timing_strings, _decode_timings, complex_intermediate);
 
     return err;
 }

@@ -20,6 +20,15 @@
 #define MUIR_DECODE_GPU_OPENCL 0x02
 #define MUIR_DECODE_GPU_CUDA   0x04
 
+enum Decoding_Stage
+{
+    ALL,
+    STAGE_TIMEINTEGRATION,
+    STAGE_PHASECODE,
+    STAGE_POSTFFT,
+    STAGE_POWER
+};
+
 class DecodingConfig
 {
   public:
@@ -32,6 +41,8 @@ class DecodingConfig
     std::string  process;
     std::string  process_version;
     double decoding_time;
+    Decoding_Stage intermediate_stage;
+    unsigned int intermediate_row;
 
     DecodingConfig(void) :
     fft_size(1024),
@@ -42,7 +53,9 @@ class DecodingConfig
     device(""),
     process(""),
     process_version(""),
-    decoding_time(0.0)
+    decoding_time(0.0),
+    intermediate_stage(ALL),
+    intermediate_row(0)
     {}
 };
 
@@ -54,7 +67,9 @@ int process_data(int id,
                  Muir3DArrayF& decoded_data,
                  DecodingConfig &config,
                  std::vector<std::string>& timing_strings,
-                 Muir2DArrayD& timings);
+                 Muir2DArrayD& timings,
+                 Muir4DArrayF& complex_intermediate
+                );
 int process_get_num_devices();
 
 #endif //MUIR_PROCESS_H

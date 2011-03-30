@@ -22,6 +22,8 @@ int process_data_cpu(int id,
                      Muir3DArrayF& decoded_data,
                      DecodingConfig &config,
                      std::vector<std::string>& timing_strings,
-                     Muir2DArrayD& timings);
+                     Muir2DArrayD& timings,
+                     Muir4DArrayF& complex_intermediate
+                    );
 
 #endif //MUIR_PROCESS_CPU_H
