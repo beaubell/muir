@@ -160,6 +160,8 @@ int MuirData::decode(int id)
 
     // Call general decoding process
     Muir4DArrayF complex_intermediate;
+    //_decode_config.intermediate_row = 300;
+    //_decode_config.intermediate_stage = STAGE_PHASECODE;
 
     int err = process_data(id, _sample_data, _phasecode, _decoded_data, _decode_config, _decode_timing_strings, _decode_timings, complex_intermediate);
 

@@ -22,7 +22,7 @@
 
 enum Decoding_Stage
 {
-    ALL,
+    STAGE_ALL,
     STAGE_TIMEINTEGRATION,
     STAGE_PHASECODE,
     STAGE_POSTFFT,
@@ -54,7 +54,7 @@ class DecodingConfig
     process(""),
     process_version(""),
     decoding_time(0.0),
-    intermediate_stage(ALL),
+    intermediate_stage(STAGE_ALL),
     intermediate_row(0)
     {}
 };

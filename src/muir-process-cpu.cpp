@@ -100,19 +100,26 @@ int process_data_cpu(int id,
     /// Configure FFT Size
     unsigned int fft_size = config.fft_size;  // Also used for normalization
 
-    /// Setup for Intermediate Data Gathering
+    /// Configure References
     unsigned int start_row = config.intermediate_row;
     unsigned int end_row = num_rangebins;
-    bool stop_after_phasecode = (config.intermediate_stage == STAGE_PHASECODE);
-    bool stop_after_fft = (config.intermediate_stage == STAGE_POSTFFT);
-    //bool do_fft = (config.intermediate_stage == STAGE_POSTFFT);
-    //bool do_rest = (config.intermediate_stage == STAGE_ALL);
+    
+    const Muir4DArrayF& sample_data_ref = sample_data;
+    //const Muir4DArrayF& post_integration_ref = sample_data;  // Since we don't Implement time integration yet.
 
-    if (stop_after_phasecode || stop_after_fft)
+    if (!(config.intermediate_stage == STAGE_ALL))
     {
+        /// Setup for Intermediate Data Gathering
+        start_row = config.intermediate_row;
+        end_row = config.intermediate_row + 1;
+
         /// Initialize intermediate data structure;
-        complex_intermediate.resize(boost::extents[max_sets][max_cols][fft_size][2]);
-        end_row = start_row;
+        if (config.intermediate_stage == STAGE_TIMEINTEGRATION)
+        {
+            complex_intermediate.resize(boost::extents[max_sets][max_cols][num_rangebins][2]);
+            //post_integration_ref = complex_intermediate;
+        }
+
     }
     else
     {
@@ -120,22 +127,58 @@ int process_data_cpu(int id,
         decoded_data.resize(boost::extents[max_sets][max_cols][num_rangebins]);
     }
 
+    /// Time Integration
+    //time_integration(sample_data_ref, post_integration_ref, 0);
+    if (config.intermediate_stage == STAGE_TIMEINTEGRATION)
+        return 0;
+
+
     // Calculate each row
     #pragma omp parallel for
     for(unsigned int phasecode_offset = start_row; phasecode_offset < end_row; phasecode_offset++)
     {
+        // Row Timing
+        MUIR::Timer row_time;
+        MUIR::Timer stage_time;
 
         // Write number of threads in config for first pass
         if (phasecode_offset == start_row)
             config.threads = omp_get_num_threads();
 
-        // Row Timing
-        MUIR::Timer row_time;
-        MUIR::Timer stage_time;
+        /// Configure References
+        Muir4DArrayF fft_in  = Muir4DArrayF(boost::extents[1][1][1][2]);
+        Muir4DArrayF fft_out = Muir4DArrayF(boost::extents[1][1][1][2]);
+        Muir4DArrayF& fft_in_ref = fft_in;   // Defaults
+        Muir4DArrayF& fft_out_ref = fft_out; // Defaults
 
-        // Setup for row
-        Muir4DArrayF fft_in  = Muir4DArrayF(boost::extents[max_sets][max_cols][fft_size][2]);
-        Muir4DArrayF fft_out = Muir4DArrayF(boost::extents[max_sets][max_cols][fft_size][2]);
+        switch(config.intermediate_stage)
+        {
+            case STAGE_ALL:
+                fft_in_ref = fft_in;
+                fft_out_ref = fft_out;
+                break;
+            case STAGE_PHASECODE:
+                fft_in_ref = complex_intermediate;
+                fft_out_ref = fft_out;
+                break;
+            case STAGE_POSTFFT:
+                fft_in_ref = fft_in;
+                fft_out_ref = complex_intermediate;
+                break;
+            case STAGE_POWER:
+                // NOT USED
+                throw std::logic_error("process_cpu_data(): STAGE_POWER is not handled in this process.");
+                break;
+            case STAGE_TIMEINTEGRATION:
+                // Uh oh!
+                throw std::logic_error("process_cpu_data(): Something bad happenend, we should not be handling time integration here.");
+                break;
+        }
+
+        // Allocate Memory
+        fft_in_ref.resize(boost::extents[max_sets][max_cols][fft_size][2]);
+        fft_out_ref.resize(boost::extents[max_sets][max_cols][fft_size][2]);
+
         fftwf_plan p;
 
         int N[1] = {fft_size};
@@ -157,7 +200,7 @@ int process_data_cpu(int id,
 
         #pragma omp critical (fftw)
         {
-            p = fftwf_plan_many_dft(1, N, max_sets*max_cols, (float (*)[2])fft_in.data(), NULL, 1, fft_size, (float (*)[2])fft_out.data(), NULL, 1, fft_size, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
+            p = fftwf_plan_many_dft(1, N, max_sets*max_cols, (float (*)[2])fft_in_ref.data(), NULL, 1, fft_size, (float (*)[2])fft_out_ref.data(), NULL, 1, fft_size, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
         }
 
         // Timing Startup [0]
@@ -166,7 +209,7 @@ int process_data_cpu(int id,
         stage_time.restart();
 
         // Apply Phasecode
-        apply_phasecode(phasecode_offset, sample_data, phasecode, fft_in, 0 ,0);
+        apply_phasecode(phasecode_offset, sample_data_ref, phasecode, fft_in_ref, 0 ,0);
 
         // Timing Phasecode [1]
         acc_copyto(stage_time.elapsed());
@@ -174,7 +217,8 @@ int process_data_cpu(int id,
         stage_time.restart();
 
         // Execute FFTW
-        fftwf_execute(p);
+        if (!(config.intermediate_stage == STAGE_PHASECODE))
+            fftwf_execute(p);
 
         // Timing FFT [2]
         acc_fftw(stage_time.elapsed());
@@ -182,7 +226,8 @@ int process_data_cpu(int id,
         stage_time.restart();
 
         // Execute Peak Finding
-        find_peak(phasecode_offset, fft_out, decoded_data, 0 ,0);
+        if (!(config.intermediate_stage == STAGE_PHASECODE || config.intermediate_stage == STAGE_POSTFFT))
+            find_peak(phasecode_offset, fft_out_ref, decoded_data, 0 ,0);
 
         // Timing peakfind [3]
         acc_copyfrom(stage_time.elapsed());
@@ -318,7 +363,7 @@ void find_peak(const unsigned int range_offset,
     {
         for(std::size_t col = 0; col < in_cols; col++)
         {
-            float        max_power = 0.0f;
+            float max_power = 0.0f;
 
             // Iterate through the column spectra and find the max value
             for(std::size_t row = 0; row < fft_size; row++)
