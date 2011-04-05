@@ -67,7 +67,7 @@ std::string kernel_function[4] = {"phasecode",
 
 
 void decode_cl_load_kernels(void);
-
+float get_seconds_elapsed(cl::Event& ev);
 
 int process_init_cl(void* opengl_ctx)
 {
@@ -254,17 +254,17 @@ int process_data_cl(int id,
       cl::Buffer cl_buf_output    = cl::Buffer(muir_cl_context, CL_MEM_WRITE_ONLY, output_size, NULL, &err);
 
 
-      cl::Event event;
+      cl::Event in_sample_event, in_phasecode_event, in_prefftdata_event, in_postfftdata_event, in_outputdata_event;
       cl::CommandQueue queue(muir_cl_context, muir_cl_devices[id], CL_QUEUE_PROFILING_ENABLE, &err);
 
       std::cout << SectionName << ": GPU[" << id << "] Pushing data to the GPU" << std::endl;
 
       //push our CPU arrays to the GPU
-      err = queue.enqueueWriteBuffer(cl_buf_sample,    CL_TRUE, 0, sample_size,     sample_data.data(), NULL, &event);
-      err = queue.enqueueWriteBuffer(cl_buf_phasecode, CL_TRUE, 0, phasecode_size,  &phasecode[0],       NULL, &event);
-      err = queue.enqueueWriteBuffer(cl_buf_prefft,    CL_TRUE, 0, sample_size,     prefft_data.data(), NULL, &event);
-      err = queue.enqueueWriteBuffer(cl_buf_postfft,   CL_TRUE, 0, sample_size,     postfft_data.data(), NULL, &event);
-      err = queue.enqueueWriteBuffer(cl_buf_output,    CL_TRUE, 0, output_size,     output_data.data(), NULL, &event);
+      err = queue.enqueueWriteBuffer(cl_buf_sample,    CL_TRUE, 0, sample_size,     sample_data.data(), NULL, &in_sample_event);
+      err = queue.enqueueWriteBuffer(cl_buf_phasecode, CL_TRUE, 0, phasecode_size,  &phasecode[0],       NULL, &in_phasecode_event);
+      err = queue.enqueueWriteBuffer(cl_buf_prefft,    CL_TRUE, 0, sample_size,     prefft_data.data(), NULL, &in_prefftdata_event);
+      err = queue.enqueueWriteBuffer(cl_buf_postfft,   CL_TRUE, 0, sample_size,     postfft_data.data(), NULL, &in_prefftdata_event);
+      err = queue.enqueueWriteBuffer(cl_buf_output,    CL_TRUE, 0, output_size,     output_data.data(), NULL, &in_outputdata_event);
 
 
       std::cout << SectionName << ": GPU[" << id << "] Load Experiment Data Time: " << stage_time.elapsed() << std::endl;
@@ -352,53 +352,40 @@ int process_data_cl(int id,
           stage2_event_list.push_back(stage2_event);
           stage3_event_list.push_back(stage3_event);
           stage4_event_list.push_back(stage4_event);
-     }
+      }
 
-     queue.finish();
+      queue.finish();
 
-     // Get timing information
-     cl_ulong start, end;
-     for (unsigned int i = 0; i < stage1_event_list.size(); i++)
-     {
-         timings[0][i] = 0.0; // Startup
+      std::cout.precision(10);
+      std::cout << SectionName << ": GPU[" << id << "] OpenCL Process Stage Wall-time: " << stage_time.elapsed() << std::endl;
+      stage_time.restart();
 
-         stage1_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
-         stage1_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
-         float stage1exec = (end - start) * 1.0e-9f;
-         timings[1][i] = stage1exec; // Phasecode
-
-         stage2_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
-         stage2_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
-         float stage2exec = ((end - start) * 1.0e-9f) ;
-         timings[2][i] = stage2exec; // FFT
-
-         stage3_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
-         stage3_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
-         float stage3exec = ((end - start) * 1.0e-9f) ;
-         timings[3][i] = stage3exec; // Power
-
-         stage4_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
-         stage4_event_list[i].getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
-         float stage4exec = ((end - start) * 1.0e-9f) ;
-         timings[4][i] = stage4exec; // Peakfind
-
-         timings[5][i] = stage1exec + stage2exec + stage3exec + stage4exec; // Row TTL
-     }
-
-
-     std::cout.precision(10);
-     std::cout << SectionName << ": GPU[" << id << "] OpenCL Stage 1+2+3 Time: " << stage_time.elapsed() << std::endl;
-     stage_time.restart();
-
-     std::cout << SectionName << ": GPU[" << id << "] Downloading data from GPU..." << std::endl;
+     
+     
+      std::cout << SectionName << ": GPU[" << id << "] Downloading data from GPU..." << std::endl;
       //lets check our calculations by reading from the device memory and printing out the results
-      err = queue.enqueueReadBuffer(cl_buf_output, CL_TRUE, 0, output_size, output_data.data(), NULL, &event);
+      cl::Event out_outputdata_event;
+      err = queue.enqueueReadBuffer(cl_buf_output, CL_TRUE, 0, output_size, output_data.data(), NULL, &out_outputdata_event);
       //err = queue.enqueueReadBuffer(cl_buf_postfft, CL_TRUE, 0, sample_size, postfft_data.data(), NULL, &event);
       //err = queue.enqueueReadBuffer(cl_buf_prefft, CL_TRUE, 0, sample_size, prefft_data.data(), NULL, &event);
 
       queue.finish();
-      event.wait();
+      out_outputdata_event.wait();
 
+
+      // Get timing information
+      for (unsigned int i = 0; i < stage1_event_list.size(); i++)
+      {
+          timings[0][i] = 0.0; // Startup
+          timings[1][i] = get_seconds_elapsed(stage1_event_list[i]); // Phasecode
+          timings[2][i] = get_seconds_elapsed(stage2_event_list[i]); // FFT
+          timings[3][i] = get_seconds_elapsed(stage3_event_list[i]); // Power
+          timings[4][i] = get_seconds_elapsed(stage4_event_list[i]);; // Peakfind
+          timings[5][i] = timings[1][i] + timings[2][i]+ timings[3][i]+ timings[4][i]; // Row TTL
+      }
+
+      std::cout << "Transfer in time : " << get_seconds_elapsed(in_sample_event)      << std::endl;
+      std::cout << "Transfer out time: " << get_seconds_elapsed(out_outputdata_event) << std::endl;
 
       // Fill out config
       config.threads = 1;
@@ -429,5 +416,14 @@ int process_data_cl(int id,
     }
 
     return EXIT_SUCCESS;
+}
+
+// Get Seconds elapsed with an OpenCL Event
+float get_seconds_elapsed(cl::Event& ev)
+{
+    cl_ulong start, end;
+    ev.getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
+    ev.getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
+    return (end - start) * 1.0e-9f;
 }
 
