@@ -70,7 +70,7 @@ timespec Timer::gettime()
 {
     timespec current_time;
 
-    int ret = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &current_time);
+    int ret = clock_gettime(CLOCK_MONOTONIC, &current_time);
     if (ret != 0)
         throw std::runtime_error("Unable to read high resolution clock!");
 
