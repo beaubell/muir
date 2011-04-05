@@ -148,22 +148,24 @@ int process_data_cpu(int id,
         /// Configure References
         Muir4DArrayF fft_in  = Muir4DArrayF(boost::extents[1][1][1][2]);
         Muir4DArrayF fft_out = Muir4DArrayF(boost::extents[1][1][1][2]);
-        Muir4DArrayF& fft_in_ref = fft_in;   // Defaults
-        Muir4DArrayF& fft_out_ref = fft_out; // Defaults
+        Muir4DArrayF* fft_in_ptr = &fft_in;   // Defaults
+        Muir4DArrayF* fft_out_ptr = &fft_out; // Defaults
 
         switch(config.intermediate_stage)
         {
             case STAGE_ALL:
-                fft_in_ref = fft_in;
-                fft_out_ref = fft_out;
+                fft_in_ptr = &fft_in;
+                fft_out_ptr = &fft_out;
                 break;
             case STAGE_PHASECODE:
-                fft_in_ref = complex_intermediate;
-                fft_out_ref = fft_out;
+                fft_in_ptr = &complex_intermediate;
+                fft_out_ptr = &fft_out;
+
+                //complex_intermediate.resize(boost::extents[max_sets][max_cols][fft_size][2]);
                 break;
             case STAGE_POSTFFT:
-                fft_in_ref = fft_in;
-                fft_out_ref = complex_intermediate;
+                fft_in_ptr = &fft_in;
+                fft_out_ptr = &complex_intermediate;
                 break;
             case STAGE_POWER:
                 // NOT USED
@@ -176,8 +178,8 @@ int process_data_cpu(int id,
         }
 
         // Allocate Memory
-        fft_in_ref.resize(boost::extents[max_sets][max_cols][fft_size][2]);
-        fft_out_ref.resize(boost::extents[max_sets][max_cols][fft_size][2]);
+        fft_in_ptr->resize(boost::extents[max_sets][max_cols][fft_size][2]);
+        fft_out_ptr->resize(boost::extents[max_sets][max_cols][fft_size][2]);
 
         fftwf_plan p;
 
@@ -200,7 +202,7 @@ int process_data_cpu(int id,
 
         #pragma omp critical (fftw)
         {
-            p = fftwf_plan_many_dft(1, N, max_sets*max_cols, (float (*)[2])fft_in_ref.data(), NULL, 1, fft_size, (float (*)[2])fft_out_ref.data(), NULL, 1, fft_size, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
+            p = fftwf_plan_many_dft(1, N, max_sets*max_cols, (float (*)[2])fft_in_ptr->data(), NULL, 1, fft_size, (float (*)[2])fft_out_ptr->data(), NULL, 1, fft_size, FFTW_FORWARD, FFTW_MEASURE | FFTW_DESTROY_INPUT);
         }
 
         // Timing Startup [0]
@@ -209,7 +211,7 @@ int process_data_cpu(int id,
         stage_time.restart();
 
         // Apply Phasecode
-        apply_phasecode(phasecode_offset, sample_data_ref, phasecode, fft_in_ref, 0 ,0);
+        apply_phasecode(phasecode_offset, sample_data_ref, phasecode, *fft_in_ptr, 0 ,0);
 
         // Timing Phasecode [1]
         acc_copyto(stage_time.elapsed());
@@ -227,7 +229,7 @@ int process_data_cpu(int id,
 
         // Execute Peak Finding
         if (!(config.intermediate_stage == STAGE_PHASECODE || config.intermediate_stage == STAGE_POSTFFT))
-            find_peak(phasecode_offset, fft_out_ref, decoded_data, 0 ,0);
+            find_peak(phasecode_offset, *fft_out_ptr, decoded_data, 0 ,0);
 
         // Timing peakfind [3]
         acc_copyfrom(stage_time.elapsed());
