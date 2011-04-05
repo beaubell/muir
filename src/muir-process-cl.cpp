@@ -175,6 +175,7 @@ int process_data_cl(int id,
                     Muir4DArrayF& complex_intermediate
                    )
 {
+    /// Setup Timers
     MUIR::Timer main_time;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_setup;
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyto;
@@ -182,8 +183,49 @@ int process_data_cl(int id,
     accumulator_set< double, features< tag::min, tag::mean, tag::max > > acc_copyfrom;
     accumulator_set< double, features< tag::count, tag::min, tag::mean, tag::max > > acc_row;
 
+    /// Get sizes that we are working with
+    const Muir4DArrayF::size_type *array_dims = sample_data.shape();
 
-    
+    std::vector<size_t> ex;
+    ex.assign( array_dims, array_dims+sample_data.num_dimensions() );
+
+    Muir4DArrayF prefft_data(ex);
+    Muir4DArrayF postfft_data(ex);
+
+    Muir4DArrayF::size_type max_sets = array_dims[0];
+    Muir4DArrayF::size_type max_cols = array_dims[1];
+    Muir4DArrayF::size_type num_rangebins = array_dims[2];
+
+    output_data.resize(boost::extents[max_sets][max_cols][num_rangebins]);
+
+    /// Setup for partial processing, if requested
+    unsigned int start_row = config.intermediate_row;
+    unsigned int end_row = num_rangebins;
+
+    if (!(config.intermediate_stage == STAGE_ALL))
+    {
+        // Setup for Intermediate Data Gathering
+        start_row = config.intermediate_row;
+        end_row = config.intermediate_row + 1;
+
+        // Initialize intermediate data structure;
+        if (config.intermediate_stage == STAGE_TIMEINTEGRATION)
+        {
+            complex_intermediate.resize(boost::extents[max_sets][max_cols][num_rangebins][2]);
+            //post_integration_ref = complex_intermediate;
+        }
+        else
+        {
+            complex_intermediate.resize(boost::extents[max_sets][max_cols][num_rangebins][2]);
+        }
+
+    }
+    else
+    {
+        // Initialize decoded data boost multi_array;
+        output_data.resize(boost::extents[max_sets][max_cols][num_rangebins]);
+    }
+
 
     cl_int err = CL_SUCCESS;
     try 
@@ -195,25 +237,7 @@ int process_data_cl(int id,
       cl::Kernel stage2_kernel(stage_program[1], kernel_function[1].c_str(), &err);
       cl::Kernel stage3_kernel(stage_program[2], kernel_function[2].c_str(), &err);
       cl::Kernel stage4_kernel(stage_program[3], kernel_function[3].c_str(), &err);
-      
-      // Load Data and Initialize memory
-      Muir4DArrayF prefft_data;
-      Muir4DArrayF postfft_data;
 
-      // Get Data Dimensions
-      const Muir4DArrayF::size_type *array_dims = sample_data.shape();
-      
-      std::vector<size_t> ex;
-      ex.assign( array_dims, array_dims+sample_data.num_dimensions() );
-      prefft_data.resize(ex);
-      postfft_data.resize(ex);
-
-      Muir4DArrayF::size_type max_sets = array_dims[0];
-      Muir4DArrayF::size_type max_cols = array_dims[1];
-      Muir4DArrayF::size_type max_range = array_dims[2];
-
-      // Initialize decoded data boost multi_array;
-      output_data.resize(boost::extents[max_sets][max_cols][max_range]);
 
       // Initialize timing structure
       timing_strings.clear();
@@ -223,12 +247,12 @@ int process_data_cl(int id,
       timing_strings.push_back("Power Time");     // 3
       timing_strings.push_back("Peakfind Time");  // 4
       timing_strings.push_back("Row Total Time"); // 5
-      timings.resize(boost::extents[timing_strings.size()][max_range]);
-      
+      timings.resize(boost::extents[timing_strings.size()][num_rangebins]);
+
       size_t sample_size    = sample_data.num_elements()*sizeof(float);
       size_t phasecode_size = phasecode.size() * sizeof(float);
       size_t output_size    = output_data.num_elements()*sizeof(float);
-      
+
       if (MUIR_Verbose)
       {
         std::cout << SectionName << ": GPU[" << id << "], Sample data - # elements:" << sample_data.num_elements() << std::endl;
@@ -269,7 +293,7 @@ int process_data_cl(int id,
 
       std::cout << SectionName << ": GPU[" << id << "] Load Experiment Data Time: " << stage_time.elapsed() << std::endl;
       stage_time.restart();
-      
+
       unsigned int FFT_NSize = 1024;
       float normalize = 1/static_cast<float>(FFT_NSize);
       int  total_frames = max_sets*max_cols;
@@ -286,24 +310,25 @@ int process_data_cl(int id,
       std::vector<cl::Event> stage4_event_list;
 
       std::cout << SectionName << ": GPU[" << id << "] Processing..." << std::endl;
-      for(unsigned int i = 0; i < max_range; i++)
+      for(unsigned int i = start_row; i < end_row; i++)
       {
-          
+
           //Setup Stage 1 (Phasecode) Kernel
           err = stage1_kernel.setArg(0, cl_buf_sample);
           err = stage1_kernel.setArg(1, cl_buf_phasecode);
           err = stage1_kernel.setArg(2, cl_buf_prefft);
           err = stage1_kernel.setArg(3, i);                               // Current Rangebin
           err = stage1_kernel.setArg(4, (unsigned int)phasecode.size());  // Phasecode Size
-          err = stage1_kernel.setArg(5, (unsigned int)max_range);         // Input and Output Stride
+          err = stage1_kernel.setArg(5, (unsigned int)num_rangebins);     // Input and Output Stride
 
           // Setup waiting for stage 4
           waitevents.clear();
           waitevents.push_back(stage4_event);
-          
+
           //Execute Stage 1 (Phasecode) Kernel  (dont wait for events on the first run!)
-          err = queue.enqueueNDRangeKernel(stage1_kernel, cl::NullRange, cl::NDRange(phasecode.size(),total_frames), cl::NullRange, (i == 0)?NULL:&waitevents, &stage1_event);
- 
+          err = queue.enqueueNDRangeKernel(stage1_kernel, cl::NullRange, cl::NDRange(phasecode.size(),total_frames), cl::NullRange, (i == start_row)?NULL:&waitevents, &stage1_event);
+          if(config.intermediate_stage == STAGE_PHASECODE)
+              break;
 
           //Setup Stage 2 (FFT) Kernel
           // __kernel void fft0(__global float2 *in, __global float2 *out, int dir, int S, uint)
@@ -311,7 +336,7 @@ int process_data_cl(int id,
           err = stage2_kernel.setArg(1, cl_buf_postfft);
           err = stage2_kernel.setArg(2, -1);                // Direction: -1 Forward, 1 Reverse
           err = stage2_kernel.setArg(3, (int)total_frames); // # of 1D FFTs
-          err = stage2_kernel.setArg(4, (int)max_range);    // Input and Output Stride
+          err = stage2_kernel.setArg(4, (int)num_rangebins);    // Input and Output Stride
 
           // Setup waiting for stage 1
           waitevents.clear();
@@ -319,11 +344,13 @@ int process_data_cl(int id,
 
           //Execute Stage 2 (FFT) Kernel
           err = queue.enqueueNDRangeKernel(stage2_kernel, cl::NullRange, cl::NDRange(64*total_frames), cl::NDRange(64), &waitevents, &stage2_event);
+          if(config.intermediate_stage == STAGE_POSTFFT)
+              break;
 
           //Setup Stage 3 (Power) Kernel
           err = stage3_kernel.setArg(0, cl_buf_postfft);
           err = stage3_kernel.setArg(1, cl_buf_power);
-          err = stage3_kernel.setArg(2, (int)max_range);  // Stride
+          err = stage3_kernel.setArg(2, (int)num_rangebins);  // Stride
 
           // Setup waiting for stage 2
           waitevents.clear();
@@ -331,13 +358,15 @@ int process_data_cl(int id,
           
           //Execute Stage 3 (Power) Kernel
           err = queue.enqueueNDRangeKernel(stage3_kernel, cl::NullRange, cl::NDRange(FFT_NSize,total_frames), cl::NullRange, &waitevents, &stage3_event);
+          if(config.intermediate_stage == STAGE_POWER)
+              break;
 
           //Setup Stage 4 (Power) Kernel
           err = stage4_kernel.setArg(0, cl_buf_power);
           err = stage4_kernel.setArg(1, cl_buf_output);
           err = stage4_kernel.setArg(2, i);
           err = stage4_kernel.setArg(3, FFT_NSize);        // FFT Size
-          err = stage4_kernel.setArg(4, (int)max_range);   // Input/Output Stride
+          err = stage4_kernel.setArg(4, (int)num_rangebins);   // Input/Output Stride
           err = stage4_kernel.setArg(5, (float)normalize); // Normalization value
           
           // Setup waiting for stage 3
@@ -360,14 +389,29 @@ int process_data_cl(int id,
       std::cout << SectionName << ": GPU[" << id << "] OpenCL Process Stage Wall-time: " << stage_time.elapsed() << std::endl;
       stage_time.restart();
 
-     
-     
       std::cout << SectionName << ": GPU[" << id << "] Downloading data from GPU..." << std::endl;
-      //lets check our calculations by reading from the device memory and printing out the results
       cl::Event out_outputdata_event;
-      err = queue.enqueueReadBuffer(cl_buf_output, CL_TRUE, 0, output_size, output_data.data(), NULL, &out_outputdata_event);
-      //err = queue.enqueueReadBuffer(cl_buf_postfft, CL_TRUE, 0, sample_size, postfft_data.data(), NULL, &event);
-      //err = queue.enqueueReadBuffer(cl_buf_prefft, CL_TRUE, 0, sample_size, prefft_data.data(), NULL, &event);
+
+      // Determine which buffer to pull
+      switch(config.intermediate_stage)
+      {
+          case STAGE_ALL:
+              queue.enqueueReadBuffer(cl_buf_output, CL_TRUE, 0, output_size, output_data.data(), NULL, &out_outputdata_event);
+              break;
+          case STAGE_TIMEINTEGRATION:
+              //queue.enqueueReadBuffer(cl_buf_timeint, CL_TRUE, 0, output_size, complex_intermediate.data(), NULL, &out_outputdata_event);
+              throw std::logic_error("process_data_cl(): Not Handling Time Integration yet");
+              break;
+          case STAGE_PHASECODE:
+              queue.enqueueReadBuffer(cl_buf_prefft, CL_TRUE, 0, output_size, complex_intermediate.data(), NULL, &out_outputdata_event);
+              break;
+          case STAGE_POSTFFT:
+              queue.enqueueReadBuffer(cl_buf_postfft, CL_TRUE, 0, output_size, complex_intermediate.data(), NULL, &out_outputdata_event);
+              break;
+          case STAGE_POWER:
+              queue.enqueueReadBuffer(cl_buf_power, CL_TRUE, 0, output_size, output_data.data(), NULL, &out_outputdata_event);
+              break;
+      }
 
       queue.finish();
       out_outputdata_event.wait();
