@@ -15,6 +15,7 @@
 #include "muir-types.h"
 
 #include <fstream>
+#include <cassert>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 namespace BST_PT = boost::posix_time;
@@ -109,4 +110,22 @@ void load_file (const std::string &path, std::string &file_contents)
     {
         throw std::runtime_error("Unable to open file: " + path);
     }
+}
+
+void print_dimensions(Muir3DArrayF& in)
+{
+    // Get Data Dimensions
+    const Muir3DArrayF::size_type *array_dims = in.shape();
+    assert(in.num_dimensions() == 3);
+
+    std::cout << "3D Matrix: " << array_dims[0] << "x" << array_dims[1] << "x" << array_dims[2] << std::endl;
+}
+
+void print_dimensions(Muir4DArrayF& in)
+{
+    // Get Data Dimensions
+    const Muir4DArrayF::size_type *array_dims = in.shape();
+    assert(in.num_dimensions() == 4);
+
+    std::cout << "4D Matrix: " << array_dims[0] << "x" << array_dims[1] << "x" << array_dims[2] << "x" << array_dims[3] <<std::endl;
 }
