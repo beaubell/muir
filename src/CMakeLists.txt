@@ -46,6 +46,11 @@ add_library(muir STATIC
  muir-timer.cpp
 )
 
+# MUIR Validate Library
+add_library(muir-val STATIC
+ muir-validate-lib.cpp
+)
+
 # Create include files from GLSL and CL source
 set(TXT_SOURCES
  stage1-phasecode.cl
@@ -76,7 +81,10 @@ add_executable (muir-decode muir-decode.cpp)
 target_link_libraries (muir-decode ${LINK_STATIC} muir ${CORE_MUIR_LIBRARIES})
 
 add_executable (muir-validate muir-validate.cpp)
-target_link_libraries (muir-validate ${LINK_STATIC} muir ${CORE_MUIR_LIBRARIES})
+target_link_libraries (muir-validate ${LINK_STATIC} muir muir-val ${CORE_MUIR_LIBRARIES})
+
+add_executable (muir-compare muir-compare.cpp)
+target_link_libraries (muir-compare ${LINK_STATIC} muir muir-val ${CORE_MUIR_LIBRARIES})
 
 add_executable (muir-rti muir-rti.cpp muir-plot.cpp)
 target_link_libraries (muir-rti muir ${CORE_MUIR_LIBRARIES} ${GD_LIBRARY} gd)

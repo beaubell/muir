@@ -25,4 +25,7 @@ bool read_phasecode(const MuirHD5 &file_in, std::vector<float> &phasecode);
 // Load a textfile into a string
 void load_file (const std::string &path, std::string &file_contents);
 
+void print_dimensions(Muir3DArrayF& in);
+void print_dimensions(Muir4DArrayF& in);
+
 #endif // MUIR_UTILITY
