@@ -30,8 +30,6 @@ namespace fs = boost::filesystem;
 
 // Prototypes
 void print_help (void);
-double diff_sum(const Muir3DArrayF &standard, const Muir3DArrayF &test, Muir3DArrayF &output);
-unsigned int check_timing(const MuirHD5 &file);
 
 int main (const int argc, const char * argv[])
 {
@@ -91,6 +89,7 @@ int main (const int argc, const char * argv[])
     // Create Arrays
     Muir4DArrayF complex_intermediate_1(boost::extents[1][1][1][2]);
     Muir4DArrayF complex_intermediate_2(boost::extents[1][1][1][2]);
+    Muir4DArrayF difference4D(boost::extents[1][1][1][2]);
 
     Muir3DArrayF processed_data_1;
     Muir3DArrayF processed_data_2;
@@ -104,8 +103,8 @@ int main (const int argc, const char * argv[])
     Muir2DArrayD             timings_2;
 
     // Config Processing
-    unsigned int row = 500;
-    Decoding_Stage stage = STAGE_ALL;
+    unsigned int row = 0;
+    Decoding_Stage stage = STAGE_PHASECODE;
     config_1.intermediate_row = row;
     config_2.intermediate_row = row;
     config_1.intermediate_stage = stage;
@@ -123,6 +122,42 @@ int main (const int argc, const char * argv[])
     print_dimensions(complex_intermediate_2);
     print_dimensions(processed_data_2);
 
+
+    diff_sum(complex_intermediate_1, complex_intermediate_2, difference4D);
+
+    MuirHD5 file_output(std::string("gpu_method.h5"), H5F_ACC_TRUNC);
+
+    // Create group
+    file_output.createGroup(RTI_DECODEDDIR_PATH);
+    
+    std::string intermediate_path = RTI_DECODEDDIR_PATH + std::string("/Intermediate");
+    file_output.createGroup(intermediate_path);
+
+    // Prepare and write decoded sample data
+    std::string gpu_path = intermediate_path + std::string("/GPU");
+    std::string cpu_path = intermediate_path + std::string("/CPU");
+    std::string diff_path = intermediate_path + std::string("/Diff");
+    file_output.write_4D_float(gpu_path, complex_intermediate_1);
+    file_output.write_4D_float(cpu_path, complex_intermediate_2);
+    file_output.write_4D_float(diff_path, difference4D);
+    
+    Muir2DArrayF _sample_range;
+    // Get range data
+    unprocessed_file.read_2D_float(RTI_RAWSAMPLERANGE_PATH, _sample_range);
+    // Prepare and write range data
+    file_output.write_2D_float(RTI_DECODEDRANGE_PATH, _sample_range);
+
+    Muir2DArrayD _time;
+    // Get radac data
+    unprocessed_file.read_2D_double(RTI_RADACTIME_PATH, _time);
+    // Prepare and write radac data
+    file_output.write_2D_double(RTI_DECODEDRADAC_PATH, _time);
+
+    Muir2DArrayUI _framecount;
+    // Get framecount data
+    unprocessed_file.read_2D_uint(RTI_RAWFRAMECOUNT_PATH, _framecount);
+    // Prepare and write framecount data
+    file_output.write_2D_uint(RTI_DECODEDFRAME_PATH, _framecount);
     return 0;  // successfully terminated
 }
 
