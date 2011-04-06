@@ -27,7 +27,6 @@ namespace fs = boost::filesystem;
 
 // Prototypes
 void print_help (void);
-double diff_sum(const Muir3DArrayF &standard, const Muir3DArrayF &test, Muir3DArrayF &output);
 
 int main (const int argc, const char * argv[])
 {
