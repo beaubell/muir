@@ -29,6 +29,8 @@
 #include <boost/filesystem/convenience.hpp>
 namespace FS = boost::filesystem;
 
+enum Data_Type { FILE_COMPLEX, FILE_DECODED };
+
 class Muirgl_Data {
     public:
         std::vector<GLuint> texnames;
@@ -54,6 +56,10 @@ class Muirgl_Data {
     private:
         unsigned int _sets;
         bool _staged;
+        Data_Type type;
+
+        void load3D(const MuirHD5& file, const std::string& path);
+        void load4D(const MuirHD5& file, const std::string& path);
 };
 
 #endif //MUIR_GL_DATA_H

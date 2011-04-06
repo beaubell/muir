@@ -35,7 +35,8 @@ Muirgl_Data::Muirgl_Data(FS::path file)
     framecount(boost::extents[1][1]),
     radac_time(boost::extents[1][2]),
     _sets(0),
-    _staged(0)
+    _staged(0),
+    type(FILE_DECODED)
 {
 
     // Open file
@@ -50,30 +51,27 @@ Muirgl_Data::Muirgl_Data(FS::path file)
     //const Muir2DArrayF::size_type *range_dims = sample_range.shape();
     //const Muir2DArrayUI::size_type *frame_dims = framecount.shape();
     _sets = radac_dims[0];
-    
+
     radacstart = radac_time[0][0];
     radacend = radac_time[_sets-1][1];
-    //std::cout << "Radactime: " << radacstart << ":" << radacend << " " << _sets << std::endl;
+
+    // Determine File Type
+    try {
+        h5file.openDataSet(RTI_DECODEDDATA_PATH);
+    }
+    catch(...)
+    {
+        type = FILE_COMPLEX;
+    }
 }
 
-void Muirgl_Data::stage()
+void Muirgl_Data::load3D(const MuirHD5 &file, const std::string& path)
 {
-    if (_staged == 1)
-    {
-        return;
-    }
-
-    std::cout << "Staging: " << file_decoded.string() << std::endl;
-
     unsigned int width, height;
     GLfloat * data;
 
-    // Open file
-    MuirHD5 h5file( file_decoded.string().c_str(), H5F_ACC_RDONLY );
-
-    // Get data
     Muir3DArrayF decoded_data;
-    h5file.read_3D_float(RTI_DECODEDDATA_PATH, decoded_data);
+    file.read_3D_float(path, decoded_data);
 
     // Get dataset shape
     const Muir3DArrayF::size_type *array_dims = decoded_data.shape();
@@ -95,9 +93,9 @@ void Muirgl_Data::stage()
         texheight = height;
         dataw = dataset_width;
         datah = dataset_height;
-
+        
         data = reinterpret_cast<GLfloat*>(malloc( width * height*sizeof(GLfloat) ));
-
+        
         for (Muir3DArrayF::size_type col = 0; col < width ;col++)
         {
             for (Muir3DArrayF::size_type row = 0; row < height; row++)
@@ -105,7 +103,7 @@ void Muirgl_Data::stage()
                 data[row*width + col] = 0.0;
             }
         }
-
+        
         for (Muir3DArrayF::size_type col = 0; col < dataset_width ;col++)
         {
             for (Muir3DArrayF::size_type row = 0; row < dataset_height; row++)
@@ -113,34 +111,128 @@ void Muirgl_Data::stage()
                 //float pixel = log10(decoded_data[set][col][row]+1)*10;
                 float pixel = decoded_data[set][col][row];
                 data[row*width + col] = pixel;
-
+                
                 //max = std::max(max, pixel);
                 //min = std::min(min, pixel);
             }
         }
-
+        
         //shader_data_max = std::log10(max)*10.0f;
         //shader_data_min = std::log10(min+0.01f)*10.0f;
         //muir_GPU_send_variables();
         //glGenTextures( 1, &texnum );
-
+        
         // select our current texture
         glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texnames[set] );
-
+        
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP);
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP);
-
+        
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         //In this case, the driver will convert your 32 bit float to 16 bit float
         glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_LUMINANCE32F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, data);
-
+        
         // free buffer
         free( data );
-
+        
         //std::cout << "Loaded set: " << file_decoded << ":" << set << "   texnum:" << texnames[set] <<
         //" Glerror?: " << glGetError() << std::endl;
     }
+
+}
+
+void Muirgl_Data::load4D(const MuirHD5 &file, const std::string& path)
+{
+    unsigned int width, height;
+    GLfloat * data;
+    
+    Muir4DArrayF decoded_data;
+    file.read_4D_float(path, decoded_data);
+    
+    // Get dataset shape
+    const Muir4DArrayF::size_type *array_dims = decoded_data.shape();
+    assert(decoded_data.num_dimensions() == 4);
+    
+    Muir4DArrayF::size_type dataset_count = array_dims[0];  // # sets
+    Muir4DArrayF::size_type dataset_width = array_dims[1];  // frames per set
+    Muir4DArrayF::size_type dataset_height = array_dims[2]; // Range bins
+    
+    width = dataset_width;
+    height = dataset_height;
+    
+    texnames.resize(_sets);
+    glGenTextures( _sets, &texnames[0] );
+    
+    for (unsigned int set = 0; set < dataset_count; set++)
+    {
+        texwidth = width;
+        texheight = height;
+        dataw = dataset_width;
+        datah = dataset_height;
+        
+        data = reinterpret_cast<GLfloat*>(malloc( width * height*sizeof(GLfloat) ));
+        
+        for (Muir3DArrayF::size_type col = 0; col < width ;col++)
+        {
+            for (Muir3DArrayF::size_type row = 0; row < height; row++)
+            {
+                data[row*width + col] = 0.0;
+            }
+        }
+        
+        for (Muir3DArrayF::size_type col = 0; col < dataset_width ;col++)
+        {
+            for (Muir3DArrayF::size_type row = 0; row < dataset_height; row++)
+            {
+                //float pixel = log10(decoded_data[set][col][row]+1)*10;
+                float pixel = sqrtf(powf(decoded_data[set][col][row][0],2) + powf(decoded_data[set][col][row][1],2));
+                data[row*width + col] = pixel;
+                
+                //max = std::max(max, pixel);
+                //min = std::min(min, pixel);
+            }
+        }
+        
+        // select our current texture
+        glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texnames[set] );
+        
+        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP);
+        
+        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        //In this case, the driver will convert your 32 bit float to 16 bit float
+        glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_LUMINANCE32F_ARB, width, height, 0, GL_LUMINANCE, GL_FLOAT, data);
+        
+        // free buffer
+        free( data );
+        
+        //std::cout << "Loaded set: " << file_decoded << ":" << set << "   texnum:" << texnames[set] <<
+        //" Glerror?: " << glGetError() << std::endl;
+    }
+
+
+}
+
+void Muirgl_Data::stage()
+{
+    if (_staged == 1)
+    {
+        return;
+    }
+
+    std::cout << "Staging: " << file_decoded.string() << std::endl;
+
+
+    // Open file
+    MuirHD5 h5file( file_decoded.string().c_str(), H5F_ACC_RDONLY );
+
+    // Get data
+    if(type == FILE_DECODED)
+        load3D(h5file, RTI_DECODEDDATA_PATH);
+    else
+        load4D(h5file, std::string("/Decoded/Intermediate/Diff"));
 
     // Textures are setup!
     _staged = true;
