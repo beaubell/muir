@@ -30,6 +30,11 @@ namespace fs = boost::filesystem;
 
 // Prototypes
 void print_help (void);
+void dump_to_file(const std::string& filename,
+                  const MuirHD5& unprocessed_file,
+                  const Muir4DArrayF& complex_intermediate_1,
+                  const Muir4DArrayF& complex_intermediate_2,
+                  const Muir4DArrayF& difference4D);
 
 int main (const int argc, const char * argv[])
 {
@@ -104,32 +109,55 @@ int main (const int argc, const char * argv[])
 
     // Config Processing
     unsigned int row = 0;
-    Decoding_Stage stage = STAGE_PHASECODE;
+    Decoding_Stage stage = STAGE_POSTFFT;
     config_1.intermediate_row = row;
     config_2.intermediate_row = row;
     config_1.intermediate_stage = stage;
     config_2.intermediate_stage = stage;
 
-    // OpenCL Method
-    std::cout << "Processing using OpenCL Method..." << std::endl;
-    process_data_cl(0, unprocessed_data, phasecode, processed_data_1, config_1, timing_strings_1, timings_1, complex_intermediate_1);
-    print_dimensions(complex_intermediate_1);
-    print_dimensions(processed_data_1);
+    for (unsigned int i = 0; i < 1100; i++)
+    {
+        row = i;
+        config_1.intermediate_row = row;
+        config_2.intermediate_row = row;
+        config_1.intermediate_stage = stage;
+        config_2.intermediate_stage = stage;
 
-    // CPU Method
-    std::cout << "Processing using CPU Method..." << std::endl;
-    process_data_cpu(0, unprocessed_data, phasecode, processed_data_2, config_2, timing_strings_2, timings_2, complex_intermediate_2);
-    print_dimensions(complex_intermediate_2);
-    print_dimensions(processed_data_2);
+        // OpenCL Method
+        std::cout << "Processing using OpenCL Method..." << std::endl;
+        process_data_cl(0, unprocessed_data, phasecode, processed_data_1, config_1, timing_strings_1, timings_1, complex_intermediate_1);
+        print_dimensions(complex_intermediate_1);
+        print_dimensions(processed_data_1);
+
+        // CPU Method
+        std::cout << "Processing using CPU Method..." << std::endl;
+        process_data_cpu(0, unprocessed_data, phasecode, processed_data_2, config_2, timing_strings_2, timings_2, complex_intermediate_2);
+        print_dimensions(complex_intermediate_2);
+        print_dimensions(processed_data_2);
 
 
-    diff_sum(complex_intermediate_1, complex_intermediate_2, difference4D);
+        if (diff_sum(complex_intermediate_1, complex_intermediate_2, difference4D) > 0.0)
+        {
+            dump_to_file(std::string("row-dump.h5"), unprocessed_file, complex_intermediate_1, complex_intermediate_2, difference4D);
+            break;
+        }
+    }
 
-    MuirHD5 file_output(std::string("gpu_method.h5"), H5F_ACC_TRUNC);
+    return 0;  // successfully terminated
+}
+
+void dump_to_file(const std::string& filename,
+                  const MuirHD5& unprocessed_file,
+                  const Muir4DArrayF& complex_intermediate_1,
+                  const Muir4DArrayF& complex_intermediate_2,
+                  const Muir4DArrayF& difference4D)
+{
+
+    MuirHD5 file_output(std::string(filename), H5F_ACC_TRUNC);
 
     // Create group
     file_output.createGroup(RTI_DECODEDDIR_PATH);
-    
+
     std::string intermediate_path = RTI_DECODEDDIR_PATH + std::string("/Intermediate");
     file_output.createGroup(intermediate_path);
 
@@ -140,7 +168,7 @@ int main (const int argc, const char * argv[])
     file_output.write_4D_float(gpu_path, complex_intermediate_1);
     file_output.write_4D_float(cpu_path, complex_intermediate_2);
     file_output.write_4D_float(diff_path, difference4D);
-    
+
     Muir2DArrayF _sample_range;
     // Get range data
     unprocessed_file.read_2D_float(RTI_RAWSAMPLERANGE_PATH, _sample_range);
@@ -158,7 +186,6 @@ int main (const int argc, const char * argv[])
     unprocessed_file.read_2D_uint(RTI_RAWFRAMECOUNT_PATH, _framecount);
     // Prepare and write framecount data
     file_output.write_2D_uint(RTI_DECODEDFRAME_PATH, _framecount);
-    return 0;  // successfully terminated
 }
 
 
@@ -166,5 +193,5 @@ int main (const int argc, const char * argv[])
 void print_help ()
 {
     std::cout << "usage: muir-validate unprocessed.h5" << std::endl;
-    
+
 }
