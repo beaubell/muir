@@ -18,6 +18,7 @@ Here is an example of the file explorer that pops on when moving the cursor to t
 
 # Build Requirements
 
+- Boost
 - OpenGL
 - OpenCL
 - OpenAL
