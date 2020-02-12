@@ -34,7 +34,7 @@ If GUI components (OpenGL, X11, etc) are missing during build, only the commandl
 `dnf install libxml2-devel libjpeg-devel gd-devel fftw-devel fftw-static glew-devel hdf5-devel ocl-icd-devel openal-devel glut-devel`
 
 # Building
-`mkdir build`
+`mkdir build && cd build`
 
 `cmake .. -D OpenGL_GL_PREFERENCE=GLVND`
 
