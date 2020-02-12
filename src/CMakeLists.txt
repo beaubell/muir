@@ -34,7 +34,7 @@ SET(CORE_MUIR_LIBRARIES
 )
 
 # MUIR Common Library
-add_library(muir STATIC
+add_library(muir
  muir-data.cpp
  muir-global.cpp
  muir-hd5.cpp
@@ -47,7 +47,7 @@ add_library(muir STATIC
 )
 
 # MUIR Validate Library
-add_library(muir-val STATIC
+add_library(muir-val
  muir-validate-lib.cpp
 )
 
@@ -87,8 +87,8 @@ add_executable (muir-compare muir-compare.cpp)
 target_link_libraries (muir-compare ${LINK_STATIC} muir muir-val ${CORE_MUIR_LIBRARIES})
 
 add_executable (muir-rti muir-rti.cpp muir-plot.cpp)
-target_link_libraries (muir-rti muir ${CORE_MUIR_LIBRARIES} ${GD_LIBRARY} gd)
+target_link_libraries (muir-rti muir ${CORE_MUIR_LIBRARIES} gd)
 
 add_executable (muir-gl  muir-gl.cpp  muir-gl-shader.cpp muir-gl-data.cpp)
-target_link_libraries (muir-gl muir ${CORE_MUIR_LIBRARIES} ${GD_LIBRARY} ${GLUT_glut_LIBRARY} ${OPENGL_LIBRARY} gd)
+target_link_libraries (muir-gl muir gd ${CORE_MUIR_LIBRARIES} ${GLUT_LIBRARIES} OpenGL::OpenGL OpenGL::GLX GL X11)
 

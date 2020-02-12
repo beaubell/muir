@@ -1,6 +1,6 @@
 # Introduction
 
-This is the Modular Ionospheric UHF Radar (MUIR) data processing and visualization tool-set that was used to support the High-Frequency Active Aurora Research Program (HAARP) in Golkona, Alaska.  I developed it during my tenure at the Arctic Region Super-computing Center (ARSC) as a student research projects assistant.
+This is the Modular Ionospheric UHF Radar (MUIR) data processing and visualization tool-set that was used to support the High-Frequency Active Aurora Research Program (HAARP) in Gakona, Alaska.  I developed it during my tenure at the Arctic Region Super-computing Center (ARSC) as a student research projects assistant.
 
 HAARP campaigns are a series of experiments spread over several weeks, during which gigabytes of data are collected from several sensors including the MUIR radar.  The data is then transferred to ARSC in Fairbanks, AK for processing.  The original program was MATLAB based and took over a hour to process one minute's worth of data.  Even parallelized, the resulting data took months to process.
 
