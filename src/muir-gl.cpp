@@ -254,7 +254,7 @@ void renderScene(void) {
     double cursor_time_s = cursor_time_us/1000000.0;
     double cursor_time_frac = (cursor_time_s - std::floor(cursor_time_s))*1000000.0;
     BSPT::ptime curs_time = BSPT::from_time_t((time_t)cursor_time_s);
-    curs_time += BSPT::microseconds(cursor_time_frac);
+    curs_time += BSPT::microseconds(std::lround(cursor_time_frac));
 
     double cursor_range = (-y_loc + mouse_y/y_scale)/1000.0;
     std::stringstream oss;
