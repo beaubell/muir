@@ -8,7 +8,7 @@ The tool-set was created to speed up the processing by allowing it to run on the
 
 In addition to this, I built several tools for manipulating and visualizing the data at multiple stages.  The `muir-gl` tool can be pointed at a directory and it will load only the metadata for each file on startup. While panning around, each data file is loaded and unloaded as they go in and out of visibility on the fly.  The data's color palette range can be adjusted in realtime via OpenGL shaders in order to allow the observer to focus on the data that is important.
 
-This screenshot shows the generation of artificial aurora as captured by the MUIR radar.
+This time vs. range visualization shows the generation of artificial aurora as captured by the MUIR radar.
 
 ![Screenshot with overlay modules installed](/docs/screenshot_artificial_aurora.png?raw=true "Artificial Aurora")
 
