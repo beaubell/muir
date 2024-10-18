@@ -1,6 +1,8 @@
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.28)
 PROJECT(MUIRRTI)
+
+include(FetchContent)
 
 # Get package version information from git
 execute_process( COMMAND "git" "describe"
@@ -37,21 +39,31 @@ ENDIF()
 FIND_PACKAGE(HDF5 COMPONENTS C CXX HL REQUIRED)
 SET(Boost_ADDITIONAL_VERSIONS "1.45.0 1.45")
 SET(Boost_USE_STATIC_LIBS OFF)
-FIND_PACKAGE(Boost COMPONENTS date_time system filesystem thread REQUIRED)
+FIND_PACKAGE(Boost CONFIG COMPONENTS date_time system filesystem thread REQUIRED)
 FIND_PACKAGE(PkgConfig)
 FIND_PACKAGE(OpenGL REQUIRED)
+FIND_PACKAGE(X11 REQUIRED)
 FIND_PACKAGE(GLUT REQUIRED)
 FIND_PACKAGE(ZLIB)
 FIND_PACKAGE(OpenMP)
-FIND_PACKAGE(OpenCL)
-FIND_PACKAGE(CUDA)
+FIND_PACKAGE(OpenCL REQUIRED)
+find_package(FFTW REQUIRED)
+pkg_check_modules(GD REQUIRED IMPORTED_TARGET gdlib)
 
-SET(FFTW_HOME $ENV{FFTW_HOME})
-FIND_PACKAGE(FFTW)
+FetchContent_Declare(GSL
+                     GIT_REPOSITORY "https://github.com/microsoft/GSL"
+                     GIT_TAG "v4.1.0"
+                     GIT_SHALLOW ON
+)
+
+FetchContent_MakeAvailable(GSL)
+
+#SET(FFTW_HOME $ENV{FFTW_HOME})
+#FIND_PACKAGE(FFTW)
 
 CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/muir-config.h.in ${CMAKE_CURRENT_BINARY_DIR}/muir-config.h)
 
-SUBDIRS(src gd-2.0.35)
-
 #SET( CMAKE_CXX_FLAGS "-ggdb -Wall -Wextra -Wconversion -Weffc++ ${OpenMP_CXX_FLAGS}")
-SET( CMAKE_CXX_FLAGS "-O3 -ggdb -Wall -Wextra ${OpenMP_CXX_FLAGS}")
+SET( CMAKE_CXX_FLAGS "-O3 -ggdb -Wall -Wextra -Wpedantic")
+
+add_subdirectory(src)

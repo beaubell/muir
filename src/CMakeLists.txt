@@ -1,40 +1,7 @@
 
-# Include file locations
-include_directories (
- ${MUIRRTI_SOURCE_DIR}
- ${MUIRRTI_SOURCE_DIR}/include
- ${MUIRRTI_BINARY_DIR}
- ${CMAKE_CURRENT_BINARY_DIR}
- ${HDF5_INCLUDE_DIR}
- ${GD_SOURCE_DIR}
- ${FFTW_INCLUDE_DIR}
- ${Boost_INCLUDE_DIR}
- ${GLUT_INCLUDE_DIR}
- ${OPENGL_INCLUDE_DIR}
-)
-
-# Library locations
-link_directories (
- ${MUIRRTI_BINARY_DIR}
- ${GD_BINARY_DIR}
- ${Boost_LIBRARY_DIRS}
-)
-
-SET(CORE_MUIR_LIBRARIES 
- ${HDF5_LIBRARIES_CXX}
- ${HDF5_LIBRARIES}
- ${FFTWF_LIBRARY}
- ${FFTWF_THREAD_LIBRARY}
- ${Boost_FILESYSTEM_LIBRARY}
- ${Boost_DATE_TIME_LIBRARY}
- ${Boost_SYSTEM_LIBRARY}
- ${Boost_THREAD_LIBRARY}
- ${ZLIB_LIBRARY}
- ${OPENCL_LIBRARIES}
-)
 
 # MUIR Common Library
-add_library(muir
+add_library(muir STATIC
  muir-data.cpp
  muir-global.cpp
  muir-hd5.cpp
@@ -44,6 +11,31 @@ add_library(muir
  muir-process-cl.cpp 
  muir-process-cpu.cpp
  muir-timer.cpp
+)
+
+target_link_libraries(muir
+  PUBLIC
+    Threads::Threads
+    hdf5::hdf5
+    hdf5::hdf5_cpp
+    FFTW::Float
+    FFTW::FloatThreads
+    PkgConfig::GD
+    OpenCL::OpenCL
+    Microsoft.GSL::GSL
+    Boost::boost
+    Boost::system
+    Boost::filesystem
+    Boost::thread
+    OpenMP::OpenMP_CXX
+)
+
+# Include file locations
+target_include_directories (muir
+  PUBLIC
+    ${MUIRRTI_BINARY_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${GSL_SOURCE_DIR}/include
 )
 
 # MUIR Validate Library
@@ -78,17 +70,17 @@ ENDIF(XXD_VERSION)
 
 # Create and link the executables
 add_executable (muir-decode muir-decode.cpp)
-target_link_libraries (muir-decode ${LINK_STATIC} muir ${CORE_MUIR_LIBRARIES})
+target_link_libraries (muir-decode ${LINK_STATIC} muir)
 
 add_executable (muir-validate muir-validate.cpp)
-target_link_libraries (muir-validate ${LINK_STATIC} muir muir-val ${CORE_MUIR_LIBRARIES})
+target_link_libraries (muir-validate ${LINK_STATIC} muir muir-val)
 
 add_executable (muir-compare muir-compare.cpp)
-target_link_libraries (muir-compare ${LINK_STATIC} muir muir-val ${CORE_MUIR_LIBRARIES})
+target_link_libraries (muir-compare ${LINK_STATIC} muir muir-val)
 
 add_executable (muir-rti muir-rti.cpp muir-plot.cpp)
-target_link_libraries (muir-rti muir ${CORE_MUIR_LIBRARIES} gd)
+target_link_libraries (muir-rti muir gd)
 
 add_executable (muir-gl  muir-gl.cpp  muir-gl-shader.cpp muir-gl-data.cpp)
-target_link_libraries (muir-gl muir gd ${CORE_MUIR_LIBRARIES} ${GLUT_LIBRARIES} OpenGL::OpenGL OpenGL::GLX GL X11)
+target_link_libraries (muir-gl muir gd ${GLUT_LIBRARIES} OpenGL::GL OpenGL::GLX X11::X11 GL)
 
