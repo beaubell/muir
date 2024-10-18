@@ -19,11 +19,15 @@
 //#if defined(__APPLE__) || defined(__MACOSX)
 //#include <OpenCL/cl.hpp>
 //#else
-#include <CL/cl.hpp>
+#define CL_HPP_MINIMUM_OPENCL_VERSION 120
+#define CL_HPP_TARGET_OPENCL_VERSION 120
+#define CL_HPP_ENABLE_EXCEPTIONS
+#include <CL/opencl.hpp>
 //#endif
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <vector>
 
 
 // Boost::Accumulators
@@ -69,7 +73,7 @@ std::string kernel_function[4] = {"phasecode",
 void decode_cl_load_kernels(void);
 float get_seconds_elapsed(cl::Event& ev);
 
-int process_init_cl(void* opengl_ctx)
+int process_init_cl(void* /*opengl_ctx*/)
 {
 
     try
@@ -136,7 +140,7 @@ void decode_cl_load_kernels(void)
         //load_file (kernel_files[2], kernel_sources[2]);
         //load_file (kernel_files[3],  kernel_sources[3]);
     }
-    catch (std::runtime_error error)
+    catch (std::runtime_error& error)
     {
         std::cout << SectionName << ": ERROR! - " << error.what() << std::endl;
         std::cout << SectionName << ": Loading kernel sources failed!" << std::endl;
@@ -146,8 +150,7 @@ void decode_cl_load_kernels(void)
     /// Compile Kernels
     for (unsigned int i = 0; i < 4; i++)
     {
-        cl::Program::Sources stage_source(1, std::make_pair(kernel_sources[i].c_str(),kernel_sources[i].size()));
-        stage_program[i] = cl::Program(muir_cl_context, stage_source);
+        stage_program[i] = cl::Program(muir_cl_context, kernel_sources[i]);
         try{
             stage_program[i].build(muir_cl_devices);
         }
@@ -459,7 +462,7 @@ int process_data_cl(int id,
       config.time_integration = 0;
 
     }
-    catch (cl::Error err) {
+    catch (cl::Error& err) {
         std::cerr 
           << SectionName
           << ": GPU["

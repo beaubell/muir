@@ -21,7 +21,6 @@ Here is an example of the file explorer that pops on when moving the cursor to t
 - Boost
 - OpenGL
 - OpenCL
-- OpenAL
 - GLEW
 - GLUT
 - HDF5
@@ -31,7 +30,7 @@ Here is an example of the file explorer that pops on when moving the cursor to t
 If GUI components (OpenGL, X11, etc) are missing during build, only the commandline utilities will be built.
 
 ## on Fedora
-`dnf install libxml2-devel libjpeg-devel gd-devel fftw-devel fftw-static glew-devel hdf5-devel ocl-icd-devel openal-devel glut-devel`
+`dnf install libxml2-devel libjpeg-devel gd-devel fftw-devel fftw-static glew-devel hdf5-devel ocl-icd-devel glut-devel opencl-headers`
 
 # Building
 `mkdir build && cd build`

@@ -19,11 +19,8 @@
 
 #include <iostream>  // std::cout
 #include <iomanip>   // std::setprecision()
-#include <exception>
-#include <stdexcept> // std::runtime_error
 #include <cmath>
 #include <complex>
-
 
 #include <cassert>
 

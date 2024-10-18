@@ -10,7 +10,7 @@
 #include <complex>
 #include <cstring>
 #include <algorithm>
-
+#include <gsl/gsl>
 
 #include <cassert>
 
@@ -183,7 +183,7 @@ int process_data_cpu(int id,
 
         fftwf_plan p;
 
-        int N[1] = {fft_size};
+        int N[1] = {gsl::narrow<int>(fft_size)};
 
         // Display stats from first thread
         int th_id = omp_get_thread_num();
@@ -290,8 +290,8 @@ void apply_phasecode(const unsigned int range_offset,
                 const Muir4DArrayF &in_buffer,
                 const std::vector<float>& phasecode,
                 Muir4DArrayF &out_buffer,
-                unsigned int colomn_chunk_size,
-                unsigned int column_num)
+                unsigned int /*colomn_chunk_size*/,
+                unsigned int /*column_num*/)
 {
     // Determine Strides
     const Muir4DArrayF::size_type *in_dims = in_buffer.shape();
@@ -339,8 +339,8 @@ void apply_phasecode(const unsigned int range_offset,
 void find_peak(const unsigned int range_offset,
                      const Muir4DArrayF &in_buffer,
                      Muir3DArrayF &out_buffer,
-                     unsigned int colomn_chunk_size,
-                     unsigned int column_num)
+                     unsigned int /*colomn_chunk_size*/,
+                     unsigned int /*column_num*/)
 {
     // Determine Strides
     const Muir4DArrayF::size_type *in_dims = in_buffer.shape();

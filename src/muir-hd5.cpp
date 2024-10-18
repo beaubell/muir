@@ -260,15 +260,15 @@ void MuirHD5::read_2D_uint(const H5std_string &dataset_name, Muir2DArrayUI &in) 
 // Write a 2D Unsigned Integer Array to a dataset path.
 void MuirHD5::write_2D_uint(const H5std_string &dataset_name, const Muir2DArrayUI &out)
 {
-    const hsize_t rank = out.num_dimensions();
+    constexpr hsize_t rank = out.dimensionality;
     const Muir2DArrayUI::size_type *shape = out.shape();
 
-    hsize_t dimsf[rank];
+    std::array<hsize_t,rank> dimsf;
     dimsf[0] = shape[0];
     dimsf[1] = shape[1];
 
     // Create dataspace
-    H5::DataSpace dataspace( rank, dimsf );
+    H5::DataSpace dataspace( rank, dimsf.data() );
 
     // Define Datatype
     H5::IntType datatype( H5::PredType::NATIVE_UINT );
@@ -509,15 +509,15 @@ void MuirHD5::read_4D_float(const H5std_string &dataset_name, Muir4DArrayF &in) 
 // Write a 2D Float Array to a dataset path.
 void MuirHD5::write_2D_float(const H5std_string &dataset_name, const Muir2DArrayF &out)
 {
-    const hsize_t rank = out.num_dimensions();
+    constexpr hsize_t rank = out.dimensionality;
     const Muir2DArrayF::size_type *shape = out.shape();
 
-    hsize_t dimsf[rank];
+    std::array<hsize_t,rank> dimsf;
     dimsf[0] = shape[0];
     dimsf[1] = shape[1];
 
     // Create dataspace
-    H5::DataSpace dataspace( rank, dimsf );
+    H5::DataSpace dataspace( rank, dimsf.data() );
 
     // Define Datatype
     H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
@@ -534,16 +534,16 @@ void MuirHD5::write_2D_float(const H5std_string &dataset_name, const Muir2DArray
 // Write a 3D Float Array to a dataset path.
 void MuirHD5::write_3D_float(const H5std_string &dataset_name, const Muir3DArrayF &out)
 {
-    const hsize_t rank = out.num_dimensions();
+    constexpr hsize_t rank = out.dimensionality;
     const Muir3DArrayF::size_type *shape = out.shape();
 
-    hsize_t dimsf[rank];
+    std::array<hsize_t,rank> dimsf;
     dimsf[0] = shape[0];
     dimsf[1] = shape[1];
     dimsf[2] = shape[2];
 
     // Create dataspace
-    H5::DataSpace dataspace( rank, dimsf );
+    H5::DataSpace dataspace( rank, dimsf.data() );
 
     // Define Datatype
     H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
@@ -560,17 +560,17 @@ void MuirHD5::write_3D_float(const H5std_string &dataset_name, const Muir3DArray
 // Write a 4D Float Array to a dataset path.
 void MuirHD5::write_4D_float(const H5std_string &dataset_name, const Muir4DArrayF &out)
 {
-    const hsize_t rank = out.num_dimensions();
+    constexpr hsize_t rank = out.dimensionality;
     const Muir4DArrayF::size_type *shape = out.shape();
 
-    hsize_t dimsf[rank];
+    std::array<hsize_t,rank> dimsf;
     dimsf[0] = shape[0];
     dimsf[1] = shape[1];
     dimsf[2] = shape[2];
     dimsf[3] = shape[3];
 
     // Create dataspace
-    H5::DataSpace dataspace( rank, dimsf );
+    H5::DataSpace dataspace( rank, dimsf.data() );
 
     // Define Datatype
     H5::FloatType datatype( H5::PredType::NATIVE_FLOAT );
@@ -618,7 +618,7 @@ void MuirHD5::read_2D_double(const H5std_string &dataset_name, Muir2DArrayD &in)
 
     // Get dimensions and verify
     hsize_t dimsm[2];
-    int ndims = dataspace.getSimpleExtentDims( dimsm, NULL);
+    [[maybe_unused]] int ndims = dataspace.getSimpleExtentDims( dimsm, NULL);
 
     #ifndef NDEBUG
     assert((rank == 2) && (ndims == 2));
@@ -677,15 +677,15 @@ void MuirHD5::read_2D_double(const H5std_string &dataset_name, Muir2DArrayD &in)
 // Write a 2D Double-Precision Float Array to a dataset path.
 void MuirHD5::write_2D_double(const H5std_string &dataset_name, const Muir2DArrayD &out)
 {
-    const hsize_t rank = out.num_dimensions();
+    constexpr hsize_t rank = Muir2DArrayD::dimensionality;
     const Muir2DArrayD::size_type *shape = out.shape();
 
-    hsize_t dimsf[rank];
+    std::array<hsize_t,rank> dimsf;
     dimsf[0] = shape[0];
     dimsf[1] = shape[1];
 
     // Create dataspace
-    H5::DataSpace dataspace( rank, dimsf );
+    H5::DataSpace dataspace( rank, dimsf.data() );
 
     // Define Datatype
     H5::FloatType datatype( H5::PredType::NATIVE_DOUBLE );
